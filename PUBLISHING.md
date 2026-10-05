@@ -1,0 +1,106 @@
+# Smart Windows: сборка, проверка и выкладка в Steam Workshop
+
+## 0. Переименование (было «Window Memory»)
+
+Мод переименован в **Smart Windows**: папка и DLL `SmartWindows`, настройки `com.rgreat.seapower.smartwindows.cfg`.
+* При первом запуске плагин **один раз копирует** старый `com.rgreat.seapower.windowmemory.cfg` в новый файл (настройки и сохранённые
+  окна не теряются). Старый cfg потом можно удалить.
+* **Удалите старый `SeaPowerWindowMemory.dll`** из `BepInEx\plugins` и старую папку мода из StreamingAssets, если она там есть.
+  Иначе будут работать две копии под разными именами; плагин напишет предупреждение в `LogOutput.log`.
+
+## 1. Структура проекта
+
+```
+SmartWindows/                 <- проект (хранится у вас, в Workshop не уходит)
+├─ SmartWindows.csproj        <- сборка; после Build копирует dll в Release
+├─ nuget.config               <- пустой список источников NuGet (сборка без сети)
+├─ description.bbcode.txt     <- текст для страницы в Workshop (BBCode), в мод не входит
+├─ src/
+│  ├─ SmartWindowsPlugin.cs           <- сам плагин (BepInEx BaseUnityPlugin)
+│  └─ AnchorChainEntry.cs             <- точка входа Anchor Chain ([ACPlugin] + IAnchorChainMod)
+└─ Release/                   <- ЭТО и есть мод: содержимое этой папки выкладываете
+   ├─ _info.ini                       <- название/описание в менеджере модов + версия игры
+   ├─ SmartWindows.dll                <- плагин
+   ├─ thumbnail.png                   <- картинка для Workshop (512x512; лимит Steam < 1 МБ)
+   └─ README.md                       <- описание для пользователей (пишете сами)
+```
+
+В StreamingAssets папка мода должна называться **`SmartWindows`**, а не `Release`: по имени этой папки игра хранит
+галочку мода в `usersettings.ini`, и по нему же мод проверяет, включён ли он в меню **Mods**.
+
+Структура мода повторяет ваш пример (`3807187341`): `_info.ini` + dll + картинка + README лежат в корне папки мода.
+В папку мода **не кладите** `AnchorChain.dll`, `BepInEx.dll`, `0Harmony.dll` и вообще чужие dll: Anchor Chain
+пытается загружать все dll из папки мода и может попытаться загрузить самого себя.
+
+## 2. Сборка
+
+Нужны .NET SDK 6 или новее (https://dot.net), установленная игра с BepInEx и Anchor Chain из Workshop.
+Пути по умолчанию в csproj рассчитаны на ваш каталог (`D:\Steam\steamapps\common\Sea Power`). Иначе передайте свои:
+
+```
+dotnet build -c Release -p:GameDir="D:\Steam\steamapps\common\Sea Power"
+```
+
+AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\3380210757\AnchorChain.dll`
+(если путь другой: `-p:AnchorChainDll="..."`). Результат автоматически копируется в
+`Release\SmartWindows.dll`. Готовая dll уже лежит в этой папке.
+
+## 3. Локальная проверка (до выкладки)
+
+1. Удалите `SmartWindows.dll` из `Sea Power\BepInEx\plugins\` (иначе будет две копии; вторую плагин сам не
+   запустит, но проверять надо именно путь через Anchor Chain).
+2. Скопируйте содержимое папки `Release` в
+   `D:\Steam\steamapps\common\Sea Power\Sea Power_Data\StreamingAssets\SmartWindows`.
+3. Запустите игру -> **Mods** -> включите **Anchor Chain** и **Smart Windows** -> Apply -> **полностью перезапустите игру**
+   (код-моды загружаются только при старте процесса; Apply перезагружает лишь сцену).
+4. В `BepInEx\LogOutput.log` должно быть `Smart Windows 1.0.0 loaded` и позже `Window hooks installed.`
+   Предупреждения `Smart Windows ...` покажут, если игра изменилась.
+5. Проверьте: положение окон запоминается, F12 добавляет окно, окна уходят за край.
+
+Важно: вариант «через Anchor Chain» я проверил только сборкой против настоящего `AnchorChain.dll` и тестами логики окон;
+в самой игре запуск из меню Mods не проверял. Если мод не стартует, пришлите `LogOutput.log`.
+
+## 4. Выкладка в Workshop (в игре)
+
+Нужно, чтобы Steam был запущен.
+
+1. Главное меню -> **Mods** (менеджер модов) -> кнопка **Create Mod** (активна, только если игра видит Steam).
+2. Для первой выкладки галочку **Update Existing** не ставьте.
+3. **Pick Folder** -> выберите `StreamingAssets\SmartWindows` (папка верхнего уровня в StreamingAssets;
+   `original` игра отклонит).
+4. **Mod Name** (заголовок в Workshop): `Smart Windows`.
+   **Mod Description** (текст под картинкой): коротко, 2-3 предложения (можно взять первый абзац из `description.bbcode.txt`).
+   Полное описание с BBCode потом вставьте на странице предмета в браузере или клиенте Steam.
+5. **Pick Image** -> `thumbnail.png` из папки мода (меньше 1 МБ, лучше квадратная).
+6. **Visibility**: для первой выкладки выберите ограниченную видимость (например, Private, если такой пункт есть),
+   проверьте страницу, потом сделайте Public.
+7. **Submit Mod**. Игра откроет страницу отправки в клиенте Steam: там видно, успешна ли загрузка.
+   При первой публикации Steam может попросить принять соглашение Workshop (Steam Workshop Legal Agreement).
+8. Steam присвоит предмету длинный номер (ID в адресе страницы), в менеджере модов имя может сначала показываться этим
+   номером. `_info.ini` заменяет его на «Smart Windows» / «Умные окна».
+
+## 5. После выкладки
+
+* Откройте страницу предмета: вставьте описание из `description.bbcode.txt`, добавьте скриншоты (положение окон до/после,
+  окно за краем экрана).
+* Если на странице предмета есть пункт про необходимые предметы (Required items), добавьте **Anchor Chain**
+  (`https://steamcommunity.com/sharedfiles/filedetails/?id=3380210757`): подписчики получат подсказку.
+* Если используется тег типа «Mod Type: Scripting» (как у других модов на Anchor Chain), выставьте его, если он доступен.
+* Чтобы проверить подписку: подпишитесь на свой мод и **удалите** локальную папку из StreamingAssets, иначе Anchor Chain найдёт две
+  копии и загрузит только первую (в логе `Attempted to load a duplicate plugin`).
+  Файлы подписки лежат в `steamapps\workshop\content\1286220\<ID>\`.
+
+## 6. Обновление
+
+1. Соберите новую dll (`dotnet build -c Release`), скопируйте содержимое папки `Release` в
+   `StreamingAssets\SmartWindows` поверх старого.
+2. **Mods -> Create Mod**, поставьте **Update Existing**, выберите свой мод из списка (показываются только первые 50 ваших модов).
+   Поля имени и описания подтянутся из Steam.
+3. Заполните **Change Log**, нажмите **Submit Mod**. Не создавайте новый предмет: получится дубль.
+
+## 7. Что проверить перед публикацией
+
+* `_info.ini`: правильный `ApproximateVersion` (0.8.0 принимает все 0.8.x). После крупного обновления игры поднимите его.
+* Версия плагина: `[BepInPlugin]` в `SmartWindowsPlugin.cs`, `[ACPlugin]` в `AnchorChainEntry.cs` и `<Version>` в csproj.
+* В папке мода только 4 файла (`_info.ini`, dll, `thumbnail.png`, `README.md`).
+* Текст на русском в `_info.ini` сохранён как UTF-8.
