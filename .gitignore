@@ -2,3 +2,4 @@ bin/
 obj/
 out/
 *.user
+/com.rgreat.seapower.smartwindows.cfg
