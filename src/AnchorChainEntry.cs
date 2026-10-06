@@ -12,7 +12,7 @@ namespace SmartWindows
     /// (a folder with _info.ini + this dll, enabled in the in-game Mods menu).
     /// The same dll also works as a plain BepInEx plugin (BepInEx/plugins) - in that case this class is not used.
     /// </summary>
-    [ACPlugin("io.github.rgreat.seapower-smart-windows", "Smart Windows", "1.0.0")]
+    [ACPlugin("io.github.rgreat.seapower-smart-windows", "Smart Windows", SmartWindowsPlugin.PluginVersion)]
     public class AnchorChainEntry : IAnchorChainMod
     {
         public void TriggerEntryPoint()

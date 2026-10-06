@@ -13,7 +13,7 @@
     <DebugType>none</DebugType>
     <Deterministic>true</Deterministic>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
 
     <GameDir Condition="'$(GameDir)' == ''">D:\Steam\steamapps\common\Sea Power</GameDir>

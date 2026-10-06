@@ -53,7 +53,7 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
    `D:\Steam\steamapps\common\Sea Power\Sea Power_Data\StreamingAssets\SmartWindows`.
 3. Запустите игру -> **Mods** -> включите **Anchor Chain** и **Smart Windows** -> Apply -> **полностью перезапустите игру**
    (код-моды загружаются только при старте процесса; Apply перезагружает лишь сцену).
-4. В `BepInEx\LogOutput.log` должно быть `Smart Windows 1.0.0 loaded` и позже `Window hooks installed.`
+4. В `BepInEx\LogOutput.log` должно быть `Smart Windows 1.1.0 loaded` и позже `Window hooks installed.`
    Предупреждения `Smart Windows ...` покажут, если игра изменилась.
 5. Проверьте: положение окон запоминается, F12 добавляет окно, окна уходят за край.
 
@@ -101,6 +101,6 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
 ## 7. Что проверить перед публикацией
 
 * `_info.ini`: правильный `ApproximateVersion` (0.8.0 принимает все 0.8.x). После крупного обновления игры поднимите его.
-* Версия плагина: `[BepInPlugin]` в `SmartWindowsPlugin.cs`, `[ACPlugin]` в `AnchorChainEntry.cs` и `<Version>` в csproj.
+* Версия плагина: константа `PluginVersion` в `SmartWindowsPlugin.cs` (её берут `[BepInPlugin]`, `[ACPlugin]` и лог) и `<Version>` в csproj.
 * В папке мода только 4 файла (`_info.ini`, dll, `thumbnail.png`, `README.md`).
 * Текст на русском в `_info.ini` сохранён как UTF-8.

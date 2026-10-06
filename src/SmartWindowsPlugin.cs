@@ -18,6 +18,7 @@ namespace SmartWindows
     ///  - remembers position and size of chosen windows and restores them when a window is opened again;
     ///  - lets the user drag windows partly outside the visible area (left, right, bottom);
     ///  - double-clicking a window's title bar maximizes it or restores it;
+    ///  - draggable windows get a thin frame along their edges ([WindowBorder]: on/off, thickness, colour);
     ///  - remembered windows (WindowPatterns) have no minimum size of their own (RemoveSizeLimits);
     ///  - chosen mission windows (RememberOpenWindows) are opened / closed after a load screen the way they were left last time;
     ///  - Unit Reference: hiding the unit tree (the '<' button) shrinks the window by the tree's width and moves it right by the
@@ -34,10 +35,11 @@ namespace SmartWindows
     /// Hover a window and press AddWindowKey (default F12) to start remembering it.
     /// Debug = true in the .cfg enables verbose logging and BepInEx/SmartWindows.trace.txt.
     /// </summary>
-    [BepInPlugin(PluginGuid, "Smart Windows", "1.0.0")]
+    [BepInPlugin(PluginGuid, "Smart Windows", PluginVersion)]
     public class SmartWindowsPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.smartwindows";
+        public const string PluginVersion = "1.1.0"; // also <Version> in SmartWindows.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
 
         struct Layout
@@ -212,6 +214,12 @@ namespace SmartWindows
         static bool _nationRestoring; // we are choosing the saved country
         const float TreeExtraWidth = 35f, TreeMinWidth = 100f, InfoMinWidth = 150f, WindowMinWidth = 100f, WindowMinHeight = 60f;
         ConfigEntry<KeyCode> _addKey;
+        ConfigEntry<bool> _borderOn;
+        ConfigEntry<float> _borderThickness;
+        ConfigEntry<string> _borderColor;
+        const string DefaultBorderColor = "#A0808080";
+        string _borderXaml;      // XAML of the frame, checked once
+        static readonly ConditionalWeakTable<object, object> Borders = new ConditionalWeakTable<object, object>(); // window -> its frame
         ConfigEntry<float> _minVisible;
 
         readonly List<string> _patterns = new List<string>();
@@ -300,6 +308,13 @@ namespace SmartWindows
             _nation = Config.Bind("UnitReference", "Country", "",
                 "Country chosen in the Unit Reference window's country drop-down, by its text (as shown in the list). " +
                 "Written by the plugin when a country is chosen; empty = the game's default.");
+            _borderOn = Config.Bind("WindowBorder", "Enabled", true,
+                "A thin frame along the edges of every window that can be dragged, so its borders are easier to see. " +
+                "Drawn over the window's own look; it does not change the window's size or catch the mouse.");
+            _borderThickness = Config.Bind("WindowBorder", "Thickness", 1f,
+                "Width of the frame in pixels (0.5 - 10). The frame has no top side (it would run under the title bar).");
+            _borderColor = Config.Bind("WindowBorder", "Color", DefaultBorderColor,
+                "Colour of the frame: #RRGGBB or #AARRGGBB (AA = opacity, 00 transparent - FF solid).");
             _debugEntry = Config.Bind("General", "Debug", false,
                 "Enables verbose logging and BepInEx/SmartWindows.trace.txt.");
             _debug = _debugEntry.Value;
@@ -354,7 +369,7 @@ namespace SmartWindows
 
             DropRetiredEntries();
             Config.Save();
-            Logger.LogInfo("Smart Windows 1.0.0 loaded; hooks are installed when the load screen finishes" +
+            Logger.LogInfo("Smart Windows " + PluginVersion + " loaded; hooks are installed when the load screen finishes" +
                            (ModState.Controlled ? " (follows its tick in the game's Mods menu)." : "."));
         }
 
@@ -592,7 +607,7 @@ namespace SmartWindows
         {
             if (__instance == null) return;
             Created.Add(new WeakReference(__instance)); // also while disabled: cheap, ready when enabled
-            if ((object)Active != null && (Active._improvedUI.Value || Active._dblClickMax.Value || Active._removeLimitsAll.Value)) Active.HookLoaded(__instance);
+            if ((object)Active != null && (Active._improvedUI.Value || Active._dblClickMax.Value || Active._removeLimitsAll.Value || Active._borderOn.Value)) Active.HookLoaded(__instance);
         }
 
         static void MaximizeChangedPostfix(object d)
@@ -1483,6 +1498,137 @@ namespace SmartWindows
             }
         }
 
+        // ---------------------------------------------------------------- window frame ([WindowBorder])
+
+        /// <summary>XAML of the frame from the settings (invalid values fall back to the defaults, with a warning).</summary>
+        string BorderXaml(float[] margin)
+        {
+            var m = margin == null ? "" : " Margin=\"" + string.Join(",", Array.ConvertAll(margin, v => v.ToString("0.##", CultureInfo.InvariantCulture))) + "\"";
+            if (_borderXaml != null) return _borderXaml.Replace("/>", m + "/>");
+            float t = _borderThickness.Value;
+            if (float.IsNaN(t) || t < 0.5f || t > 10f)
+            {
+                Logger.LogWarning("[WindowBorder] Thickness " + t.ToString(CultureInfo.InvariantCulture) + " is out of range 0.5 - 10; 1 is used.");
+                t = 1f;
+            }
+            var c = (_borderColor.Value ?? "").Trim();
+            bool ok = c.Length == 7 || c.Length == 9;
+            if (ok && c[0] == '#')
+                for (int i = 1; i < c.Length; i++) ok &= Uri.IsHexDigit(c[i]);
+            else ok = false;
+            if (!ok)
+            {
+                Logger.LogWarning("[WindowBorder] Color '" + c + "' is not #RRGGBB / #AARRGGBB; " + DefaultBorderColor + " is used.");
+                c = DefaultBorderColor;
+            }
+            _borderXaml = "<Border xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" IsHitTestVisible=\"False\" Focusable=\"False\" " +
+                          "HorizontalAlignment=\"Stretch\" VerticalAlignment=\"Stretch\" Panel.ZIndex=\"100000\" " +
+                          "BorderBrush=\"" + c + "\" BorderThickness=\"" + t.ToString(CultureInfo.InvariantCulture) + ",0," + t.ToString(CultureInfo.InvariantCulture) + "," + t.ToString(CultureInfo.InvariantCulture) + "\"/>"; // no top side: it would run under the title bar
+            return _borderXaml.Replace("/>", m + "/>");
+        }
+
+        /// <summary>
+        /// The window's visible body inside the template's root panel: the template may keep an invisible zone around it (resize
+        /// handles). Taken as the largest element with an opaque background that covers most of the panel; returns its insets
+        /// from the panel's edges (left, top, right, bottom), or null when there is none.
+        /// </summary>
+        float[] BodyInsets(object panel, object border)
+        {
+            if (_translatePoint == null)
+            {
+                var ui = panel.GetType().Assembly.GetType("Noesis.UIElement");
+                var pt = panel.GetType().Assembly.GetType("Noesis.Point");
+                if (ui == null || pt == null) return null;
+                _translatePoint = ui.GetMethod("TranslatePoint", BindingFlags.Instance | BindingFlags.Public, null, new[] { pt, ui }, null);
+                _pointCtor = pt.GetConstructor(new[] { typeof(float), typeof(float) });
+                if (_translatePoint == null || _pointCtor == null) { _translatePoint = null; return null; }
+            }
+            float pw = GetF(panel, "ActualWidth", 0f), ph = GetF(panel, "ActualHeight", 0f);
+            if (pw < 1f || ph < 1f) return null;
+            var origin = _pointCtor.Invoke(new object[] { 0f, 0f });
+            object best = null;
+            float bestArea = 0f, bx = 0f, by = 0f, bw = 0f, bh = 0f;
+            var stack = new Stack<object[]>();
+            for (int k = VtChildrenCount(panel) - 1; k >= 0; k--) { var c = VtChild(panel, k); if (c != null && !c.Equals(border)) stack.Push(new[] { c, (object)1 }); }
+            int budget = 400;
+            while (stack.Count > 0 && --budget > 0)
+            {
+                var item = stack.Pop();
+                var e = item[0];
+                int depth = (int)item[1];
+                var vis = Get(e, "Visibility");
+                if (vis != null && vis.ToString() != "Visible") continue;
+                float w = GetF(e, "ActualWidth", 0f), h = GetF(e, "ActualHeight", 0f);
+                if (w < pw * 0.6f || h < ph * 0.3f) continue; // too small to be the body (title bar, handles...); nor are its children
+                var bg = Get(e, "Background");
+                if (bg != null && GetF(e, "Opacity", 1f) > 0.01f)
+                {
+                    var col = Get(bg, "Color");
+                    bool opaque = col == null || GetF(col, "A", 255f) > 0f; // non-solid brushes count as visible
+                    if (opaque && w * h > bestArea)
+                    {
+                        var p = Invoke(_translatePoint, e, origin, panel);
+                        if (p != null && p != Failed)
+                        {
+                            best = e; bestArea = w * h; bw = w; bh = h;
+                            bx = GetF(p, "X", 0f); by = GetF(p, "Y", 0f);
+                        }
+                    }
+                }
+                if (depth < 6)
+                    for (int k = VtChildrenCount(e) - 1; k >= 0; k--) { var c = VtChild(e, k); if (c != null) stack.Push(new[] { c, (object)(depth + 1) }); }
+            }
+            if (best == null) return null;
+            var ins = new[] { Math.Max(0f, bx), Math.Max(0f, by), Math.Max(0f, pw - bx - bw), Math.Max(0f, ph - by - bh) };
+            Trace("frame: body " + Describe(best) + " " + bw + "x" + bh + " at " + bx + "," + by + " in " + pw + "x" + ph);
+            return ins;
+        }
+
+        /// <summary>
+        /// Puts the frame on top of a draggable window: a Border in the panel at the root of the window's template, stretched over
+        /// all its rows and columns. Hit-testing is off, so dragging and resizing work as before; layout is not changed.
+        /// </summary>
+        void AddBorder(object w)
+        {
+            try
+            {
+                if (!GetB(w, "Draggable") || !InitNoesis() || _parseXaml == null) return;
+                object old;
+                if (Borders.TryGetValue(w, out old))
+                {
+                    if (VtParent(old) != null) return; // still there (Loaded again after being re-shown)
+                    Borders.Remove(w);
+                }
+
+                // the template root, or the first panel below it through single-child wrappers (Border, Decorator...)
+                object panel = null;
+                var e = VtChildrenCount(w) > 0 ? VtChild(w, 0) : null;
+                for (int depth = 0; e != null && depth < 6; depth++)
+                {
+                    if (Get(e, "Children") is System.Collections.IList) { panel = e; break; }
+                    if (VtChildrenCount(e) != 1) break;
+                    e = VtChild(e, 0);
+                }
+                if (panel == null) { Trace("frame: no panel at the root of '" + TextOf(Get(w, "Header")) + "'"); return; }
+
+                if (GetF(panel, "ActualWidth", 0f) < 1f) Invoke(_updateLayout, w);
+                var border = Invoke(_parseXaml, null, BorderXaml(BodyInsets(panel, null)));
+                if (border == null || border == Failed) { Trace("frame: XAML not parsed"); return; }
+                if (_gridType != null && _gridType.IsInstanceOfType(panel))
+                {
+                    int rows = Count(Get(panel, "RowDefinitions")), cols = Count(Get(panel, "ColumnDefinitions"));
+                    if (rows > 1) Invoke(_gridSetRowSpan, null, border, rows);
+                    if (cols > 1) Invoke(_gridSetColumnSpan, null, border, cols);
+                }
+                ((System.Collections.IList)Get(panel, "Children")).Add(border);
+                Borders.Add(w, border);
+                Trace("frame added to '" + TextOf(Get(w, "Header")) + "' in " + Describe(panel) + " " +
+                      GetF(panel, "ActualWidth", 0f) + "x" + GetF(panel, "ActualHeight", 0f) + " (window " +
+                      GetF(w, "ActualWidth", 0f) + "x" + GetF(w, "ActualHeight", 0f) + ")");
+            }
+            catch (Exception ex) { Trace("AddBorder: " + ex.Message); }
+        }
+
         // ---------------------------------------------------------------- Unit Reference: size limits, tree width, splitter
 
         /// <summary>The ObjectInformationViewModel shown in this window, or null.</summary>
@@ -1510,6 +1656,7 @@ namespace SmartWindows
         void OnWindowLoaded(object w)
         {
             if (w == null || _hookFailed) return;
+            if (_borderOn.Value) AddBorder(w);
             if (_dblClickMax.Value)
             {
                 HookHeader(w);
