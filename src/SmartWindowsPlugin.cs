@@ -19,7 +19,7 @@ namespace SmartWindows
     ///  - lets the user drag windows partly outside the visible area (left, right, bottom);
     ///  - double-clicking a window's title bar maximizes it or restores it;
     ///  - remembered windows (WindowPatterns) have no minimum size of their own (RemoveSizeLimits);
-    ///  - chosen windows (RememberOpenWindows) are opened / closed after a load screen the way they were left last time;
+    ///  - chosen mission windows (RememberOpenWindows) are opened / closed after a load screen the way they were left last time;
     ///  - Unit Reference: hiding the unit tree (the '<' button) shrinks the window by the tree's width and moves it right by the
     ///    same amount, so the info panel stays where it is; showing the tree reverses that. The search / filter panel above
     ///    the tree is hidden with it, and the info panel grows upwards into the freed space.
@@ -86,8 +86,7 @@ namespace SmartWindows
             public WeakReference Ref;
             public string Key, Label;
             public bool WasActive, Settled, Warned, Reported, WasMax;
-            public bool OsTried, OsOpen, OsKnown;  // open/closed tracking (RememberOpenWindows)
-            public string OsKey;
+            public bool OsLearned;       // RememberOpenWindows: this showing of the window was checked for a hosted view model
             public int OsTries;
             public float OsNext;
             public int Countdown = -1, Tries;
@@ -167,6 +166,7 @@ namespace SmartWindows
         static readonly ConditionalWeakTable<object, SplitState> SplitStates = new ConditionalWeakTable<object, SplitState>(); // by window
         static readonly List<WeakReference> Created = new List<WeakReference>();
         static volatile bool LoadScreenDone;
+        static volatile bool LoadingNow;           // a load screen is running (its coroutine has not finished yet)
         static volatile bool ModsChanged = true;   // re-read the Mods menu tick in the next Update
         static bool Enabled;                       // ticked in the game's Mods menu (always true for a BepInEx/plugins copy)
 
@@ -181,10 +181,24 @@ namespace SmartWindows
         ConfigEntry<string> _openWindows;
         readonly List<string> _osPatterns = new List<string>(), _osPatternsSq = new List<string>();
         readonly Dictionary<string, ConfigEntry<string>> _osEntries = new Dictionary<string, ConfigEntry<string>>();
+        readonly Dictionary<string, string> _osState = new Dictionary<string, string>();  // pattern -> "open" / "closed"
+        readonly Dictionary<string, string> _osTypes = new Dictionary<string, string>();  // pattern -> view-model type of its hosted window
+        static readonly List<object> OsEvents = new List<object>(); // view models whose window was just opened / closed
+        bool _osOk;                // the game's window host API was found
+        FieldInfo _argsParameter, _mainViewInstance, _mainVmField;
+        object _openCmd, _closeCmd;
+        MethodInfo _openExecute, _closeExecute, _closeCanExecute, _whmExists;
+        PropertyInfo _whmInstance;
         static volatile int LoadScreenCount;   // finished load screens
-        int _osSeenLoads;
-        float _osRestoreAt = -1f, _osRecordFrom = float.MaxValue; // restore time; no recording before this (game's own start-up)
-        const float OsRestoreDelay = 1f;
+        static volatile int LoadScreenStarts;  // started load screens
+        int _osSeenLoads, _osSeenStarts;
+        // start-up phase of a scene: from the start of its load screen until OsSettle seconds after its end the remembered state
+        // is applied (as soon as the mission HUD is up) and kept; nothing is recorded before _osRecordFrom
+        bool _osPhase;
+        float _osPhaseEnd = -1f, _osRecordFrom = float.MaxValue;
+        const float OsSettle = 0.5f;
+        readonly HashSet<string> _osTraced = new HashSet<string>();
+        MethodInfo _closeUpdate;  // CloseWindowCommand.UpdateCanExecute: lets the HUD toggle buttons re-read the state
         ConfigEntry<float> _treeWidth;
         ConfigEntry<string> _nation;
         ConfigEntry<bool> _treeShown;
@@ -261,9 +275,9 @@ namespace SmartWindows
                 "With AllowDragOutside: at least this many pixels of the window's width stay visible at the left/right edge. " +
                 "At the bottom edge the window's title bar always stays visible.");
             _openWindows = Config.Bind("General", "RememberOpenWindows", "Tactical Display,Unit Status*,Event Log,Formation Manager",
-                "Comma-separated window patterns (same rules as WindowPatterns) whose open / closed state is remembered: after a " +
-                "load screen (mission start, encyclopedia) these windows are opened or closed as they were left. The state is kept " +
-                "in [OpenWindows]. Only windows the game has already created can be opened (e.g. Unit Status needs a selected unit).");
+                "Comma-separated window patterns (same rules as WindowPatterns) of mission windows whose open / closed state is " +
+                "remembered: at mission start these windows are opened or closed as they were left. The state is kept in [OpenWindows]; " +
+                "a window is learned the first time it is open. Unit Status opens only when a unit is selected.");
             _removeLimitsAll = Config.Bind("General", "RemoveSizeLimits", true,
                 "Windows in WindowPatterns (Unit Reference included) have no minimum / maximum size of their own: they can be " +
                 "resized down to " + WindowMinWidth + "x" + WindowMinHeight + " px.");
@@ -304,10 +318,23 @@ namespace SmartWindows
             foreach (var n in _openWindows.Value.Split(','))
             {
                 var t = n.Trim();
-                if (t.Length == 0) continue;
-                _osPatterns.Add(t);
-                _osPatternsSq.Add(Squash(t));
-                _osEntries[t] = Config.Bind("OpenWindows", t, "", "open / closed - written by the plugin (RememberOpenWindows).");
+                if (t.Length == 0 || _osEntries.ContainsKey(t)) continue;
+                try
+                {
+                    var e = Config.Bind("OpenWindows", t, "",
+                        "open / closed, then the view-model type of the window - written by the plugin (RememberOpenWindows).");
+                    _osPatterns.Add(t);
+                    _osPatternsSq.Add(Squash(t));
+                    _osEntries[t] = e;
+                    var p = (e.Value ?? "").Split(',');
+                    var st = p[0].Trim().ToLowerInvariant();
+                    if (st == "open" || st == "closed") _osState[t] = st;
+                    if (p.Length > 1 && p[1].Trim().Length > 0) _osTypes[t] = p[1].Trim();
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning("Pattern '" + t + "' cannot be used as a config key (" + ex.Message + "); its open state will not be remembered.");
+                }
             }
 
             // one config entry per pattern holds that window's saved layout: x,y,w,h
@@ -435,6 +462,8 @@ namespace SmartWindows
         // MoveNext() returns false when the coroutine is finished
         static void LoadScreenPostfix(bool __result)
         {
+            if (__result && !LoadingNow) LoadScreenStarts++;
+            LoadingNow = __result;
             if (!__result) { LoadScreenDone = true; ModsChanged = true; LoadScreenCount++; }
         }
 
@@ -530,7 +559,10 @@ namespace SmartWindows
                     else Logger.LogWarning("ObjectInformationViewModel.MuseumEntriesVisible not found (game updated?); ImprovedUnitReferenceUI is not available.");
 
                     HookCountry(harmony, asm);
+                    HookTabScroll(harmony, asm);
                 }
+
+                if (_osPatterns.Count > 0) HookOpenWindows(harmony, asm);
 
                 Logger.LogInfo("Window hooks installed.");
             }
@@ -629,6 +661,29 @@ namespace SmartWindows
             if ((object)Active != null && value != __state) Active.OnTreeToggled(__instance, value);
         }
 
+        // Unit Reference tab change (ObjectInformationView.UnitTabs_SelectionChanged)
+        // the game's own handler reacts only to a change of the index (_lastSelectedTab); -1: the view's first selection (opening)
+        static void TabSwitchedPrefix(object __instance, out int __state)
+        {
+            __state = -2;
+            var a = Active;
+            if ((object)a == null || a._lastTabField == null) return;
+            try { __state = (int)a._lastTabField.GetValue(__instance); } catch { }
+        }
+
+        static void TabSwitchedPostfix(object __instance, object sender, int __state)
+        {
+            var a = Active;
+            if ((object)a == null || a._lastTabField == null || __state < 0) return;
+            try { if ((int)a._lastTabField.GetValue(__instance) != __state) a.OnTabSwitched(sender); } catch { }
+        }
+
+        // SuppressBringIntoViewBehavior.OnScrollChanged: catches the scroll Noesis makes after a tab change
+        static void TabScrollPrefix(object __instance, object e)
+        {
+            if ((object)Active != null && Active._tabFixSv != null) Active.OnTabScroll(__instance, e);
+        }
+
         static void NationBusyPrefix()
         {
             _nationBusy++;
@@ -645,6 +700,42 @@ namespace SmartWindows
         static void NationSetPostfix(object __instance, object value)
         {
             if (_nationBusy == 0 && !_nationRestoring && (object)Active != null) Active.SaveCountry(__instance, value);
+        }
+
+        // WindowHost.OpenNewWindow / CloseWindow (object sender, ExecutedCustomCommandArgs args): args.Parameter is the view model.
+        // ExecutedCustomCommandArgs is a struct: taken boxed from __args.
+        static void HostWindowPostfix(object[] __args)
+        {
+            var a = Active;
+            if ((object)a == null || __args == null || __args.Length < 2 || __args[1] == null || a._argsParameter == null) return;
+            try { QueueOpenEvent(a._argsParameter.GetValue(__args[1])); } catch { }
+        }
+
+        // During a scene's start-up the game opens some windows itself (ToggleWindowBroker.WindowStartsOpen): skip that for a window
+        // remembered as closed, so it does not even flash. The HUD toggle button is told the window stays closed.
+        static bool HostOpenPrefix(object[] __args)
+        {
+            var a = Active;
+            if ((object)a == null || !a._osPhase || __args == null || __args.Length < 2 || __args[1] == null || a._argsParameter == null) return true;
+            try
+            {
+                var vm = a._argsParameter.GetValue(__args[1]);
+                if (vm == null || !a.WantsClosed(TypeName(vm))) return true;
+                Trace("open windows: the game's opening of " + TypeName(vm) + " skipped (remembered closed)");
+                if (a._closeUpdate != null) Invoke(a._closeUpdate, a._closeCmd);
+                return false;
+            }
+            catch { return true; }
+        }
+
+        // MainGameViewModel.set_XxxVisible: the window of the view model in property Xxx was shown / hidden
+        static void VisibleFlagPostfix(object __instance, MethodBase __originalMethod)
+        {
+            var a = Active;
+            if ((object)a == null || __instance == null) return;
+            var n = __originalMethod.Name;                  // set_MapVisible
+            if (n.Length <= 4 + 7) return;
+            QueueOpenEvent(a.Get(__instance, n.Substring(4, n.Length - 4 - 7)));
         }
 
         // ---------------------------------------------------------------- restoring
@@ -1246,6 +1337,152 @@ namespace SmartWindows
             catch (Exception e) { Trace("RestoreCountry: " + e.Message); }
         }
 
+        // ---------------------------------------------------------------- Unit Reference: scrolling after a tab change
+        //
+        // After a tab change (when the game has no scroll position of the user's to restore) Noesis brings some element of the
+        // tab content into view with the minimal scroll: its bottom goes to the bottom of the viewport. How far that scrolls
+        // depends on the content (Orlan: the tab strip reaches the top; Atlant: it stops well short), and with the filter panel
+        // hidden the viewport is taller at the top, so it stops short by that height as well. Instead the scroll is made to bring
+        // the selected tab header to the top of the viewport (as far as the content allows): the most of the tab is shown.
+
+        object _tabFixSv, _tabFixTabs;  // info ScrollViewer and the TabControl, right after a tab change
+        int _tabFixFrame;
+        bool _tabFixRestored;      // the game restored the user's scroll position for this tab change
+        FieldInfo _behRestoring;   // SuppressBringIntoViewBehavior._isRestoring
+        FieldInfo _lastTabField;   // ObjectInformationView._lastSelectedTab
+        MethodInfo _scrollTo;      // ScrollViewer.ScrollToVerticalOffset(float)
+        MethodInfo _translatePoint;
+        ConstructorInfo _pointCtor;
+
+        void HookTabScroll(Harmony harmony, Assembly asm)
+        {
+            try
+            {
+                const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+                var view = asm.GetType("SeapowerUI.ObjectInformationView");
+                var tab = view == null ? null : view.GetMethod("UnitTabs_SelectionChanged", inst);
+                var beh = asm.GetType("SeapowerUI.SuppressBringIntoViewBehavior");
+                var sc = beh == null ? null : beh.GetMethod("OnScrollChanged", inst);
+                _behRestoring = beh == null ? null : beh.GetField("_isRestoring", inst);
+                _lastTabField = view == null ? null : view.GetField("_lastSelectedTab", inst);
+                if (tab == null || sc == null || _lastTabField == null)
+                {
+                    Trace("tab scroll fix: ObjectInformationView.UnitTabs_SelectionChanged / SuppressBringIntoViewBehavior.OnScrollChanged not found");
+                    return;
+                }
+                harmony.Patch(tab, prefix: Hm("TabSwitchedPrefix"), postfix: Hm("TabSwitchedPostfix"));
+                harmony.Patch(sc, prefix: Hm("TabScrollPrefix"));
+                Trace("patched Unit Reference tab change scrolling");
+            }
+            catch (Exception e) { Trace("HookTabScroll: " + e.Message); }
+        }
+
+        void OnTabSwitched(object tabControl)
+        {
+            _tabFixSv = null;
+            try
+            {
+                for (var e = VtParent(tabControl); e != null; e = VtParent(e))
+                    if (TypeName(e) == "ScrollViewer") { _tabFixSv = e; break; }
+                _tabFixTabs = tabControl;
+                _tabFixFrame = Time.frameCount;
+                _tabFixRestored = false;
+            }
+            catch (Exception e) { Trace("OnTabSwitched: " + e.Message); }
+        }
+
+        /// <summary>Top of the selected tab header (with anything it draws above itself) in the ScrollViewer's content, or NaN.</summary>
+        float SelectedTabTop(object sv, object tabs)
+        {
+            if (_translatePoint == null)
+            {
+                var ui = sv.GetType().Assembly.GetType("Noesis.UIElement");
+                var pt = sv.GetType().Assembly.GetType("Noesis.Point");
+                if (ui == null || pt == null) return float.NaN;
+                _translatePoint = ui.GetMethod("TranslatePoint", BindingFlags.Instance | BindingFlags.Public, null, new[] { pt, ui }, null);
+                _pointCtor = pt.GetConstructor(new[] { typeof(float), typeof(float) });
+                if (_translatePoint == null || _pointCtor == null) { _translatePoint = null; return float.NaN; }
+            }
+            // the selected TabItem in the tab control's visual tree
+            object item = null;
+            var stack = new Stack<object>();
+            stack.Push(tabs);
+            int budget = 3000;
+            while (stack.Count > 0 && --budget > 0 && item == null)
+            {
+                var e = stack.Pop();
+                if (TypeName(e) == "TabItem") { if (GetB(e, "IsSelected")) item = e; continue; }
+                if (TypeName(e) == "ContentPresenter" && Get(e, "Name") as string == "PART_SelectedContentHost") continue;
+                for (int k = VtChildrenCount(e) - 1; k >= 0; k--) { var c = VtChild(e, k); if (c != null) stack.Push(c); }
+            }
+            if (item == null) return float.NaN;
+            // its highest visible part (the selection mark may be drawn above the header's own bounds)
+            var origin = _pointCtor.Invoke(new object[] { 0f, 0f });
+            float top = float.PositiveInfinity;
+            stack.Clear();
+            stack.Push(item);
+            budget = 300;
+            while (stack.Count > 0 && --budget > 0)
+            {
+                var e = stack.Pop();
+                var v = Get(e, "Visibility");
+                if (v != null && v.ToString() != "Visible") continue;
+                if (GetF(e, "ActualHeight", 0f) > 0.5f)
+                {
+                    var p = Invoke(_translatePoint, e, origin, sv);
+                    if (p != Failed && p != null) top = Math.Min(top, GetF(p, "Y", float.PositiveInfinity));
+                }
+                for (int k = VtChildrenCount(e) - 1; k >= 0; k--) { var c = VtChild(e, k); if (c != null) stack.Push(c); }
+            }
+            if (float.IsInfinity(top)) return float.NaN;
+            return top + GetF(sv, "VerticalOffset", 0f); // viewport coordinates -> content coordinates
+        }
+
+        void OnTabScroll(object behavior, object e)
+        {
+            var sv = Get(behavior, "AssociatedObject");
+            if (!ReferenceEquals(sv, _tabFixSv)) return;
+            if (Time.frameCount - _tabFixFrame > 5) { _tabFixSv = null; return; } // too late: the user's own scrolling
+            try
+            {
+                // the behaviour restoring the user's position (clicked while scrolled down): kept, unless Noesis scrolls over it
+                // anyway right after (it does - then that scroll is replaced as usual)
+                if (_behRestoring != null && (bool)_behRestoring.GetValue(behavior)) { _tabFixRestored = true; return; }
+                if (Math.Abs(GetF(e, "ExtentHeightChange", 0f)) > 0.01f || Math.Abs(GetF(e, "ViewportHeightChange", 0f)) > 0.01f) return; // new content laid out
+                float off = GetF(e, "VerticalOffset", 0f);
+                if (off < 0.5f) return; // ScrollToTop
+                ApplyTabScroll(sv, off); // this is the bring-into-view scroll: replace it
+            }
+            catch (Exception ex) { _tabFixSv = null; Trace("OnTabScroll: " + ex.Message); }
+        }
+
+        /// <summary>No bring-into-view scroll came (the target already fitted): still bring the tab header up.</summary>
+        void RunTabFix()
+        {
+            var sv = _tabFixSv;
+            if (sv == null || Time.frameCount - _tabFixFrame < 3) return;
+            if (_tabFixRestored) { _tabFixSv = null; return; } // only the user's restored position: left as it is
+            try { ApplyTabScroll(sv, GetF(sv, "VerticalOffset", 0f)); }
+            catch (Exception ex) { _tabFixSv = null; Trace("RunTabFix: " + ex.Message); }
+        }
+
+        void ApplyTabScroll(object sv, float off)
+        {
+            {
+                var tabs = _tabFixTabs;
+                _tabFixSv = null;       // once per tab change
+                float top = SelectedTabTop(sv, tabs);
+                if (float.IsNaN(top)) { Trace("tab scroll: selected tab header not found"); return; }
+                float target = Math.Max(0f, Math.Min(Math.Max(off, top), GetF(sv, "ScrollableHeight", off)));
+                if (Math.Abs(target - off) < 0.5f) return;
+                if (_scrollTo == null) _scrollTo = sv.GetType().GetMethod("ScrollToVerticalOffset", BindingFlags.Instance | BindingFlags.Public, null, new[] { typeof(float) }, null);
+                if (_scrollTo == null) return;
+                Invoke(_scrollTo, sv, target);
+                Verbose("Unit Reference: tab scroll " + off.ToString("0.#", CultureInfo.InvariantCulture) + " -> " +
+                        target.ToString("0.#", CultureInfo.InvariantCulture) + " (tab header at " + top.ToString("0.#", CultureInfo.InvariantCulture) + ")");
+            }
+        }
+
         // ---------------------------------------------------------------- Unit Reference: size limits, tree width, splitter
 
         /// <summary>The ObjectInformationViewModel shown in this window, or null.</summary>
@@ -1258,10 +1495,6 @@ namespace SmartWindows
             return null;
         }
 
-        /// <summary>
-        /// Runs a few times after a window opens until it is done: for a Unit Reference window removes the minimum size and sets up
-        /// the unit tree width and the splitter; other windows are left alone.
-        /// </summary>
         /// <summary>Fallback from Update for a window whose Loaded set-up could not finish (retries for a few seconds).</summary>
         void SetupUnitReference(Tracked t, object w, float now)
         {
@@ -1867,6 +2100,7 @@ namespace SmartWindows
             if (!Enabled)
             {
                 if (_dirty) Save();
+                OsEvents.Clear();
                 return;
             }
 
@@ -1884,30 +2118,39 @@ namespace SmartWindows
                 var t = _tracked[i];
                 var w = t.Ref.Target;
                 if (w == null) { _tracked.RemoveAt(i); continue; } // collected
-                try { Step(t, w, now); TrackOpenState(t, w, now); }
+                try { Step(t, w, now); LearnOpenWindow(t, w, now); }
                 catch (Exception e)
                 {
                     if (!t.Warned) { t.Warned = true; Logger.LogWarning("Window '" + t.Label + "': " + e.Message); Trace("Step error: " + e); }
                 }
             }
 
-            if (_osPatterns.Count > 0)
+            if (_osOk)
             {
-                if (_osSeenLoads != LoadScreenCount)
+                if (_osSeenStarts != LoadScreenStarts || _osSeenLoads != LoadScreenCount)
                 {
+                    if (!_osPhase) { _osPhase = true; _osTraced.Clear(); }
+                    if (_osSeenLoads != LoadScreenCount) _osPhaseEnd = now + OsSettle; // load screen finished
+                    _osSeenStarts = LoadScreenStarts;
                     _osSeenLoads = LoadScreenCount;
-                    _osRestoreAt = now + OsRestoreDelay;
                     _osRecordFrom = float.MaxValue;
                 }
-                if (_osRestoreAt >= 0f && now >= _osRestoreAt)
+                if (_osPhase)
                 {
-                    _osRestoreAt = -1f;
-                    RestoreOpenStates();
-                    _osRecordFrom = now + 0.5f;
+                    RestoreOpenStates(); // every frame of the phase: cheap, and wins over the game's own start-up opening
+                    if (!LoadingNow && _osPhaseEnd >= 0f && now >= _osPhaseEnd)
+                    {
+                        _osPhase = false;
+                        _osPhaseEnd = -1f;
+                        _osRecordFrom = now;
+                    }
                 }
+                if (OsEvents.Count > 0) ProcessOpenEvents(now);
             }
+            else OsEvents.Clear();
 
             if (_probes.Count > 0) RunProbes();
+            if (_tabFixSv != null) RunTabFix();
             if (_dirty && now - _dirtySince > 1f) Save();
         }
 
@@ -1999,6 +2242,87 @@ namespace SmartWindows
         }
 
         // ------------------------------------------------------------ open / closed windows (RememberOpenWindows)
+        //
+        // In a mission the HUD windows are "hosted": their view models sit in WindowHost.Windows (WindowHostManager.CurrentHost).
+        // The HUD toggle buttons (ToggleWindowBroker), the hotkeys and the window's own close button open / close them with
+        // WindowHostCommands.OpenWindowCommand / CloseWindowCommand, and the Window element is created anew every time it opens.
+        // Some have a flag on MainGameViewModel as well (MapVisible for Map, UnitStatusVisible for UnitStatus).
+        // So the state is that of the view model: open = in the host's list (and its XxxVisible flag, if any, is set).
+        // A pattern is tied to its view-model type when such a window is seen open; the type is kept in [OpenWindows] with the state.
+
+        void HookOpenWindows(Harmony harmony, Assembly asm)
+        {
+            try
+            {
+                const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                const BindingFlags stat = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+                var host = asm.GetType("SeapowerUI.WindowHost");
+                var cmds = asm.GetType("SeapowerUI.WindowHostCommands");
+                var whm = asm.GetType("SeapowerUI.WindowHostManager");
+                var mainView = asm.GetType("SeapowerUI.MainGameView");
+                var globals = asm.GetType("SeaPower.Globals");
+                var mgvm = asm.GetType("SeapowerUI.ViewModels.MainGameViewModel");
+                var args = asm.GetType("SeapowerUI.ExecutedCustomCommandArgs");
+
+                _argsParameter = args == null ? null : args.GetField("Parameter", inst);
+                _mainViewInstance = mainView == null ? null : mainView.GetField("Instance", stat);
+                _mainVmField = globals == null ? null : globals.GetField("_mainGameViewModel", stat);
+                _whmExists = whm == null ? null : whm.GetMethod("InstanceExists", BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy, null, new[] { typeof(bool) }, null);
+                _whmInstance = whm == null ? null : whm.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy);
+                var openP = cmds == null ? null : cmds.GetProperty("OpenWindowCommand", stat);
+                var closeP = cmds == null ? null : cmds.GetProperty("CloseWindowCommand", stat);
+                _openCmd = openP == null ? null : openP.GetValue(null, null);
+                _closeCmd = closeP == null ? null : closeP.GetValue(null, null);
+                _openExecute = CommandMethod(_openCmd, "Execute");
+                _closeExecute = CommandMethod(_closeCmd, "Execute");
+                _closeCanExecute = CommandMethod(_closeCmd, "CanExecute");
+                var openM = host == null ? null : host.GetMethod("OpenNewWindow", inst | BindingFlags.DeclaredOnly);
+                var closeM = host == null ? null : host.GetMethod("CloseWindow", inst | BindingFlags.DeclaredOnly);
+
+                if (_argsParameter == null || _mainViewInstance == null || _mainVmField == null || _whmExists == null || _whmInstance == null ||
+                    _openExecute == null || _closeExecute == null || openM == null || closeM == null)
+                {
+                    Logger.LogWarning("The game's window host was not found (game updated?); RememberOpenWindows is not available.");
+                    return;
+                }
+                harmony.Patch(openM, prefix: Hm("HostOpenPrefix"), postfix: Hm("HostWindowPostfix"));
+                _closeUpdate = _closeCmd.GetType().GetMethod("UpdateCanExecute", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
+                harmony.Patch(closeM, postfix: Hm("HostWindowPostfix"));
+                Trace("patched WindowHost.OpenNewWindow / CloseWindow");
+
+                // MainGameViewModel.XxxVisible flags that belong to a view-model property Xxx (MapVisible, UnitStatusVisible)
+                foreach (var p in mgvm.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
+                {
+                    if (p.PropertyType != typeof(bool) || p.Name.Length <= 7 || !p.Name.EndsWith("Visible", StringComparison.Ordinal)) continue;
+                    var setter = p.GetSetMethod(true);
+                    var comp = mgvm.GetProperty(p.Name.Substring(0, p.Name.Length - 7), BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                    if (setter == null || comp == null || comp.PropertyType.IsValueType || comp.PropertyType == typeof(string)) continue;
+                    harmony.Patch(setter, postfix: Hm("VisibleFlagPostfix"));
+                    Trace("patched MainGameViewModel." + setter.Name);
+                }
+                _osOk = true;
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning("RememberOpenWindows hooks failed: " + e.Message);
+                Trace("HookOpenWindows: " + e);
+            }
+        }
+
+        static MethodInfo CommandMethod(object cmd, string name)
+        {
+            if (cmd == null) return null;
+            foreach (var m in cmd.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public))
+                if (m.Name == name && m.GetParameters().Length == 2) return m; // (object parameter, UIElement target)
+            return null;
+        }
+
+        static void QueueOpenEvent(object vm)
+        {
+            if (vm == null) return;
+            foreach (var o in OsEvents) if (ReferenceEquals(o, vm)) return;
+            OsEvents.Add(vm);
+        }
 
         string MatchOpenPattern(object w)
         {
@@ -2012,117 +2336,207 @@ namespace SmartWindows
             return null;
         }
 
-        /// <summary>Follows the window's open / closed state and saves changes the user made.</summary>
-        void TrackOpenState(Tracked t, object w, float now)
+        /// <summary>The view models of the current window host (null outside a scene with a host).</summary>
+        System.Collections.IList HostWindows()
         {
-            if (_osPatterns.Count == 0) return;
-            if (!t.OsTried)
+            try
             {
-                if (now < t.OsNext) return;
-                t.OsNext = now + 0.2f;
-                t.OsKey = MatchOpenPattern(w);
-                if (t.OsKey == null && ++t.OsTries < 30) return; // header / content may not be there yet: try again
-                t.OsTried = true;
+                if (!(bool)_whmExists.Invoke(null, new object[] { false })) return null;
+                var manager = _whmInstance.GetValue(null, null);
+                return Get(Get(manager, "CurrentHost"), "Windows") as System.Collections.IList;
             }
-            if (t.OsKey == null) return;
-
-            bool open = GetB(w, "IsVisible");
-            if (t.OsKnown && open == t.OsOpen) return;
-            bool first = !t.OsKnown;
-            t.OsKnown = true;
-            t.OsOpen = open;
-            if (first || now < _osRecordFrom) return; // the game's own start-up / our restore
-
-            if (!open)
-            {
-                // closed by the user, or is the whole UI going away (end of mission)? then its parent is hidden / gone too
-                var parent = VtParent(w);
-                if (parent == null || !GetB(parent, "IsVisible")) return;
-            }
-            SaveOpenState(t.OsKey, open);
+            catch { return null; }
         }
 
-        void SaveOpenState(string key, bool open)
+        static bool InList(System.Collections.IList list, object o)
+        {
+            if (list == null || o == null) return false;
+            foreach (var x in list) if (ReferenceEquals(x, o)) return true;
+            return false;
+        }
+
+        object MainView() { try { return _mainViewInstance.GetValue(null); } catch { return null; } }
+        object MainVm() { try { return _mainVmField.GetValue(null); } catch { return null; } }
+
+        /// <summary>The mission HUD (MainGameView) is up.</summary>
+        bool MissionUi()
+        {
+            var v = MainView();
+            if (v == null) return false;
+            var loaded = Get(v, "IsLoaded");
+            return loaded is bool ? (bool)loaded : GetB(v, "IsVisible");
+        }
+
+        /// <summary>MainGameViewModel.XxxVisible when its property Xxx holds this view model, else null.</summary>
+        PropertyInfo VisibleFlag(object mgvm, object vm)
+        {
+            if (mgvm == null || vm == null) return null;
+            foreach (var p in mgvm.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
+            {
+                if (p.PropertyType != typeof(bool) || p.Name.Length <= 7 || !p.Name.EndsWith("Visible", StringComparison.Ordinal) || !p.CanWrite) continue;
+                if (ReferenceEquals(Get(mgvm, p.Name.Substring(0, p.Name.Length - 7)), vm)) return p;
+            }
+            return null;
+        }
+
+        bool IsOpen(object vm, System.Collections.IList hosts, object mgvm)
+        {
+            if (!InList(hosts, vm)) return false;
+            var flag = VisibleFlag(mgvm, vm);
+            return flag == null || GetB(mgvm, flag.Name);
+        }
+
+        /// <summary>The window's view model if it is one of the host's windows.</summary>
+        object HostedViewModel(object w, System.Collections.IList hosts)
+        {
+            var c = Get(w, "Content");
+            foreach (var o in new[] { Get(w, "DataContext"), c, c == null ? null : Get(c, "DataContext") })
+                if (o != null && InList(hosts, o)) return o;
+            return null;
+        }
+
+        /// <summary>Ties a shown window that matches a RememberOpenWindows pattern to its view-model type.</summary>
+        void LearnOpenWindow(Tracked t, object w, float now)
+        {
+            if (!_osOk) return;
+            if (!GetB(w, "IsVisible")) { t.OsLearned = false; t.OsTries = 0; return; }
+            if (t.OsLearned || now < t.OsNext) return;
+            t.OsNext = now + 0.25f;
+            if (++t.OsTries > 20) { t.OsLearned = true; return; }
+            var key = MatchOpenPattern(w);
+            if (key == null) return;
+            var hosts = HostWindows();
+            var vm = hosts == null ? null : HostedViewModel(w, hosts);
+            if (vm == null)
+            {
+                if (t.OsTries == 20) Trace("'" + key + "': the window is not a hosted window; its open state cannot be remembered");
+                return;
+            }
+            t.OsLearned = true;
+            var tn = TypeName(vm);
+            string old;
+            if (_osTypes.TryGetValue(key, out old) && old == tn) return;
+            _osTypes[key] = tn;
+            WriteOpenEntry(key);
+            QueueOpenEvent(vm); // record its state too (unless we are just restoring)
+            Verbose("'" + key + "' is the window of " + tn);
+        }
+
+        /// <summary>Saves the state of the windows the user (or the game) has just opened / closed.</summary>
+        void ProcessOpenEvents(float now)
+        {
+            if (LoadingNow || now < _osRecordFrom || !MissionUi()) { OsEvents.Clear(); return; }
+            var hosts = HostWindows();
+            var mgvm = MainVm();
+            var events = OsEvents.ToArray();
+            OsEvents.Clear();
+            if (hosts == null) return;
+            foreach (var vm in events)
+            {
+                var tn = TypeName(vm);
+                foreach (var p in _osPatterns)
+                {
+                    string type;
+                    if (!_osTypes.TryGetValue(p, out type) || type != tn) continue;
+                    var st = IsOpen(vm, hosts, mgvm) ? "open" : "closed";
+                    string old;
+                    if (_osState.TryGetValue(p, out old) && old == st) continue;
+                    _osState[p] = st;
+                    WriteOpenEntry(p);
+                    Verbose("'" + p + "' " + st + " - remembered");
+                }
+            }
+        }
+
+        void WriteOpenEntry(string key)
         {
             ConfigEntry<string> e;
             if (!_osEntries.TryGetValue(key, out e)) return;
-            var v = open ? "open" : "closed";
+            string st, tn;
+            _osState.TryGetValue(key, out st);
+            _osTypes.TryGetValue(key, out tn);
+            var v = (st ?? "") + (string.IsNullOrEmpty(tn) ? "" : "," + tn);
             if (e.Value == v) return;
             e.Value = v;
             Config.Save();
-            Verbose("'" + key + "' " + v + " - remembered");
         }
 
-        /// <summary>After a load screen: open / close the remembered windows the game has created.</summary>
-        void RestoreOpenStates()
+        bool WantsClosed(string typeName)
         {
-            if (!InitNoesis()) return;
-            for (int i = _tracked.Count - 1; i >= 0; i--)
+            foreach (var p in _osPatterns)
             {
-                var t = _tracked[i];
-                var w = t.Ref.Target;
-                if (w == null) continue;
-                try
-                {
-                    if (!t.OsTried) { t.OsKey = MatchOpenPattern(w); t.OsTried = t.OsKey != null; }
-                    if (t.OsKey == null) continue;
-                    var parent = VtParent(w);
-                    if (parent == null || !GetB(parent, "IsVisible")) continue; // not part of the current UI
-                    ConfigEntry<string> e;
-                    if (!_osEntries.TryGetValue(t.OsKey, out e) || string.IsNullOrEmpty(e.Value)) continue;
-                    bool want = e.Value.Trim().Equals("open", StringComparison.OrdinalIgnoreCase);
-                    bool open = GetB(w, "IsVisible");
-                    if (open == want) continue;
-                    if (SetOpen(w, want)) Verbose("'" + t.OsKey + "' " + (want ? "opened" : "closed") + " as last time");
-                    t.OsOpen = GetB(w, "IsVisible");
-                    t.OsKnown = true;
-                }
-                catch (Exception ex) { Trace("RestoreOpenStates: " + ex.Message); }
+                string st, tn;
+                if (_osState.TryGetValue(p, out st) && st == "closed" && _osTypes.TryGetValue(p, out tn) && tn == typeName) return true;
             }
+            return false;
+        }
+
+        void TraceOnce(string key, string msg)
+        {
+            if (_debug && _osTraced.Add(key)) Trace(msg);
         }
 
         /// <summary>
-        /// Opens / closes a window the way the game does: through the source its Visibility is bound to (a HUD toggle button by
-        /// ElementName, or a view-model flag such as MainGameViewModel.MapVisible), so the game's own state follows.
+        /// Scene start-up (from the load screen until shortly after it): open / close the remembered windows the way the game does
+        /// it. Called every frame of that phase; does something only once the mission HUD is up and a window differs.
         /// </summary>
-        bool SetOpen(object w, bool open)
+        void RestoreOpenStates()
         {
-            var b = Invoke(_getBinding, null, w, _visibilityProp);
-            if (b == null || b == Failed)
+            if (!MissionUi()) return;
+            var hosts = HostWindows();
+            var mgvm = MainVm();
+            var view = MainView();
+            if (hosts == null || mgvm == null || view == null) return;
+            foreach (var p in _osPatterns)
             {
-                Trace("open/close '" + TextOf(Get(w, "Header")) + "': Visibility not bound, left alone");
-                return false;
-            }
-            var path = TextOf(Get(Get(b, "Path"), "Path")) ?? "";
-            var elementName = TextOf(Get(b, "ElementName"));
-            object source = Get(b, "Source");
-            if (source == null && !string.IsNullOrEmpty(elementName))
-                for (var p = w; p != null && source == null; p = VtParent(p))
+                try
                 {
-                    var fn = p.GetType().GetMethod("FindName", BindingFlags.Instance | BindingFlags.Public, null, new[] { typeof(string) }, null);
-                    if (fn != null) try { source = fn.Invoke(p, new object[] { elementName }); } catch { }
+                    string st, tn;
+                    if (!_osState.TryGetValue(p, out st)) continue;
+                    if (!_osTypes.TryGetValue(p, out tn)) { TraceOnce(p + "?", "open windows: '" + p + "' not learned yet (open it once)"); continue; }
+                    var vm = FindViewModel(tn, hosts, mgvm);
+                    if (vm == null) { TraceOnce(p + "-", "open windows: '" + p + "': no " + tn + " (yet)"); continue; }
+                    bool want = st == "open";
+                    if (IsOpen(vm, hosts, mgvm) == want) continue;
+                    if (SetOpen(vm, want, hosts, mgvm, view)) Verbose("'" + p + "' " + (want ? "opened" : "closed") + " as last time");
+                    else TraceOnce(p + "!", "open windows: '" + p + "' could not be " + (want ? "opened" : "closed"));
                 }
-            if (source == null && string.IsNullOrEmpty(elementName)) source = Get(w, "DataContext");
-            Trace("open/close '" + TextOf(Get(w, "Header")) + "': binding " + (elementName ?? TypeName(source)) + "." + path);
-            if (source == null || path.Length == 0) return false;
+                catch (Exception e) { TraceOnce(p + "x", "RestoreOpenStates '" + p + "': " + e); }
+            }
+        }
 
-            // walk a dotted path to the object that holds the last property
-            var parts = path.Split('.');
-            for (int i = 0; i < parts.Length - 1 && source != null; i++) source = Get(source, parts[i]);
-            if (source == null) return false;
-            var prop = Prop(source, parts[parts.Length - 1]);
-            if (prop == null || !prop.CanWrite) return false;
+        /// <summary>A view model of this type: one of the host's windows, else a property of MainGameViewModel.</summary>
+        object FindViewModel(string typeName, System.Collections.IList hosts, object mgvm)
+        {
+            foreach (var o in hosts) if (o != null && TypeName(o) == typeName) return o;
+            foreach (var p in mgvm.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
+            {
+                // only properties declared with that type: other getters may have side effects (singletons created on access)
+                if (p.PropertyType.Name != typeName || p.GetIndexParameters().Length > 0) continue;
+                var v = Get(mgvm, p.Name);
+                if (v != null && TypeName(v) == typeName) return v;
+            }
+            return null;
+        }
 
-            object value;
-            var pt = prop.PropertyType;
-            if (pt == typeof(bool) || pt == typeof(bool?)) value = open;
-            else if (pt.IsEnum && pt.Name == "Visibility") value = open ? _visible : _collapsed;
-            else { Trace("open/close: unsupported source type " + pt.Name); return false; }
-            prop.SetValue(source, value, null);
-            Invoke(_updateLayout, w);
-            bool ok = GetB(w, "IsVisible") == open;
-            if (!ok) Trace("open/close: window state did not follow the source (" + parts[parts.Length - 1] + " = " + value + ")");
-            return ok;
+        /// <summary>Opens / closes a hosted window as the game does (ShowUnitStatus, ToggleMapOpen, ToggleWindowBroker).</summary>
+        bool SetOpen(object vm, bool open, System.Collections.IList hosts, object mgvm, object view)
+        {
+            var flag = VisibleFlag(mgvm, vm);
+            if (open)
+            {
+                var hasUnit = Get(vm, "HasUnit");
+                if (hasUnit is bool && !(bool)hasUnit) return false; // Unit Status: no unit selected (yet)
+                if (!InList(hosts, vm)) Invoke(_openExecute, _openCmd, vm, view);
+                if (flag != null && !GetB(mgvm, flag.Name)) flag.SetValue(mgvm, true, null);
+            }
+            else if (flag != null) flag.SetValue(mgvm, false, null);    // MapVisible = false: as ToggleMapOpen
+            else if (InList(hosts, vm))
+            {
+                var can = _closeCanExecute == null ? (object)true : Invoke(_closeCanExecute, _closeCmd, vm, view);
+                if (can is bool && (bool)can) Invoke(_closeExecute, _closeCmd, vm, view);
+            }
+            return IsOpen(vm, hosts, mgvm) == open;
         }
 
         // ------------------------------------------------------------ matching
