@@ -13,10 +13,8 @@
     <DebugType>none</DebugType>
     <Deterministic>true</Deterministic>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Version>1.2.0</Version>
+    <Version>1.1.0</Version>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-    <!-- build number written to the log (UTC time of the build): tells which dll is actually running -->
-    <BuildStamp Condition="'$(BuildStamp)' == ''">$([System.DateTime]::UtcNow.ToString("yyyyMMdd.HHmm"))</BuildStamp>
 
     <GameDir Condition="'$(GameDir)' == ''">D:\Steam\steamapps\common\Sea Power</GameDir>
     <ManagedDir Condition="'$(ManagedDir)' == ''">$(GameDir)\Sea Power_Data\Managed</ManagedDir>
@@ -27,13 +25,6 @@
 
   <ItemGroup>
     <Compile Include="src\*.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
-      <_Parameter1>Build</_Parameter1>
-      <_Parameter2>$(BuildStamp)</_Parameter2>
-    </AssemblyAttribute>
   </ItemGroup>
 
   <ItemGroup>
