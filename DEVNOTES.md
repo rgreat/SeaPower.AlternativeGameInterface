@@ -18,7 +18,7 @@ Seapower-Scripts), Harmony-хуки ставятся по именам мето�
 4. `nuget.config` с пустым списком источников обязателен (nuget.org закрыт, restore иначе падает).
 5. `dotnet build -c Release -p:ManagedDir=... -p:BepInExCore=... -p:AnchorChainDll=...` → `Release/SmartWindows.dll`.
    Номер билда (UTC-время сборки `yyyyMMdd.HHmm`, свойство `BuildStamp` в csproj → AssemblyMetadata "Build") пишется в лог:
-   `Smart Windows 1.4.0 (build ...) loaded` — по нему видно, какая dll реально запущена.
+   `Smart Windows 1.5.0 (build ...) loaded` — по нему видно, какая dll реально запущена.
    Сборка сама копирует dll в `Release/` (target StageRelease) — пробные сборки делать на копии репозитория.
    Скрипт `/home/claude/tools/build.sh [repoDir] [zip]`: сборка с путями песочницы + упаковка `SmartWindows.zip`.
    Предупреждение MSB3277 про System.IO.Compression безвредно.
@@ -173,6 +173,29 @@ thumbnail.jpg берётся из клона репозитория.
   — с неё. Click → [UnitReference] ArmedOnly, SaveExpansionState (если не поиск) и UpdateFilteredMuseumEntries.
 * Отдельного переключателя нет: галочка и фильтр — при Layout Improvements; строка «Armed only» в «Kept by the mod». Всё есть и в 0.8.4.
 
+## Вкладка Reference в Unit Status (UnitReferenceTab, 1.5.0, `src/StatusReference.cs`)
+* Игра: `UnitStatusViewModel.Tabs` — `UnitStatusTabViewModel(owner, UnitStatusTab kind, header)` с Header / IsAvailable /
+  IsSelected (сеттер → `OnTabSelected` → `EnsureContent`) / Content / ContentError. `SwitchUnit` (смена выбранного юнита:
+  `DisposeOwnedContent`, доступность вкладок, при недоступной выбранной — `SelectFirstAvailableTab`); `Refresh` (каждое
+  обновление окна) → `EnsureContent(выбранная)`; контент создаётся лениво, при ошибке — ContentError. Так же в 0.8.4.
+* Мод: postfix конструктора — вкладка kind = 5 (за пределами enum), заголовок «Reference», последней; postfix `SwitchUnit` —
+  IsAvailable = UnitReferenceTab и у юнита есть `_obp` и он не WeaponBase (иначе, если выбрана, — SelectFirstAvailableTab);
+  postfix `EnsureContent` — для нашей вкладки без контента: `new ObjectInformationViewModel(MainGameView.Instance,
+  getObjectIniName(), GetReferenceVariantIndex(unit), showTree: false, GetReferenceLoadoutVariant(unit))` (как «Information»
+  контекстного меню) в новом `ObjectInformationView` (DataContext) — Content вкладки (UIElement: шаблон не нужен);
+  prefix `DisposeOwnedContent` — запомнить `SelectedTabIndex` (внутренняя вкладка переносится на следующий юнит,
+  затем `EnsureSelectedTabAvailable`), Content = null, Dispose модели.
+* Показ: Content новой вкладки игра НЕ отображает. UnitStatusView (по дампу дерева из trace, 0.8.5): строка вкладок —
+  ItemsControl {Tabs} → WrapPanel → RadioButton {Header}/{IsAvailable} на вкладку (наша там появляется сама); ниже Border →
+  Grid → Grid {HasUnit}, в нём на каждую вкладку Grid с Visibility {EngagementTab.IsSelected} / {FlightDeckTab.IsSelected} /
+  {DamageControlTab.IsSelected} / {SensorsTab.IsSelected} / {SeekerTab.IsSelected} и видом внутри (EngagementBoardView,
+  FlightDeckContentView, DamageControlView, SensorInfoContentView, SeekerStatusView), все в одной ячейке.
+  Мод (каждый кадр, Step, окно с UnitStatusView): первый элемент с Visibility, привязанной к «…Tab.IsSelected», его Panel —
+  туда свой Border (та же ячейка, Margin), Child = наш вид, виден, пока вкладка Reference выбрана. Если вид уже в
+  визуальном дереве (игра показала сама) — ничего не добавляется. Запасной путь — ContentControl/ContentPresenter с Content
+  вкладки игры; не найдено — дамп дерева UnitStatusView в trace (один раз).
+* Replace в этой вкладке — тем же `ReplaceStep` (каждый кадр по живым видам вкладки), вне энциклопедии скрыт.
+
 ## Окно настроек: зависимые строки
 * `Field.Needs` — строка видна, только пока включён этот bool (по значению в окне, с учётом неприменённого). Смена такого
   переключателя (`Set`) перестраивает вкладку. Сейчас: от «Layout Improvements» (ImprovedUnitReferenceUI) зависят
@@ -191,7 +214,7 @@ LoadScreen `<ExecuteLoadScreen>.MoveNext` (конец загрузки), `FileMa
 ## Настройки (.cfg)
 [General] WindowPatterns, CascadeOffset, BringToFrontOnClick, AddWindowKey, AllowDragOutside, MinVisiblePixels, RememberOpenWindows,
 RemoveSizeLimits, MaximizeOnDoubleClick, ImprovedUnitReferenceUI (бывш. ImprovedUI, миграция `BindRenamed`), SettingsButton,
-SnapWindows, SnapDistance (1.3.0), Debug. [UnitReference] (1.3.0): RememberSearchPanel, Category, FilterByDate, SearchByNameOnly, SearchText; OptimizeTree, ScrollToSelected, ShowLoadoutList, ArmedOnly (1.4.0).
+SnapWindows, SnapDistance (1.3.0), Debug. [UnitReference] (1.3.0): RememberSearchPanel, Category, FilterByDate, SearchByNameOnly, SearchText; OptimizeTree, ScrollToSelected, ShowLoadoutList, ArmedOnly (1.4.0). [UnitStatus] UnitReferenceTab (1.5.0).
 [UnitReference] TreeWidth, TreeVisible, Country. [Layouts] `x,y,w,h[,max]` (раскладка всегда «с деревом»).
 [OpenWindows] open/closed (проверено в игре, включая мгновенный старт и блокировку открытия игрой). Окна HUD — через «рычаги» игры:
 MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext или SeaPower.Globals._mainGameViewModel),
@@ -249,6 +272,8 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
   (то же исправлено в ADM).
   Вкладки General / Remembered Windows / Frame / Unit Status / Unit Reference; Unit Reference — только если открыто шестерёнкой
   окна Unit Reference (`InfoViewModel` ≠ null; Weapon Reference — нет), Unit Status — только из окна Unit Status
+  (кнопка «Show all settings» слева в нижней панели, 1.5.0 — показывает и их, повторно — «Show fewer settings»; видна, только
+  если что-то скрыто; сбрасывается при закрытии окна).
   (`IsUnitStatusWindow`: строка опознания 'UnitStatus*'); открыто оттуда — сразу на этой вкладке; уже открытое окно при клике
   по шестерёнке другого окна только показывает/прячет эти вкладки. Строка: подпись с жёлтой точкой
   (изменено в окне и ещё не применено), редактор (−/TextBox/+ с шагом и пределами; CheckBox; TextBox для клавиши/цвета (+ образец)/
@@ -329,4 +354,6 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 
 ## Версия
 * 13.10.2026: 1.3.0 проверена в игре и зафиксирована как стабильная (коммит «Smart Windows 1.3.0»).
-* 1.4.0: константа `PluginVersion` (BepInPlugin, ACPlugin, лог) + `<Version>` в csproj — менять обе.
+* 13.10.2026: 1.4.0 закоммичена («Smart Windows 1.4.0»): дерево Unit Reference, прокрутка, список loadout'ов, Armed only.
+* 13.10.2026: 1.5.0 закоммичена («Smart Windows 1.5.0»): вкладка Reference в Unit Status, «Show all settings».
+* Версия: константа `PluginVersion` (BepInPlugin, ACPlugin, лог) + `<Version>` в csproj — менять обе.

@@ -75,13 +75,18 @@ namespace SmartWindows
         void ReplaceButtonStep(object w)
         {
             var vm = InfoViewModel(w);
-            if (vm == null) return;
-            var st = ReplaceStates.GetOrCreateValue(w);
+            if (vm != null) ReplaceStep(w, w as Noesis.DependencyObject, vm);
+        }
+
+        /// <summary>One Unit Reference view (a window, or the Reference tab of Unit Status): 'key' holds its state.</summary>
+        void ReplaceStep(object key, Noesis.DependencyObject root, object vm)
+        {
+            var st = ReplaceStates.GetOrCreateValue(key);
             var el = st.Element == null ? null : st.Element.Target as Noesis.UIElement;
             if (el == null)
             {
                 if (st.Done || ++st.Tries > 120) { if (!st.Done) Trace("loadout list: Replace button not found"); st.Done = true; return; }
-                el = FindReplaceHolder(w as Noesis.DependencyObject);
+                el = FindReplaceHolder(root);
                 if (el == null) return;
                 st.Element = new WeakReference(el);
                 st.Done = true;

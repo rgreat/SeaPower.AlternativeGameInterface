@@ -60,6 +60,7 @@ namespace SmartWindows
                 Add(TFrame, "Frame around draggable windows", p._borderColor, 'c', "Colour", "#AARRGGBB");
 
                 Add(TStatus, "Damage Control tab", p._secMin, 'f', "Sections min height", "px · 0 = game", 10f, 0f, 3000f);
+                Add(TStatus, "Reference tab", p._statusRef, 'b', "Reference tab", "");
 
                 Add(TRef, "Unit Reference window", p._improvedUI, 'b', "Layout Improvements", "");
                 Add(TRef, "Unit Reference window", p._searchOn, 'b', "Remember search panel", "");
@@ -106,7 +107,19 @@ namespace SmartWindows
             static bool _unitStatus;           // opened from a Unit Status window: its tab is shown
             static bool _saidOpen;
 
-            static bool TabShown(int i) { return Tabs[i] == TRef ? _unitRef : Tabs[i] == TStatus ? _unitStatus : true; }
+            static bool _showAll;              // "Show all settings": the tabs of the other windows too (until the window closes)
+            static Button _showAllButton;
+
+            static bool TabShown(int i) { return _showAll || (Tabs[i] == TRef ? _unitRef : Tabs[i] == TStatus ? _unitStatus : true); }
+
+            /// <summary>The button toggles the hidden tabs; not shown when no tab is hidden.</summary>
+            static void UpdateShowAll()
+            {
+                if (_showAllButton == null) return;
+                bool hidden = !_unitRef || !_unitStatus;
+                _showAllButton.Visibility = hidden ? Visibility.Visible : Visibility.Collapsed;
+                _showAllButton.Content = _showAll ? "Show fewer settings" : "Show all settings";
+            }
 
             public static bool IsOpen
             {
@@ -139,6 +152,7 @@ namespace SmartWindows
                     else if (tabChange && unitStatus) _tab = Array.IndexOf(Tabs, TStatus);
                     if (IsOpen)
                     {
+                        UpdateShowAll();
                         if (tabChange) ShowTab(_tab);
                         return;
                     }
@@ -195,7 +209,7 @@ namespace SmartWindows
                 if (P != null) P.SetTyping(false, null);
                 try { var pp = _root == null ? null : SafeParent(_root) as Panel; if (pp != null) pp.Children.Remove(_root); } catch { }
                 try { if (_host != null && _root != null) _host.Children.Remove(_root); } catch { }
-                _host = null; _root = null; _body = null; _help = null; _status = null; _commitFocused = null;
+                _host = null; _root = null; _body = null; _help = null; _status = null; _commitFocused = null; _showAllButton = null; _showAll = false;
             }
 
             // ------------------------------------------------------------ building
@@ -274,17 +288,22 @@ namespace SmartWindows
 
                 // footer
                 var foot = new Grid { Margin = new Thickness(12f, 10f, 12f, 12f) };
+                foot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 foot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1f, GridUnitType.Star) });
                 foot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                _showAllButton = Btn("Show all settings", () => { _showAll = !_showAll; UpdateShowAll(); ShowTab(_tab); }, 70f);
+                foot.Children.Add(_showAllButton);
+                UpdateShowAll();
                 _status = Text("", CDim, 11f);
                 _status.HorizontalAlignment = HorizontalAlignment.Right; _status.Margin = new Thickness(0f, 0f, 10f, 0f);
+                Grid.SetColumn(_status, 1);
                 foot.Children.Add(_status);
                 var right = new StackPanel { Orientation = Orientation.Horizontal };
                 right.Children.Add(Btn("Cancel", Cancel, 70f));
                 right.Children.Add(Btn("Apply", () => Commit(false), 70f));
                 var ok = Btn("OK", () => Commit(true), 70f); ok.Margin = new Thickness(0f);
                 right.Children.Add(ok);
-                Grid.SetColumn(right, 1); foot.Children.Add(right);
+                Grid.SetColumn(right, 2); foot.Children.Add(right);
                 parts.Add(foot);
 
                 // the rows: all as tall as they need, the settings area takes the rest of the window's height

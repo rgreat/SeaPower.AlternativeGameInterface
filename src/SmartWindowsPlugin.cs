@@ -45,7 +45,7 @@ namespace SmartWindows
     public partial class SmartWindowsPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.smartwindows";
-        public const string PluginVersion = "1.4.0"; // also <Version> in SmartWindows.csproj
+        public const string PluginVersion = "1.5.0"; // also <Version> in SmartWindows.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
 
         struct Layout
@@ -380,6 +380,9 @@ namespace SmartWindows
                 "Unit Reference: show the loadout selector for ships, submarines and land units with several loadouts too (the game shows it " +
                 "for aircraft only); the unit's information follows the chosen loadout.");
             _armOnly = Config.Bind("UnitReference", "ArmedOnly", false, "The \"Armed only\" check box the mod adds to the Unit Reference search panel (with ImprovedUnitReferenceUI): when ticked, units without weapons (decoys, sonobuoys, fuel tanks do not count) are left out of the tree.");
+            _statusRef = Config.Bind("UnitStatus", "UnitReferenceTab", true,
+                "Unit Status window: a \"Reference\" tab (last) with the Unit Reference of the selected unit - its ship / variant and loadout - " +
+                "without the unit tree and the search panel.");
             _searchCategory = Config.Bind("UnitReference", "Category", "",
                 "Category of the unit tree, by its name. Written by the plugin (RememberSearchPanel); empty = the game's choice.");
             _searchByDate = Config.Bind("UnitReference", "FilterByDate", false,
@@ -640,6 +643,7 @@ namespace SmartWindows
                     HookCountry(harmony, asm);
                     HookLoadoutList(harmony, asm);
                     HookArmedFilter(harmony, asm);
+                    HookStatusReference(harmony, asm);
                 }
 
                 {
@@ -2709,7 +2713,7 @@ namespace SmartWindows
                 var t = _tracked[i];
                 var w = t.Ref.Target;
                 if (w == null) { _tracked.RemoveAt(i); continue; } // collected
-                try { Step(t, w, now); TrackOpenState(t, w, now); }
+                try { Step(t, w, now); TrackOpenState(t, w, now); if (_statusRef.Value && t.WasActive) StatusRefStep(w); }
                 catch (Exception e)
                 {
                     if (!t.Warned) { t.Warned = true; Logger.LogWarning("Window '" + t.Label + "': " + e.Message); Trace("Step error: " + e); }
@@ -2754,6 +2758,7 @@ namespace SmartWindows
                 if (now >= _osRecordFrom) PollGameSwitches(now);
             }
 
+            try { RefTabsStep(); } catch (Exception e) { Trace("RefTabsStep: " + e.Message); }
             if (_probes.Count > 0) RunProbes();
             if (_dirty && now - _dirtySince > 1f) Save();
         }
