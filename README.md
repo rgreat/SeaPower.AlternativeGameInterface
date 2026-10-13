@@ -20,7 +20,7 @@ A Sea Power mod that makes the game's windows smarter.
 
 ## Compatibility
 
-- Supports Sea Power version 0.8.4.
+- Supports Sea Power versions 0.8.3 – 0.8.5.
 - Requires Anchor Chain.
 
 ## Install

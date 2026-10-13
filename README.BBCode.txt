@@ -17,7 +17,7 @@ The Show/Hide unit tree button also hides the search panel and adjusts the windo
 
 [h1]Compatibility[/h1]
 [list]
-[*]Supports Sea Power version 0.8.4.
+[*]Supports Sea Power versions 0.8.3 – 0.8.5.
 [*]Requires Anchor Chain.
 [/list]
 

@@ -21,7 +21,7 @@ SmartWindows/                 <- проект (хранится у вас, в Wo
 └─ Release/                   <- ЭТО и есть мод: содержимое этой папки выкладываете
    ├─ _info.ini                       <- название/описание в менеджере модов + версия игры
    ├─ SmartWindows.dll                <- плагин
-   ├─ thumbnail.png                   <- картинка для Workshop (512x512; лимит Steam < 1 МБ)
+   ├─ thumbnail.jpg                   <- картинка для Workshop (JPEG 512x512; лимит Steam < 1 МБ)
    └─ README.md                       <- описание для пользователей (пишете сами)
 ```
 
@@ -53,7 +53,7 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
    `D:\Steam\steamapps\common\Sea Power\Sea Power_Data\StreamingAssets\SmartWindows`.
 3. Запустите игру -> **Mods** -> включите **Anchor Chain** и **Smart Windows** -> Apply -> **полностью перезапустите игру**
    (код-моды загружаются только при старте процесса; Apply перезагружает лишь сцену).
-4. В `BepInEx\LogOutput.log` должно быть `Smart Windows 1.1.0 loaded` и позже `Window hooks installed.`
+4. В `BepInEx\LogOutput.log` должно быть `Smart Windows 1.2.0 (build ...) loaded` и позже `Window hooks installed.`
    Предупреждения `Smart Windows ...` покажут, если игра изменилась.
 5. Проверьте: положение окон запоминается, F12 добавляет окно, окна уходят за край.
 
@@ -71,7 +71,7 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
 4. **Mod Name** (заголовок в Workshop): `Smart Windows`.
    **Mod Description** (текст под картинкой): коротко, 2-3 предложения (можно взять первый абзац из `description.bbcode.txt`).
    Полное описание с BBCode потом вставьте на странице предмета в браузере или клиенте Steam.
-5. **Pick Image** -> `thumbnail.png` из папки мода (меньше 1 МБ, лучше квадратная).
+5. **Pick Image** -> `thumbnail.jpg` из папки мода (меньше 1 МБ, лучше квадратная).
 6. **Visibility**: для первой выкладки выберите ограниченную видимость (например, Private, если такой пункт есть),
    проверьте страницу, потом сделайте Public.
 7. **Submit Mod**. Игра откроет страницу отправки в клиенте Steam: там видно, успешна ли загрузка.
@@ -100,7 +100,9 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
 
 ## 7. Что проверить перед публикацией
 
-* `_info.ini`: правильный `ApproximateVersion` (0.8.0 принимает все 0.8.x). После крупного обновления игры поднимите его.
+* `_info.ini`: `ApproximateVersion` — нижняя граница: игра считает мод совместимым при той же 0.8 и патче не меньше указанного
+  (0.8.3 принимает 0.8.3, 0.8.4, 0.8.5...). Несовместимому моду игра не скачивает обновления из Workshop, поэтому
+  поднимайте значение только когда мод действительно перестал работать на старых версиях.
 * Версия плагина: константа `PluginVersion` в `SmartWindowsPlugin.cs` (её берут `[BepInPlugin]`, `[ACPlugin]` и лог) и `<Version>` в csproj.
-* В папке мода только 4 файла (`_info.ini`, dll, `thumbnail.png`, `README.md`).
+* В папке мода только 4 файла (`_info.ini`, dll, `thumbnail.jpg`, `README.md`).
 * Текст на русском в `_info.ini` сохранён как UTF-8.
