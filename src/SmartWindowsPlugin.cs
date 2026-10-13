@@ -24,7 +24,7 @@ namespace SmartWindows
     ///  - several windows of one pattern (e.g. Weapon Reference): the first one keeps the saved layout and is the only one whose
     ///    changes are saved; each further one opens shifted right / down by CascadeOffset px per window already open;
     ///  - Unit Status, Damage Control tab: its hard-coded minimum height is raised, so the bottom 'Auto Damage Control Status'
-    ///    panel starts moving down with a taller window ([UnitStatus] DamageControlMinHeightAdd);
+    ///    panel starts moving down with a taller window ([UnitStatus] SectionsMinHeight: the section panels' minimum);
     ///  - chosen windows (RememberOpenWindows) are opened / closed after a load screen the way they were left last time;
     ///  - Unit Reference: hiding the unit tree (the '<' button) shrinks the window by the tree's width and moves it right by the
     ///    same amount, so the info panel stays where it is; showing the tree reverses that. The search / filter panel above
@@ -33,6 +33,7 @@ namespace SmartWindows
     ///    the tree width is kept in the .cfg.
     ///  - Unit Reference: the country chosen in the country drop-down is kept in the .cfg (by its text) and chosen again.
     ///  - Unit Reference: whether the unit tree is shown is kept in the .cfg; a window opens with the tree hidden if it was hidden.
+    ///  - a gear button in the title bar of every remembered window opens the settings window (SettingsUI.cs, SettingsButton).
     ///
     /// No compile-time dependency on the game's assemblies: everything is done by reflection, and the hooks are
     /// installed only after the game's load screen has finished (SeaPower.LoadScreen.ExecuteLoadScreen completes).
@@ -41,10 +42,10 @@ namespace SmartWindows
     /// Debug = true in the .cfg enables verbose logging and BepInEx/SmartWindows.trace.txt.
     /// </summary>
     [BepInPlugin(PluginGuid, "Smart Windows", PluginVersion)]
-    public class SmartWindowsPlugin : BaseUnityPlugin
+    public partial class SmartWindowsPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.smartwindows";
-        public const string PluginVersion = "1.2.0"; // also <Version> in SmartWindows.csproj
+        public const string PluginVersion = "1.3.0"; // also <Version> in SmartWindows.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
 
         struct Layout
@@ -116,7 +117,7 @@ namespace SmartWindows
         {
             public SmartWindowsPlugin Plugin;
             public WeakReference Window;
-            public void DoubleClick(object sender, object e) { if (Enabled) Plugin.ToggleMaximized(Window.Target, e); }
+            public void DoubleClick(object sender, object e) { if (Enabled && Plugin._dblClickMax.Value) Plugin.ToggleMaximized(Window.Target, e); }
         }
 
         /// <summary>Receives the Loaded event of a Damage Control tab (SeapowerUI.DamageControlView).</summary>
@@ -202,8 +203,11 @@ namespace SmartWindows
         ConfigEntry<string> _windows;
         ConfigEntry<bool> _debugEntry, _dragOutside, _improvedUI, _dblClickMax, _removeLimitsAll, _toFront;
         Type _uiElementType;
-        ConfigEntry<float> _dcMinAdd;
-        static readonly ConditionalWeakTable<object, object> DcDone = new ConditionalWeakTable<object, object>(); // DamageControlView set up
+        ConfigEntry<float> _secMin;
+        // DamageControlView set up: the minimums changed in it, { element / row definition, the game's value } - set again from these
+        // when DamageControlMinHeightAdd is changed in the settings window
+        static readonly ConditionalWeakTable<object, List<object[]>> DcDone = new ConditionalWeakTable<object, List<object[]>>();
+        readonly List<WeakReference> _dcViews = new List<WeakReference>();   // every Damage Control tab made
         DcLoadedHandler _dcLoadedHandler;
         ConfigEntry<string> _openWindows;
         readonly List<string> _osPatterns = new List<string>(), _osPatternsSq = new List<string>();
@@ -221,6 +225,10 @@ namespace SmartWindows
         float _osRecordFrom = float.MaxValue; // no recording before this (the game's own start-up / our restore)
         ConfigEntry<float> _treeWidth;
         ConfigEntry<string> _nation;
+        ConfigEntry<bool> _searchOn, _searchByDate, _searchNameOnly;   // Unit Reference search panel (RememberSearchPanel)
+        ConfigEntry<string> _searchText, _searchCategory;
+        ConfigEntry<bool> _snapOn;      // SnapWindows (Snap.cs)
+        ConfigEntry<float> _snapDist;
         ConfigEntry<bool> _treeShown;
         MethodInfo _treeSetter;   // ObjectInformationViewModel.set_MuseumEntriesVisible
         object _setupWindow;      // the window being set up in its Loaded event (not tracked / not "visible" yet)
@@ -327,13 +335,14 @@ namespace SmartWindows
                 "load screen (mission start, encyclopedia) these windows are opened or closed as they were left. The state is kept " +
                 "in [OpenWindows]. Only windows the game has already created can be opened (e.g. Unit Status needs a selected unit).");
             _removeLimitsAll = Config.Bind("General", "RemoveSizeLimits", true,
-                "Windows in WindowPatterns (Unit Reference included) have no minimum / maximum size of their own: they can be " +
-                "resized down to " + WindowMinWidth + "x" + WindowMinHeight + " px.");
-            _dcMinAdd = Config.Bind("UnitStatus", "DamageControlMinHeightAdd", 200f,
-                "Unit Status window, Damage Control tab: added to the tab's hard-coded minimum height (330 px in the game), " +
-                "in pixels. Below that height the tab stops shrinking and the 'Auto Damage Control Status' panel at the bottom " +
-                "moves down out of the window, so a larger value makes it do that with a taller window. 0 = the game's minimum; " +
-                "a negative value lowers it.");
+                "No size limits for the remembered windows (WindowPatterns, Unit Reference included): no minimum or maximum size of their " +
+                "own - down to " + WindowMinWidth + "x" + WindowMinHeight + " px - and resizing by an edge is not stopped by the screen's edges " +
+                "(the top stays on the screen, so the title bar can be reached). Switching it applies to the windows on screen at once.");
+            _secMin = Config.Bind("UnitStatus", "SectionsMinHeight", 0f,
+                "Unit Status window, Damage Control tab: minimum height of the section panels (Aft ... Forward with their damage lists), " +
+                "in screen pixels. A shorter window shrinks them down to this; below it the tab stops shrinking and the 'Auto Damage " +
+                "Control Status' panel at the bottom moves out of the window. 0 = as in the game (the whole tab has a fixed minimum; the " +
+                "panels get what the other rows leave of it - shown in the settings window).");
             _toFront = Config.Bind("General", "BringToFrontOnClick", true,
                 "Clicking a window brings it in front of the other windows; a newly opened window comes in front too. Windows keep " +
                 "the level the game gave them (Panel.ZIndex): a click never lifts a window above one of a higher level, and nothing " +
@@ -347,7 +356,7 @@ namespace SmartWindows
                 "narrower by the tree's width and moves it right by the same amount, so the unit information stays in place and " +
                 "takes the freed space at the top (showing the tree reverses it; saved layouts store the window with the tree shown); " +
                 "a wider unit tree with a splitter at its right edge that can be dragged with the mouse (width kept in [UnitReference] TreeWidth); " +
-                "the chosen country is remembered ([UnitReference] Country).");
+                "the chosen country is remembered ([UnitReference] Country). Applies to Unit Reference windows opened afterwards.");
             _treeWidth = Config.Bind("UnitReference", "TreeWidth", 0f,
                 "Width of the unit tree in pixels (at least " + TreeMinWidth + "). Written by the plugin when the splitter is dragged; " +
                 "0 = the game's width + " + TreeExtraWidth + " px.");
@@ -357,6 +366,22 @@ namespace SmartWindows
             _nation = Config.Bind("UnitReference", "Country", "",
                 "Country chosen in the Unit Reference window's country drop-down, by its text (as shown in the list). " +
                 "Written by the plugin when a country is chosen; empty = the game's default.");
+            _searchOn = Config.Bind("UnitReference", "RememberSearchPanel", true,
+                "The Unit Reference window's search panel - category, 'filter by date', 'search by name only' and the search text - is " +
+                "kept in the .cfg (the keys below) and set again when a Unit Reference window opens (with ImprovedUnitReferenceUI).");
+            _searchCategory = Config.Bind("UnitReference", "Category", "",
+                "Category of the unit tree, by its name. Written by the plugin (RememberSearchPanel); empty = the game's choice.");
+            _searchByDate = Config.Bind("UnitReference", "FilterByDate", false,
+                "The search panel's 'filter by date' switch. Written by the plugin (RememberSearchPanel).");
+            _searchNameOnly = Config.Bind("UnitReference", "SearchByNameOnly", false,
+                "The search panel's 'search by name only' switch. Written by the plugin (RememberSearchPanel).");
+            _searchText = Config.Bind("UnitReference", "SearchText", "",
+                "The text in the search box. Written by the plugin (RememberSearchPanel); empty = no search.");
+            _snapOn = Config.Bind("General", "SnapWindows", true,
+                "While a window is dragged or resized with the mouse, its edges snap to the edges of the other windows and of the screen " +
+                "when they come closer than SnapDistance (the visible edges, without the invisible resize zone around a window).");
+            _snapDist = Config.Bind("General", "SnapDistance", 10f,
+                "SnapWindows: how close an edge must come to snap, in pixels (1 - 50).");
             _borderOn = Config.Bind("WindowBorder", "Enabled", true,
                 "Thin frame around every window that can be dragged, on the edge of its visible part. " +
                 "Drawn over the window's own look; it does not change the window's size or catch the mouse.");
@@ -364,6 +389,8 @@ namespace SmartWindows
                 "Width of the frame in pixels (0.5 - 10). The frame has no top side (it would run under the title bar).");
             _borderColor = Config.Bind("WindowBorder", "Color", DefaultBorderColor,
                 "Colour of the frame: #RRGGBB or #AARRGGBB (AA = opacity, 00 transparent - FF solid).");
+            _gearOn = Config.Bind("General", "SettingsButton", true,
+                "A gear button in the title bar of every remembered window (WindowPatterns) opens the Smart Windows settings window.");
             _debugEntry = Config.Bind("General", "Debug", false,
                 "Enables verbose logging and BepInEx/SmartWindows.trace.txt.");
             _debug = _debugEntry.Value;
@@ -372,37 +399,8 @@ namespace SmartWindows
             if (_debug) { try { File.WriteAllText(_traceFile, ""); } catch { } }
             Trace("Smart Windows " + PluginVersion + " build " + BuildId);
 
-            foreach (var n in _windows.Value.Split(','))
-            {
-                var t = n.Trim();
-                if (t.Length == 0) continue;
-                _patterns.Add(t);
-                _patternsSq.Add(Squash(t));
-            }
-
-            foreach (var n in _openWindows.Value.Split(','))
-            {
-                var t = n.Trim();
-                if (t.Length == 0) continue;
-                _osPatterns.Add(t);
-                _osPatternsSq.Add(Squash(t));
-                _osEntries[t] = Config.Bind("OpenWindows", t, "", "open / closed - written by the plugin (RememberOpenWindows).");
-            }
-
-            // one config entry per pattern holds that window's saved layout: x,y,w,h
-            foreach (var pat in _patterns)
-            {
-                try
-                {
-                    var e = BindLayout(pat);
-                    Layout l;
-                    if (Layout.TryParse(e.Value, out l)) _saved[pat] = l;
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning("Pattern '" + pat + "' cannot be used as a config key (" + ex.Message + "); its layout will not be saved.");
-                }
-            }
+            ReloadPatterns();      // WindowPatterns -> _patterns, one [Layouts] entry per pattern
+            ReloadOpenPatterns();  // RememberOpenWindows -> _osPatterns, one [OpenWindows] entry per pattern
 
             DropRetiredEntries();
             Config.Save();
@@ -450,7 +448,8 @@ namespace SmartWindows
                 if (orphans == null) return;
                 foreach (var d in new[] { new ConfigDefinition("General", "ResizeOnTreeToggle"), new ConfigDefinition("General", "HideFilterWithTree"),
                                           new ConfigDefinition("UnitReference", "RemoveSizeLimits"), new ConfigDefinition("UnitReference", "TreeSplitter"),
-                                          new ConfigDefinition("UnitStatus", "DamageControlExtraShrink") })
+                                          new ConfigDefinition("UnitStatus", "DamageControlExtraShrink"),
+                                          new ConfigDefinition("UnitStatus", "DamageControlMinHeightAdd") })
                     orphans.Remove(d);
             }
             catch (Exception e) { Trace("DropRetiredEntries: " + e.Message); }
@@ -594,9 +593,19 @@ namespace SmartWindows
                 PatchPost(harmony, _winType, "MaximizeChanged", "MaximizeChangedPostfix");
                 PatchPost(harmony, _winType, "Restore_Completed", "RestoredPostfix");
                 PatchPost(harmony, _winType, "CommandUnmaximizeWindow", "UnmaximizeCommandPostfix");
+                // resizing by the window's edges (SnapWindows): ResizeCommand.Execute(Thickness delta) moves / sizes the window
+                try
+                {
+                    var rc = asm.GetType("SeapowerUI.ResizeCommand");
+                    var ex = rc == null ? null : rc.GetMethod("Execute", inst | BindingFlags.DeclaredOnly, null, new[] { typeof(object) }, null);
+                    _resizeParent = rc == null ? null : rc.GetField("_parent", inst);
+                    if (ex != null && _resizeParent != null) { harmony.Patch(ex, prefix: Hm("ResizePrefix"), postfix: Hm("ResizePostfix")); Trace("patched ResizeCommand.Execute"); }
+                    else Trace("ResizeCommand.Execute not found: no snapping while resizing");
+                }
+                catch (Exception e) { Trace("patch ResizeCommand: " + e.Message); }
 
                 // The game keeps a dragged window completely inside the viewport (HeaderDragDelta): relax that.
-                if (_dragOutside.Value)
+                // (always patched: AllowDragOutside can be switched in the game; the postfix checks it)
                 {
                     var drag = _winType.GetMethod("HeaderDragDelta", inst | BindingFlags.DeclaredOnly);
                     if (drag != null) { harmony.Patch(drag, prefix: Hm("DragPrefix"), postfix: Hm("DragPostfix")); Trace("patched Window.HeaderDragDelta"); }
@@ -604,7 +613,7 @@ namespace SmartWindows
                 }
 
                 // Unit Reference: the tree toggle button flips ObjectInformationViewModel.MuseumEntriesVisible (XAML collapses the tree)
-                if (_improvedUI.Value)
+                // (always patched: the switches can change in the game; the hook bodies check them)
                 {
                     var oivm = asm.GetType("SeapowerUI.ViewModels.ObjectInformationViewModel");
                     var vis = oivm == null ? null : oivm.GetProperty("MuseumEntriesVisible", inst);
@@ -620,7 +629,6 @@ namespace SmartWindows
                     HookCountry(harmony, asm);
                 }
 
-                if (_osPatterns.Count > 0)
                 {
                     var host = asm.GetType("SeapowerUI.WindowHost");
                     var openM = host == null ? null : host.GetMethod("OpenNewWindow", inst | BindingFlags.DeclaredOnly);
@@ -634,12 +642,11 @@ namespace SmartWindows
                     else Trace("WindowHost.OpenNewWindow not found: windows the game opens itself at mission start may flash");
                 }
 
-                if (_dcMinAdd.Value != 0f)
                 {
                     var dcv = asm.GetType("SeapowerUI.DamageControlView");
                     var dctor = dcv == null ? null : dcv.GetConstructor(inst, null, Type.EmptyTypes, null);
                     if (dctor != null) { harmony.Patch(dctor, postfix: Hm("DamageControlCreated")); Trace("patched DamageControlView..ctor"); }
-                    else Logger.LogWarning("SeapowerUI.DamageControlView not found (game updated?); DamageControlMinHeightAdd is not available.");
+                    else Logger.LogWarning("SeapowerUI.DamageControlView not found (game updated?); SectionsMinHeight is not available.");
                 }
 
                 Logger.LogInfo("Window hooks installed.");
@@ -671,13 +678,14 @@ namespace SmartWindows
             if (__instance == null) return;
             Created.Add(new WeakReference(__instance)); // also while disabled: cheap, ready when enabled
             WindowGens.GetOrCreateValue(__instance).Gen = Generation;
-            if ((object)Active != null && (Active._improvedUI.Value || Active._dblClickMax.Value || Active._removeLimitsAll.Value || Active._borderOn.Value || Active._toFront.Value)) Active.HookLoaded(__instance);
+            if ((object)Active != null) Active.HookLoaded(__instance); // every switch is checked in the handlers: it can change in the game
         }
 
         static void DamageControlCreated(object __instance)
         {
             if ((object)Active == null || __instance == null) return;
             if (Active._dcLoadedHandler == null) Active._dcLoadedHandler = new DcLoadedHandler { Plugin = Active };
+            Active._dcViews.Add(new WeakReference(__instance));
             Active.Hook(__instance, "Loaded", Active._dcLoadedHandler, "Loaded");
             Active.Hook(__instance, "IsVisibleChanged", Active._dcLoadedHandler, "VisibleChanged");
         }
@@ -755,7 +763,7 @@ namespace SmartWindows
         // runs after the game's own (clamping) drag handling: redo the move with our looser limits
         static void DragPostfix(object __instance, object e, float[] __state)
         {
-            if ((object)Active != null && __state != null) Active.AfterDrag(__instance, e, __state);
+            if ((object)Active != null && __state != null && (Active._dragOutside.Value || Active._snapOn.Value)) Active.AfterDrag(__instance, e, __state);
         }
 
         static void TreeTogglePrefix(object __instance, out bool __state)
@@ -766,7 +774,7 @@ namespace SmartWindows
         // runs after the binding has collapsed / shown the tree, but before the next layout pass: no visible jump
         static void TreeTogglePostfix(object __instance, bool value, bool __state)
         {
-            if ((object)Active != null && value != __state) Active.OnTreeToggled(__instance, value);
+            if ((object)Active != null && Active._improvedUI.Value && value != __state) Active.OnTreeToggled(__instance, value);
         }
 
         static void NationBusyPrefix()
@@ -779,12 +787,12 @@ namespace SmartWindows
         static void NationBusyFinalizer(object __instance)
         {
             if (--_nationBusy < 0) _nationBusy = 0;
-            if (_nationBusy == 0 && (object)Active != null) Active.RestoreCountry(__instance);
+            if (_nationBusy == 0 && (object)Active != null && Active._improvedUI.Value) Active.RestoreCountry(__instance);
         }
 
         static void NationSetPostfix(object __instance, object value)
         {
-            if (_nationBusy == 0 && !_nationRestoring && (object)Active != null) Active.SaveCountry(__instance, value);
+            if (_nationBusy == 0 && !_nationRestoring && (object)Active != null && Active._improvedUI.Value) Active.SaveCountry(__instance, value);
         }
 
         // ---------------------------------------------------------------- restoring
@@ -1561,108 +1569,159 @@ namespace SmartWindows
         {
             if (_loadedHandler == null) _loadedHandler = new WindowLoadedHandler { Plugin = this };
             Hook(w, "Loaded", _loadedHandler, "Loaded");
-            if (_toFront.Value) Hook(w, "PreviewMouseDown", _loadedHandler, "MouseDown"); // tunnelling: also when a child handles the click
+            Hook(w, "PreviewMouseDown", _loadedHandler, "MouseDown"); // tunnelling: also when a child handles the click
         }
 
         // ---------------------------------------------------------------- Unit Status: Damage Control tab
 
         /// <summary>
-        /// The Damage Control tab has a hard-coded minimum height (on the view, a panel inside it or a grid row): below it the
-        /// content does not shrink any more and its bottom 'Auto Damage Control Status' panel is pushed out of the window. Every
-        /// such minimum on layout elements of the tab gets DamageControlMinHeightAdd px added.
+        /// Damage Control tab (SeapowerUI.DamageControlView; XAML in SeaPower.AlternativeDamageModel/ref/xaml): a root Grid with
+        /// MinHeight 330 (UI units) and four rows - summary cards, the DC / hull / flooding strip, the section panels (row 2, '*': five
+        /// columns Aft ... Forward with their damage lists) and the 'Auto Damage Control Status' panel. The section panels get what is
+        /// left of the 330; below that the tab stops shrinking and the bottom panel is pushed out of the window.
+        /// SectionsMinHeight (screen pixels, 0 = as in the game) is the minimum height of the section panels themselves: the root's
+        /// 330 is taken off and ROW 2 itself (its RowDefinition) gets that minimum plus the panels' margins, converted to UI units with
+        /// the tab's own scale. Not the panels' element: a '*' row ignores its child's MinHeight (the child is cut, the bottom panel
+        /// stays where it is); the row's own MinHeight makes the grid taller than the window, so the bottom panel moves out.
+        /// The game's own share (330 less the other rows) is measured when a tab is first set up and shown in the settings window.
         /// </summary>
         void OnDamageControlLoaded(object view)
         {
             // the tabs are created collapsed and their content is built only when shown: usually OnDamageControlShown does it
-            if (view != null && GetB(view, "IsVisible")) AdjustDamageControlMinimum(view);
+            if (view != null && GetB(view, "IsVisible")) SetupSections(view);
         }
 
-        /// <summary>The minimum is lowered once per tab, as soon as its content exists; true when done.</summary>
-        bool AdjustDamageControlMinimum(object view)
+        /// <summary>The game's minimum of the section panels, in screen pixels, as last measured (0: not measured yet).</summary>
+        internal float SectionsGamePx;
+
+        /// <summary>
+        /// Once per tab, as soon as its content exists (true when done): finds the root Grid (the element nearest to the view with a
+        /// MinHeight, breadth first, not into lists) and its row-2 element, measures the game's share and applies SectionsMinHeight.
+        /// DcDone keeps { root, root MinHeight, sections element, row 2's MinHeight, scale, the sections' vertical margins }. The row
+        /// definition itself is taken from the root each time (Noesis hands out new proxies for it).
+        /// </summary>
+        bool SetupSections(object view)
         {
             try
             {
-                float add = _dcMinAdd.Value;
-                if (view == null || add == 0f || !InitNoesis()) return true;
-                object done;
+                if (view == null || !InitNoesis()) return true;
+                List<object[]> done;
                 if (DcDone.TryGetValue(view, out done)) return true;
 
-                int changed = 0;
-                // the tab itself and everything inside it
-                var stack = new Stack<object>();
-                stack.Push(view);
-                int budget = 5000;
-                while (stack.Count > 0 && --budget > 0)
+                object root = null;
+                var level = new List<object> { view };
+                for (int depth = 0; depth <= 5 && root == null && level.Count > 0; depth++)
                 {
-                    var e = stack.Pop();
-                    changed += AdjustMinHeight(e, add);
-                    for (int k = VtChildrenCount(e) - 1; k >= 0; k--)
+                    var next = new List<object>();
+                    foreach (var e in level)
                     {
-                        var c = VtChild(e, k);
-                        if (c != null) stack.Push(c);
+                        if (_gridType.IsInstanceOfType(e) && GetF(e, "MinHeight", 0f) > 0f) { root = e; break; }
+                        var tn = TypeName(e);
+                        if (tn == "ItemsControl" || tn == "ListBox" || tn == "ItemsPresenter" || tn == "ScrollViewer") continue;
+                        for (int k = 0, n = VtChildrenCount(e); k < n; k++) { var c = VtChild(e, k); if (c != null) next.Add(c); }
                     }
+                    level = next;
                 }
+                if (root == null) { Trace("damage control: root grid not found (content not built yet?)"); return false; }
+                var rows = Get(root, "RowDefinitions");
+                if (Count(rows) < 3) { Trace("damage control: " + Describe(root) + " - not the expected rows"); DcDone.Add(view, new List<object[]>()); return true; }
 
-                if (changed == 0) { Trace("damage control: no minimum height found (content not built yet?)"); return false; }
-                DcDone.Add(view, view);
-                Verbose("Damage Control tab: " + changed + " minimum height(s) changed by " + add.ToString("+0;-0", CultureInfo.InvariantCulture) + " px");
+                // the section panels: the element in row 2
+                object sections = null;
+                for (int k = 0, n = VtChildrenCount(root); k < n && sections == null; k++)
+                {
+                    var c = VtChild(root, k);
+                    var r = c == null ? Failed : Invoke(_gridGetRow, null, c);
+                    if (r != Failed && (int)r == 2) sections = c;
+                }
+                if (sections == null) { Trace("damage control: no element in row 2 of " + Describe(root)); return false; }
+
+                object row2 = null;
+                try { row2 = Item(rows, 2); } catch { }
+                float scale = ScreenScale(view), rootMin = GetF(root, "MinHeight", 0f), rowMin = row2 == null ? 0f : GetF(row2, "MinHeight", 0f);
+                // the game's share: the root's minimum less the other rows and the sections' own margins
+                float others = 0f;
+                for (int i = 0, c = Count(rows); i < c; i++)
+                {
+                    if (i == 2) continue;
+                    object def; try { def = Item(rows, i); } catch { continue; }
+                    others += GetF(def, "ActualHeight", 0f);
+                }
+                var m = Get(sections, "Margin");
+                float margins = m == null ? 0f : GetF(m, "Top", 0f) + GetF(m, "Bottom", 0f);
+                float game = rootMin - others - margins;
+                if (others > 0f && game > 0f) SectionsGamePx = game * scale;
+                Trace("damage control: " + Describe(root) + " MinHeight " + Fmt(rootMin) + ", other rows " + Fmt(others) + ", sections " + Describe(sections) +
+                      " - the game's minimum of the sections " + Fmt(game) + " units = " + Fmt(game * scale) + " px (" + scale.ToString("0.###", CultureInfo.InvariantCulture) + " px per unit)");
+
+                var list = new List<object[]> { new object[] { root, rootMin, sections, rowMin, scale, margins } };
+                DcDone.Add(view, list);
+                ApplySections(view, list[0]);
                 return true;
             }
-            catch (Exception e) { Trace("AdjustDamageControlMinimum: " + e); return true; }
+            catch (Exception e) { Trace("SetupSections: " + e); return true; }
+        }
+
+        /// <summary>SectionsMinHeight on one tab: 0 puts the game's minimums back.</summary>
+        void ApplySections(object view, object[] it)
+        {
+            float px = _secMin.Value;
+            float scale = ScreenScale(view);
+            if (scale <= 0f) scale = (float)it[4];
+            object row2 = null;
+            try { row2 = Item(Get(it[0], "RowDefinitions"), 2); } catch { }
+            if (row2 == null) { Trace("damage control: row 2 not readable"); return; }
+            if (px <= 0f)
+            {
+                SetV(it[0], "MinHeight", (float)it[1]);
+                SetV(row2, "MinHeight", (float)it[3]);
+                return;
+            }
+            float units = px / scale + (float)it[5];   // the row holds the panels and their margins
+            SetV(it[0], "MinHeight", 0f);
+            SetV(row2, "MinHeight", units);
+            Verbose("Damage Control tab: section panels at least " + Fmt(px) + " px (row 2 MinHeight " + Fmt(units) + " units)");
+        }
+
+        /// <summary>
+        /// SectionsMinHeight changed in the settings window: every tab already set up gets it at once; a tab on screen not set up yet is
+        /// set up now. Tabs not shown are set up when shown.
+        /// </summary>
+        void ReapplyDamageControl()
+        {
+            int tabs = 0;
+            for (int i = _dcViews.Count - 1; i >= 0; i--)
+            {
+                var v = _dcViews[i].Target;
+                if (v == null) { _dcViews.RemoveAt(i); continue; }
+                try
+                {
+                    List<object[]> list;
+                    if (DcDone.TryGetValue(v, out list)) { foreach (var it in list) ApplySections(v, it); tabs++; }
+                    else if (GetB(v, "IsVisible") && SetupSections(v)) tabs++;
+                }
+                catch (Exception e) { Trace("ReapplyDamageControl: " + e.Message); }
+            }
+            Verbose("Damage Control: SectionsMinHeight " + Fmt(_secMin.Value) + " px applied to " + tabs + " tab(s)");
         }
 
         static readonly string[] LayoutTypes = { "Grid", "StackPanel", "DockPanel", "WrapPanel", "UniformGrid", "Canvas", "Border",
             "ScrollViewer", "ItemsControl", "ItemsPresenter", "ContentPresenter", "ContentControl", "UserControl", "TabControl",
             "Viewbox", "Decorator", "DamageControlView", "UnitStatusView" };
 
-        /// <summary>Adds to a hard-coded MinHeight of a layout element and of its grid rows; returns how many were changed.</summary>
-        int AdjustMinHeight(object e, float add)
-        {
-            int n = 0;
-            if (Array.IndexOf(LayoutTypes, TypeName(e)) < 0) return 0; // buttons, text boxes... keep their own minimums
-            float mh = GetF(e, "MinHeight", 0f);
-            if (mh > 0f)
-            {
-                float v = Math.Max(0f, mh + add);
-                Trace("damage control: " + Describe(e) + " MinHeight " + mh.ToString(CultureInfo.InvariantCulture) + " -> " + v.ToString(CultureInfo.InvariantCulture));
-                SetV(e, "MinHeight", v);
-                n++;
-            }
-            if (_gridType.IsInstanceOfType(e))
-            {
-                var rows = Get(e, "RowDefinitions");
-                for (int i = 0, c = Count(rows); i < c; i++)
-                {
-                    object def;
-                    try { def = Item(rows, i); } catch { continue; }
-                    float rm = GetF(def, "MinHeight", 0f);
-                    if (rm <= 0f) continue;
-                    float v = Math.Max(0f, rm + add);
-                    Trace("damage control: " + Describe(e) + " row " + i + " MinHeight " + rm.ToString(CultureInfo.InvariantCulture) + " -> " + v.ToString(CultureInfo.InvariantCulture));
-                    SetV(def, "MinHeight", v);
-                    n++;
-                }
-            }
-            return n;
-        }
-
-        /// <summary>
-        /// The Damage Control tab became visible (the tabs are created collapsed and built when shown): adjust its hard-coded
-        /// minimum height.
-        /// </summary>
+        /// <summary>The Damage Control tab became visible (the tabs are created collapsed and built when shown): set it up.</summary>
         void OnDamageControlShown(object view)
         {
             try
             {
                 if (view == null || !GetB(view, "IsVisible") || !InitNoesis()) return;
-                // the content is there now: adjust the hard-coded minimum (lay it out first so the template is applied)
                 object w0 = view;
                 while (w0 != null && !(_winType != null && _winType.IsInstanceOfType(w0))) w0 = VtParent(w0);
-                object done0;
+                List<object[]> done0;
                 if (!DcDone.TryGetValue(view, out done0))
                 {
-                    if (w0 != null) Invoke(_updateLayout, w0);
-                    AdjustDamageControlMinimum(view);
+                    if (w0 != null) Invoke(_updateLayout, w0); // lay it out first: the template is applied, the rows are measured
+                    SetupSections(view);
                 }
             }
             catch (Exception e) { Trace("OnDamageControlShown: " + e); }
@@ -1691,6 +1750,14 @@ namespace SmartWindows
                 var m = utb.GetMethod(name, inst | BindingFlags.DeclaredOnly);
                 if (m != null) harmony.Patch(m, prefix: Hm("NationBusyPrefix"), finalizer: Hm("NationBusyFinalizer"));
                 else Trace("UnitTreeBrowserViewModel." + name + " not found");
+            }
+            // the rest of the search panel (RememberSearchPanel)
+            foreach (var name in new[] { "SelectedCategory", "FilterByDate", "SearchByNameOnly", "SearchText" })
+            {
+                var pr = utb.GetProperty(name, inst);
+                var set = pr == null ? null : pr.GetSetMethod(true);
+                if (set != null) harmony.Patch(set, postfix: Hm("SearchSetPostfix"));
+                else Trace("UnitTreeBrowserViewModel." + name + " not found: not remembered");
             }
             Trace("patched UnitTreeBrowserViewModel country selection");
         }
@@ -1721,7 +1788,86 @@ namespace SmartWindows
             catch (Exception e) { Trace("SaveCountry: " + e.Message); }
         }
 
+        static void SearchSetPostfix(object __instance, MethodBase __originalMethod)
+        {
+            var a = Active;
+            if (_nationBusy == 0 && !_nationRestoring && (object)a != null && a._improvedUI.Value && a._searchOn.Value && __originalMethod != null)
+                a.SaveSearch(__instance, __originalMethod.Name.Substring(4)); // set_X -> X
+        }
+
+        /// <summary>The user changed the search panel of the Unit Reference window: keep it.</summary>
+        void SaveSearch(object browser, string prop)
+        {
+            try
+            {
+                if (!IsEncyclopediaBrowser(browser)) return;
+                if (_browserInitializing != null && (bool)_browserInitializing.GetValue(browser)) return; // the game's own setup
+                bool changed = false;
+                switch (prop)
+                {
+                    case "SelectedCategory":
+                        var cat = (TextOf(Get(Get(browser, "SelectedCategory"), "DisplayName")) ?? "").Trim();
+                        if (cat.Length > 0 && cat != _searchCategory.Value) { _searchCategory.Value = cat; changed = true; }
+                        break;
+                    case "FilterByDate":
+                        if (GetB(browser, "FilterByDate") != _searchByDate.Value) { _searchByDate.Value = !_searchByDate.Value; changed = true; }
+                        break;
+                    case "SearchByNameOnly":
+                        if (GetB(browser, "SearchByNameOnly") != _searchNameOnly.Value) { _searchNameOnly.Value = !_searchNameOnly.Value; changed = true; }
+                        break;
+                    case "SearchText":
+                        var t = TextOf(Get(browser, "SearchText")) ?? "";
+                        if (t != _searchText.Value) { _searchText.Value = t; changed = true; }
+                        break;
+                }
+                if (!changed) return;
+                if (prop == "SearchText") { _dirty = true; _dirtySince = Time.unscaledTime; } // typed letter by letter: saved with the layouts, debounced
+                else Config.Save();
+                Trace("Unit Reference: search panel " + prop + " kept");
+            }
+            catch (Exception e) { Trace("SaveSearch: " + e.Message); }
+        }
+
+        /// <summary>The kept search panel is set again (after the country; only what differs, so the tree is filtered once).</summary>
+        void RestoreSearch(object browser)
+        {
+            if (!_searchOn.Value) return;
+            try
+            {
+                if (!IsEncyclopediaBrowser(browser)) return;
+                if (_browserInitializing != null && (bool)_browserInitializing.GetValue(browser)) return;
+                _nationRestoring = true;
+                try
+                {
+                    var cat = (_searchCategory.Value ?? "").Trim();
+                    if (cat.Length > 0 && !string.Equals((TextOf(Get(Get(browser, "SelectedCategory"), "DisplayName")) ?? "").Trim(), cat, StringComparison.OrdinalIgnoreCase))
+                    {
+                        object match = null;
+                        var roots = Get(browser, "RootCategories") as System.Collections.IEnumerable;
+                        if (roots != null)
+                            foreach (var c in roots)
+                                if (string.Equals((TextOf(Get(c, "DisplayName")) ?? "").Trim(), cat, StringComparison.OrdinalIgnoreCase)) { match = c; break; }
+                        if (match != null) SetV(browser, "SelectedCategory", match);
+                        else Trace("category '" + cat + "' not in the list");
+                    }
+                    if (GetB(browser, "FilterByDate") != _searchByDate.Value) SetV(browser, "FilterByDate", _searchByDate.Value);
+                    if (GetB(browser, "SearchByNameOnly") != _searchNameOnly.Value) SetV(browser, "SearchByNameOnly", _searchNameOnly.Value);
+                    var text = _searchText.Value ?? "";
+                    if ((TextOf(Get(browser, "SearchText")) ?? "") != text) SetV(browser, "SearchText", text);
+                }
+                finally { _nationRestoring = false; }
+                Verbose("Unit Reference: search panel restored");
+            }
+            catch (Exception e) { Trace("RestoreSearch: " + e.Message); }
+        }
+
         void RestoreCountry(object browser)
+        {
+            RestoreNation(browser);
+            RestoreSearch(browser);
+        }
+
+        void RestoreNation(object browser)
         {
             try
             {
@@ -1870,6 +2016,7 @@ namespace SmartWindows
                 if (children == null) return;
                 children.Add(border);
                 Borders.Add(w, border);
+                _borderOwners.Add(new WeakReference(w));
                 Trace("frame added to '" + TextOf(Get(w, "Header")) + "' in " + Describe(panel));
             }
             catch (Exception ex) { Trace("AddBorder: " + ex.Message); }
@@ -1908,11 +2055,9 @@ namespace SmartWindows
             if (w == null || _hookFailed) return;
             if (_borderOn.Value) AddBorder(w);
             if (_toFront.Value) BringToFront(w, "opened");
-            if (_dblClickMax.Value)
-            {
-                HookHeader(w);
-                OpenMaximized(w, "on Loaded"); // windows not recognisable yet before OnInitialized (content set later)
-            }
+            HookHeader(w); // the double-click checks MaximizeOnDoubleClick itself
+            if (_dblClickMax.Value) OpenMaximized(w, "on Loaded"); // windows not recognisable yet before OnInitialized (content set later)
+            EnsureGear(w);
             if (_removeLimitsAll.Value)
             {
                 try
@@ -2024,8 +2169,21 @@ namespace SmartWindows
             return true;
         }
 
+        /// <summary>The game's size limits of a window and of the elements inside it, as found before RemoveSizeLimits: { element, MinWidth, MinHeight, MaxWidth, MaxHeight }.</summary>
+        static readonly ConditionalWeakTable<object, List<object[]>> SizeLimits = new ConditionalWeakTable<object, List<object[]>>();
+
         void RemoveSizeLimits(object w)
         {
+            List<object[]> kept;
+            bool first = !SizeLimits.TryGetValue(w, out kept);
+            if (first) { kept = new List<object[]>(); SizeLimits.Add(w, kept); }
+            Action<object> keep = e =>
+            {
+                if (!first) return;
+                foreach (var k in kept) if (ReferenceEquals(k[0], e) || k[0].Equals(e)) return;
+                kept.Add(new object[] { e, GetF(e, "MinWidth", 0f), GetF(e, "MinHeight", 0f), GetF(e, "MaxWidth", float.PositiveInfinity), GetF(e, "MaxHeight", float.PositiveInfinity) });
+            };
+            keep(w);
             SetV(w, "MinWidth", WindowMinWidth);
             SetV(w, "MinHeight", WindowMinHeight);
             SetV(w, "MaxWidth", float.PositiveInfinity);
@@ -2035,8 +2193,40 @@ namespace SmartWindows
             var view = (InfoViewModel(w) != null ? FindByType(w, "ObjectInformationView", 3000) : null) ?? ContentRoot(w);
             for (var e = view; e != null && !e.Equals(w); e = VtParent(e))
             {
-                if (GetF(e, "MinWidth", 0f) > 0f) { Trace("size limit: " + Describe(e) + " MinWidth " + GetF(e, "MinWidth", 0f)); SetV(e, "MinWidth", 0f); }
-                if (GetF(e, "MinHeight", 0f) > 0f) { Trace("size limit: " + Describe(e) + " MinHeight " + GetF(e, "MinHeight", 0f)); SetV(e, "MinHeight", 0f); }
+                bool mw = GetF(e, "MinWidth", 0f) > 0f, mh = GetF(e, "MinHeight", 0f) > 0f;
+                if (!mw && !mh) continue;
+                keep(e);
+                if (mw) { Trace("size limit: " + Describe(e) + " MinWidth " + GetF(e, "MinWidth", 0f)); SetV(e, "MinWidth", 0f); }
+                if (mh) { Trace("size limit: " + Describe(e) + " MinHeight " + GetF(e, "MinHeight", 0f)); SetV(e, "MinHeight", 0f); }
+            }
+        }
+
+        /// <summary>RemoveSizeLimits switched off: the window and the elements inside it get the game's limits back.</summary>
+        void RestoreSizeLimits(object w)
+        {
+            List<object[]> kept;
+            if (w == null || !SizeLimits.TryGetValue(w, out kept)) return;
+            foreach (var k in kept)
+            {
+                SetV(k[0], "MinWidth", (float)k[1]);
+                SetV(k[0], "MinHeight", (float)k[2]);
+                SetV(k[0], "MaxWidth", (float)k[3]);
+                SetV(k[0], "MaxHeight", (float)k[4]);
+            }
+            SizeLimits.Remove(w);
+        }
+
+        /// <summary>RemoveSizeLimits changed in the settings window: the remembered windows on screen follow at once.</summary>
+        void RefreshSizeLimits()
+        {
+            if (!InitNoesis()) return;
+            foreach (var t in _tracked)
+            {
+                var w = t.Ref.Target;
+                if (w == null || !IsOnScreen(w)) continue;
+                string label;
+                if (_removeLimitsAll.Value) { if (MatchPattern(w, out label) != null) RemoveSizeLimits(w); }
+                else RestoreSizeLimits(w);
             }
         }
 
@@ -2378,6 +2568,7 @@ namespace SmartWindows
                 float x = start[0] + GetF(e, "HorizontalChange", 0f);
                 float y = start[1] + GetF(e, "VerticalChange", 0f);
                 ClampToViewport(w, ref x, ref y, GetF(w, "ActualWidth", 0f));
+                if (_snapOn.Value) SnapMove(w, ref x, ref y, start);
                 SetF(w, "X", x);
                 SetF(w, "Y", y);
             }
@@ -2555,7 +2746,7 @@ namespace SmartWindows
             {
                 t.Settled = false; t.Countdown = -1; t.Key = null; t.Tries = 0; t.NextTry = 0f; t.Reported = false;
                 t.UrDone = false; t.UrTries = 0; t.UrNext = 0f; t.WasMax = false;
-                if (_dblClickMax.Value) HookHeader(w);
+                HookHeader(w);
             }
             else if (!active && t.WasActive)
             {
@@ -2591,6 +2782,7 @@ namespace SmartWindows
                 t.Label = label;
                 if (_removeLimitsAll.Value && InitNoesis()) RemoveSizeLimits(w);
                 if (_dblClickMax.Value) OpenMaximized(w, "when recognised");
+                EnsureGear(w);
                 t.Countdown = 8;
                 Verbose("Tracking window " + label + " as pattern '" + t.Key + "'");
                 return;

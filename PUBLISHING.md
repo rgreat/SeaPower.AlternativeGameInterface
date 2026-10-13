@@ -17,6 +17,9 @@ SmartWindows/                 <- проект (хранится у вас, в Wo
 ├─ description.bbcode.txt     <- текст для страницы в Workshop (BBCode), в мод не входит
 ├─ src/
 │  ├─ SmartWindowsPlugin.cs           <- сам плагин (BepInEx BaseUnityPlugin)
+│  ├─ SettingsUI.cs                   <- шестерёнка в заголовках окон, применение настроек
+│  ├─ SettingsWindow.cs               <- окно настроек (как в Alternative Damage Model)
+│  ├─ Snap.cs                         <- притягивание краёв окон (SnapWindows)
 │  └─ AnchorChainEntry.cs             <- точка входа Anchor Chain ([ACPlugin] + IAnchorChainMod)
 └─ Release/                   <- ЭТО и есть мод: содержимое этой папки выкладываете
    ├─ _info.ini                       <- название/описание в менеджере модов + версия игры
@@ -53,7 +56,7 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
    `D:\Steam\steamapps\common\Sea Power\Sea Power_Data\StreamingAssets\SmartWindows`.
 3. Запустите игру -> **Mods** -> включите **Anchor Chain** и **Smart Windows** -> Apply -> **полностью перезапустите игру**
    (код-моды загружаются только при старте процесса; Apply перезагружает лишь сцену).
-4. В `BepInEx\LogOutput.log` должно быть `Smart Windows 1.2.0 (build ...) loaded` и позже `Window hooks installed.`
+4. В `BepInEx\LogOutput.log` должно быть `Smart Windows 1.3.0 (build ...) loaded` и позже `Window hooks installed.`
    Предупреждения `Smart Windows ...` покажут, если игра изменилась.
 5. Проверьте: положение окон запоминается, F12 добавляет окно, окна уходят за край.
 
