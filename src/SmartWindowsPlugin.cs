@@ -45,7 +45,7 @@ namespace SmartWindows
     public partial class SmartWindowsPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.smartwindows";
-        public const string PluginVersion = "1.3.0"; // also <Version> in SmartWindows.csproj
+        public const string PluginVersion = "1.4.0"; // also <Version> in SmartWindows.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
 
         struct Layout
@@ -369,6 +369,17 @@ namespace SmartWindows
             _searchOn = Config.Bind("UnitReference", "RememberSearchPanel", true,
                 "The Unit Reference window's search panel - category, 'filter by date', 'search by name only' and the search text - is " +
                 "kept in the .cfg (the keys below) and set again when a Unit Reference window opens (with ImprovedUnitReferenceUI).");
+            _treeOpt = Config.Bind("UnitReference", "OptimizeTree", true,
+                "Unit Reference tree: classes of a unit type sorted by service entry date; in a class group " +
+                "each unit is followed by its loadout variants (by date, Early first), labelled \"Unit [Variant]\" (no suffix for Default " +
+                "or a single variant); a unit without a Default loadout shows only its variants. Applies to Unit Reference windows opened afterwards.");
+            _treeScroll = Config.Bind("UnitReference", "ScrollToSelected", true,
+                "Unit Reference tree: scroll the tree so that the selected unit is visible (centred when " +
+                "the window opens or the tree is shown).");
+            _loadoutList = Config.Bind("UnitReference", "ShowLoadoutList", true,
+                "Unit Reference: show the loadout selector for ships, submarines and land units with several loadouts too (the game shows it " +
+                "for aircraft only); the unit's information follows the chosen loadout.");
+            _armOnly = Config.Bind("UnitReference", "ArmedOnly", false, "The \"Armed only\" check box the mod adds to the Unit Reference search panel (with ImprovedUnitReferenceUI): when ticked, units without weapons (decoys, sonobuoys, fuel tanks do not count) are left out of the tree.");
             _searchCategory = Config.Bind("UnitReference", "Category", "",
                 "Category of the unit tree, by its name. Written by the plugin (RememberSearchPanel); empty = the game's choice.");
             _searchByDate = Config.Bind("UnitReference", "FilterByDate", false,
@@ -627,6 +638,8 @@ namespace SmartWindows
                     else Logger.LogWarning("ObjectInformationViewModel.MuseumEntriesVisible not found (game updated?); ImprovedUnitReferenceUI is not available.");
 
                     HookCountry(harmony, asm);
+                    HookLoadoutList(harmony, asm);
+                    HookArmedFilter(harmony, asm);
                 }
 
                 {
@@ -1751,6 +1764,13 @@ namespace SmartWindows
                 if (m != null) harmony.Patch(m, prefix: Hm("NationBusyPrefix"), finalizer: Hm("NationBusyFinalizer"));
                 else Trace("UnitTreeBrowserViewModel." + name + " not found");
             }
+            // the tree's own copy of the units (OptimizeTree): set in the constructor and again when the units have loaded
+            {
+                var me = utb.GetProperty("MuseumEntries", inst);
+                var set = me == null ? null : me.GetSetMethod(true);
+                if (set != null) { harmony.Patch(set, postfix: Hm("TreeEntriesPostfix")); Trace("patched UnitTreeBrowserViewModel.set_MuseumEntries"); }
+                else Trace("UnitTreeBrowserViewModel.MuseumEntries not found: OptimizeTree not available");
+            }
             // the rest of the search panel (RememberSearchPanel)
             foreach (var name in new[] { "SelectedCategory", "FilterByDate", "SearchByNameOnly", "SearchText" })
             {
@@ -2760,6 +2780,9 @@ namespace SmartWindows
             if (!active) return;
 
             if (_improvedUI.Value && !t.UrDone && now >= t.UrNext) SetupUnitReference(t, w, now);
+            if (_treeScroll.Value) TreeScrollStep(w);
+            if (_improvedUI.Value) ArmedBoxStep(w);
+            if (_loadoutList.Value) ReplaceButtonStep(w);
 
             // identify (content/header may be assigned shortly after the window becomes visible)
             if (t.Key == null)

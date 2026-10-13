@@ -25,6 +25,7 @@ namespace SmartWindows
                 public char Kind;            // b bool, f number, k key, s text, c colour, w wide text (a list)
                 public ConfigEntryBase Entry;
                 public float Step, Min, Max;
+                public Field Needs;          // shown only while this (bool) field is on
             }
 
             const string TGeneral = "General", TRemembered = "Remembered Windows", TFrame = "Frame", TStatus = "Unit Status", TRef = "Unit Reference";
@@ -60,8 +61,11 @@ namespace SmartWindows
 
                 Add(TStatus, "Damage Control tab", p._secMin, 'f', "Sections min height", "px · 0 = game", 10f, 0f, 3000f);
 
-                Add(TRef, "Unit Reference window", p._improvedUI, 'b', "Improvements", "");
+                Add(TRef, "Unit Reference window", p._improvedUI, 'b', "Layout Improvements", "");
                 Add(TRef, "Unit Reference window", p._searchOn, 'b', "Remember search panel", "");
+                Add(TRef, "Unit Reference window", p._treeOpt, 'b', "Optimize the tree", "");
+                Add(TRef, "Unit Reference window", p._treeScroll, 'b', "Scroll to the selected unit", "");
+                Add(TRef, "Unit Reference window", p._loadoutList, 'b', "Loadout list for all units", "");
                 Add(TRef, "Kept by the mod", p._treeWidth, 'f', "Unit tree width", "px · 0 = auto", 10f, 0f, 3000f);
                 Add(TRef, "Kept by the mod", p._treeShown, 'b', "Unit tree shown", "");
                 Add(TRef, "Kept by the mod", p._nation, 's', "Country", "empty = game");
@@ -69,6 +73,12 @@ namespace SmartWindows
                 Add(TRef, "Kept by the mod", p._searchByDate, 'b', "Filter by date", "");
                 Add(TRef, "Kept by the mod", p._searchNameOnly, 'b', "Search by name only", "");
                 Add(TRef, "Kept by the mod", p._searchText, 's', "Search text", "");
+                Add(TRef, "Kept by the mod", p._armOnly, 'b', "Armed only", "");
+
+                // work only with Layout Improvements (ImprovedUnitReferenceUI): hidden while it is off
+                var ui = Fields.Find(f => ReferenceEquals(f.Entry, p._improvedUI));
+                foreach (var f in Fields)
+                    if (f.Tab == TRef && f != ui && (f.Group == "Kept by the mod" || ReferenceEquals(f.Entry, p._searchOn))) f.Needs = ui;
             }
 
             // ------------------------------------------------------------ colours (as Alternative Damage Model)
@@ -433,10 +443,17 @@ namespace SmartWindows
 
             static void Set(Field f, object v)
             {
+                bool was = Get(f) is bool && (bool)Get(f);
                 if (Equals(v, f.Entry.BoxedValue)) _pending.Remove(f);
                 else _pending[f] = v;
                 UpdateHeader();
+                // a switch other rows depend on: show / hide them
+                if ((Get(f) is bool && (bool)Get(f)) != was && Fields.Exists(x => x.Needs == f))
+                    try { ShowTab(_tab); } catch (Exception e) { Trace("settings: " + e.Message); }
             }
+
+            /// <summary>The row is shown: the switch it depends on (if any) is on in the window.</summary>
+            static bool Shown(Field f) { return f.Needs == null || (Get(f.Needs) is bool && (bool)Get(f.Needs)); }
 
             static bool Dirty() { return _pending.Count > 0 || _resets.Count > 0 || _osStates.Count > 0; }
 
@@ -568,7 +585,7 @@ namespace SmartWindows
                 string group = null;
                 foreach (var f in Fields)
                 {
-                    if (f.Tab != Tabs[_tab]) continue;
+                    if (f.Tab != Tabs[_tab] || !Shown(f)) continue;
                     if (f.Group != group) { group = f.Group; _body.Children.Add(GroupTitle(group)); }
                     _body.Children.Add(f.Kind == 'w' ? ListRow(f) : Row(f));
                 }
