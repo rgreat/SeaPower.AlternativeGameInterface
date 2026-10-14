@@ -60,7 +60,7 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
    `D:\Steam\steamapps\common\Sea Power\Sea Power_Data\StreamingAssets\SmartWindows`.
 3. Запустите игру -> **Mods** -> включите **Anchor Chain** и **Smart Windows** -> Apply -> **полностью перезапустите игру**
    (код-моды загружаются только при старте процесса; Apply перезагружает лишь сцену).
-4. В `BepInEx\LogOutput.log` должно быть `Smart Windows 1.5.0 (build ...) loaded` и позже `Window hooks installed.`
+4. В `BepInEx\LogOutput.log` должно быть `Smart Windows 1.5.1 (build ...) loaded` и позже `Window hooks installed.`
    Предупреждения `Smart Windows ...` покажут, если игра изменилась.
 5. Проверьте: положение окон запоминается, F12 добавляет окно, окна уходят за край.
 

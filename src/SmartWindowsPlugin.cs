@@ -45,7 +45,7 @@ namespace SmartWindows
     public partial class SmartWindowsPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.smartwindows";
-        public const string PluginVersion = "1.5.0"; // also <Version> in SmartWindows.csproj
+        public const string PluginVersion = "1.5.1"; // also <Version> in SmartWindows.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
 
         struct Layout
@@ -463,7 +463,10 @@ namespace SmartWindows
                 foreach (var d in new[] { new ConfigDefinition("General", "ResizeOnTreeToggle"), new ConfigDefinition("General", "HideFilterWithTree"),
                                           new ConfigDefinition("UnitReference", "RemoveSizeLimits"), new ConfigDefinition("UnitReference", "TreeSplitter"),
                                           new ConfigDefinition("UnitStatus", "DamageControlExtraShrink"),
-                                          new ConfigDefinition("UnitStatus", "DamageControlMinHeightAdd") })
+                                          new ConfigDefinition("UnitStatus", "DamageControlMinHeightAdd"),
+                                          // test builds: the Weapons tab moved to the Alternative Weapons Control mod
+                                          new ConfigDefinition("UnitStatus", "WeaponsTab"), new ConfigDefinition("UnitStatus", "ClickVolume"),
+                                          new ConfigDefinition("UnitStatus", "GunOneDirector"), new ConfigDefinition("UnitStatus", "GunChannelLimit") })
                     orphans.Remove(d);
             }
             catch (Exception e) { Trace("DropRetiredEntries: " + e.Message); }
@@ -2054,7 +2057,29 @@ namespace SmartWindows
             var c = Get(w, "Content");
             var b = c == null ? null : Get(c, "Body");
             foreach (var o in new[] { Get(w, "DataContext"), c, c == null ? null : Get(c, "DataContext"), b, b == null ? null : Get(b, "DataContext") })
-                if (o != null && TypeName(o) == "ObjectInformationViewModel") return o;
+                if (o != null && TypeName(o) == "ObjectInformationViewModel") return IsSystemReference(o) ? null : o;
+            return null;
+        }
+
+        /// <summary>
+        /// A Unit Reference window opened on a launcher / gun (the Weapons tab's links, the Unit Reference's armament): no tree and
+        /// the page is not a unit (MuseumObjectEntry). The mod treats it as a Weapon Reference window, not a Unit Reference one.
+        /// </summary>
+        bool IsSystemReference(object vm)
+        {
+            if (vm == null || TypeName(vm) != "ObjectInformationViewModel" || GetB(vm, "ToggleTreeCommandVisible")) return false;
+            var e = Get(vm, "SelectedMuseumEntry");
+            if (e == null) return false;
+            for (var t = e.GetType(); t != null; t = t.BaseType) if (t.Name == "MuseumObjectEntry") return false;
+            return true;
+        }
+
+        object SystemReferenceVm(object w)
+        {
+            var c = Get(w, "Content");
+            var b = c == null ? null : Get(c, "Body");
+            foreach (var o in new[] { Get(w, "DataContext"), c, c == null ? null : Get(c, "DataContext"), b, b == null ? null : Get(b, "DataContext") })
+                if (o != null && IsSystemReference(o)) return o;
             return null;
         }
 
@@ -3313,6 +3338,8 @@ namespace SmartWindows
             var list = new List<string>();
             try
             {
+                // a launcher / gun page in a Unit Reference window: the same kind as the Weapon Reference windows
+                if (SystemReferenceVm(w) != null) { list.Add("Weapon Reference"); list.Add("ObjectWeaponInformationViewModel"); return list; }
                 Add(list, TextOf(Get(w, "Name")));
                 var h = Get(w, "Header");
                 Add(list, TextOf(h)); Add(list, TypeName(h));

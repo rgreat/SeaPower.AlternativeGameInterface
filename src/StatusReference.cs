@@ -19,7 +19,7 @@ namespace SmartWindows
     public partial class SmartWindowsPlugin
     {
         ConfigEntry<bool> _statusRef;
-        const int RefTabKind = 5;   // past the game's UnitStatusTab values (Engagement ... Seeker)
+        const int RefTabKind = 5;   // past the game's UnitStatusTab values (Engagement ... Seeker); 6 = Alternative Weapons Control's Weapons tab
 
         Type _ustType, _ustKind, _oivmType, _oivType, _weaponBaseType;
         FieldInfo _ustUnit;

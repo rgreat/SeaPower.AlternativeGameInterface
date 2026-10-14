@@ -7,11 +7,15 @@ Seapower-Scripts), Harmony-хуки ставятся по именам мето�
 
 ## Сборка в песочнице (проверено)
 1. `apt-get update && apt-get install -y dotnet-sdk-8.0` (без `update` пакеты дают 404).
-2. Репозиторий: в облачной сессии Claude Code подключается через `add_repo` (rgreat/SeaPower.SmartWindows) и
-   клонируется полностью, вместе с бинарными файлами (dll, thumbnail.jpg). В обычном чате GitHub отдаёт 404.
-   GameRefs (UnityEngine*.dll, Seapower-Scripts.dll, Noesis.NoesisGUI.dll): папка `GameRefs/` в репозитории может
-   отставать от игры → брать `GameRefs.zip`, приложенный пользователем, распаковать в `/home/claude/game`.
-   Версия игры — `SeaPower.Constants.VERSION` в декомпиляции Seapower-Scripts. `GameRefs/` в репозитории — 0.8.5.
+2. Репозитории проекта Sea Power (все приватные, владелец rgreat; в облачной сессии Claude Code — `add_repo`, клон
+   `/home/claude/<имя в нижнем регистре>`, вместе с бинарными файлами; в обычном чате GitHub отдаёт 404):
+   SeaPower.SmartWindows (этот мод), SeaPower.AlternativeDamageModel, SeaPower.AlternativeWeaponsControl (вкладка Weapons,
+   выделена отсюда), SeaPower.GameFiles (только чтение: файлы игры).
+   Ссылки для сборки (UnityEngine*.dll, Seapower-Scripts.dll, Noesis.NoesisGUI.dll): `SeaPower.GameFiles/Managed/`
+   (актуальная сборка игры; на 14.10.2026 — та же, что 0.8.5 в `/home/claude/game`), кроме UnityEngine.InputLegacyModule.dll —
+   его нет в GameFiles, брать из `GameRefs/` этого репозитория (папка может отставать от игры) или `GameRefs.zip` пользователя;
+   всё вместе — в `/home/claude/game`. Данные игры (vessels, ammunition, systems, aircraft, land_units, language_en,
+   xaml-assets...) — там же, для анализа. Версия игры — `SeaPower.Constants.VERSION` в декомпиляции Seapower-Scripts.
 3. BepInEx: `https://github.com/BepInEx/BepInEx/releases/download/v5.4.23.4/BepInEx_win_x64_5.4.23.4.zip`
    (`BepInEx/core/*.dll`); Anchor Chain: `https://github.com/SeaPower-Modders/AnchorChain/releases/download/V1.1.0/dev.zip`.
    GitHub API даёт rate limit — качать прямыми ссылками.
@@ -196,6 +200,17 @@ thumbnail.jpg берётся из клона репозитория.
   вкладки игры; не найдено — дамп дерева UnitStatusView в trace (один раз).
 * Replace в этой вкладке — тем же `ReplaceStep` (каждый кадр по живым видам вкладки), вне энциклопедии скрыт.
 
+## Вкладка Weapons — теперь отдельный мод Alternative Weapons Control
+Вкладка Weapons (бывшая 1.6.0 в разработке) вынесена в мод Alternative Weapons Control (репозиторий
+rgreat/SeaPower.AlternativeWeaponsControl). Его вкладка — kind 6, наша Reference — kind 5; моды ставят хуки на одни и те же
+методы UnitStatusViewModel и свои хосты рядом с вкладками игры — друг другу не мешают. Ключи [UnitStatus] WeaponsTab,
+ClickVolume, GunOneDirector, GunChannelLimit тестовых сборок удаляются из .cfg (`DropRetiredEntries`).
+
+## Окна Weapon Reference для установок (1.5.1)
+* Окно Unit Reference, открытое на установке (без дерева, страница не MuseumObjectEntry — `IsSystemReference`), мод
+  считает окном Weapon Reference: `Candidates` → «Weapon Reference» (шаблон, раскладка как у окон боеприпасов),
+  `InfoViewModel` → null (никаких Unit Reference-доработок, без вкладки Unit Reference в настройках).
+
 ## Окно настроек: зависимые строки
 * `Field.Needs` — строка видна, только пока включён этот bool (по значению в окне, с учётом неприменённого). Смена такого
   переключателя (`Set`) перестраивает вкладку. Сейчас: от «Layout Improvements» (ImprovedUnitReferenceUI) зависят
@@ -356,4 +371,5 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 * 13.10.2026: 1.3.0 проверена в игре и зафиксирована как стабильная (коммит «Smart Windows 1.3.0»).
 * 13.10.2026: 1.4.0 закоммичена («Smart Windows 1.4.0»): дерево Unit Reference, прокрутка, список loadout'ов, Armed only.
 * 13.10.2026: 1.5.0 закоммичена («Smart Windows 1.5.0»): вкладка Reference в Unit Status, «Show all settings».
+* 14.10.2026: 1.5.1 закоммичена («Smart Windows 1.5.1»): окна установок как Weapon Reference; вкладка Weapons вынесена в Alternative Weapons Control.
 * Версия: константа `PluginVersion` (BepInPlugin, ACPlugin, лог) + `<Version>` в csproj — менять обе.
