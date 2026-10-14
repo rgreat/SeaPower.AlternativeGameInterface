@@ -45,7 +45,7 @@ namespace SmartWindows
     public partial class SmartWindowsPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.smartwindows";
-        public const string PluginVersion = "1.5.1"; // also <Version> in SmartWindows.csproj
+        public const string PluginVersion = "1.5.2"; // also <Version> in SmartWindows.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
 
         struct Layout
@@ -344,9 +344,9 @@ namespace SmartWindows
                 "Control Status' panel at the bottom moves out of the window. 0 = as in the game (the whole tab has a fixed minimum; the " +
                 "panels get what the other rows leave of it - shown in the settings window).");
             _toFront = Config.Bind("General", "BringToFrontOnClick", true,
-                "Clicking a window brings it in front of the other windows; a newly opened window comes in front too. Windows keep " +
-                "the level the game gave them (Panel.ZIndex): a click never lifts a window above one of a higher level, and nothing " +
-                "else in the game's UI changes its place (only windows swap their places among themselves).");
+                "Clicking a window brings it in front of the other windows; a newly opened window comes in front too. Only windows are " +
+                "reordered, and only below the level the game gave them (Panel.ZIndex), so anything the game shows itself - briefings, " +
+                "messages - stays above them. A maximized Tactical Display / World View stays below every other window.");
             _dblClickMax = Config.Bind("General", "MaximizeOnDoubleClick", true,
                 "Double-click a window's title bar to maximize it to the full screen, double-click again to restore it " +
                 "(windows that can be resized). A window closed maximized opens maximized (',max' after its layout in [Layouts]).");
@@ -403,6 +403,8 @@ namespace SmartWindows
                 "Width of the frame in pixels (0.5 - 10). The frame has no top side (it would run under the title bar).");
             _borderColor = Config.Bind("WindowBorder", "Color", DefaultBorderColor,
                 "Colour of the frame: #RRGGBB or #AARRGGBB (AA = opacity, 00 transparent - FF solid).");
+            _tipBorder = Config.Bind("WindowBorder", "ToolTips", true,
+                "Frame around the game's tooltips (pop-up hints) too, on all four sides, with the width and colour above.");
             _gearOn = Config.Bind("General", "SettingsButton", true,
                 "A gear button in the title bar of every remembered window (WindowPatterns) opens the Smart Windows settings window.");
             _debugEntry = Config.Bind("General", "Debug", false,
@@ -669,6 +671,7 @@ namespace SmartWindows
                     else Logger.LogWarning("SeapowerUI.DamageControlView not found (game updated?); SectionsMinHeight is not available.");
                 }
 
+                HookToolTips();
                 Logger.LogInfo("Window hooks installed.");
             }
             catch (Exception e)
@@ -1125,7 +1128,11 @@ namespace SmartWindows
         /// are siblings is found going up from the window: the first panel with another window in another child. Done only there
         /// when every child of that panel is a window. The state is kept by window (SeapowerUI.Window objects stay the same; the
         /// Noesis wrappers of the panel's children do not): its level is the ZIndex the game gave its element before we touched
-        /// it. Windows are then ordered by level, then by last raise: ZIndex = level * 1000 + rank.
+        /// it. Windows are then ordered by level, then by last raise, with NEGATIVE ZIndex counting down from the level: the
+        /// front window of a level gets level * 1000 - 1, the ones behind it - 2, - 3... So every window stays below what the
+        /// game shows at its own ZIndex in the same panel - the mission briefing and scripted messages (SeapowerUI.Modal,
+        /// ZIndex 0) and any window or pop-up just opened (0) - without knowing what those are. Other elements of the panel
+        /// (not windows) are left as the game set them.
         /// </summary>
         static readonly string[] MapHeaders = { "TacticalDisplay", "WorldView" };
         static readonly string[] MapViewModels = { "SceneMapViewModel", "WorldViewWindowViewModel" };
@@ -1166,6 +1173,8 @@ namespace SmartWindows
                 for (var p = VtParent(w); p != null; c = p, p = VtParent(p))
                 {
                     if (!_panelType.IsInstanceOfType(p)) continue;
+                    // the panel of the game's window list (ItemsControl over WindowHost.Windows): also with this window alone
+                    if (GetB(p, "IsItemsHost")) { panel = p; break; }
                     bool other = false;
                     for (int k = 0, n0 = VtChildrenCount(p); k < n0 && !other; k++)
                     {
@@ -1174,25 +1183,17 @@ namespace SmartWindows
                     }
                     if (other) { panel = p; break; }
                 }
-                if (panel == null) return; // no other window around it
+                if (panel == null) { if (_debug && why != "click") Trace("z-order (" + why + "): '" + TextOf(Get(w, "Header")) + "' - not in a panel of windows"); return; }
 
-                // every child must be a window: then nothing but windows changes its place
+                // the windows of the panel; anything else (the game's pop-ups) keeps the ZIndex the game gave it
                 var kids = new List<object[]>(); // { element, window }
+                int others = 0;
                 for (int k = 0, n = VtChildrenCount(panel); k < n; k++)
                 {
                     var ch = VtChild(panel, k);
                     if (ch == null) continue;
                     var win = ch.Equals(c) ? w : WindowIn(ch);
-                    if (win == null)
-                    {
-                        object rep;
-                        if (!ZPanelsReported.TryGetValue(w, out rep))
-                        {
-                            ZPanelsReported.Add(w, w);
-                            Trace("z-order: '" + TextOf(Get(w, "Header")) + "' shares " + Describe(panel) + " with " + Describe(ch) + " - order left to the game");
-                        }
-                        return;
-                    }
+                    if (win == null) { others++; continue; }
                     kids.Add(new[] { ch, win });
                 }
 
@@ -1229,20 +1230,42 @@ namespace SmartWindows
                     return r != 0 ? r : kids.IndexOf(a).CompareTo(kids.IndexOf(b));
                 });
                 int bottoms = 0;
-                foreach (var kw in order) if (bottom[kw[1]]) bottoms++;
+                var perLevel = new Dictionary<int, int>();   // windows of each level (not the bottom ones)
+                foreach (var kw in order)
+                {
+                    if (bottom[kw[1]]) { bottoms++; continue; }
+                    ZState z; ZStates.TryGetValue(kw[1], out z);
+                    int n; perLevel.TryGetValue(z.Level, out n); perLevel[z.Level] = n + 1;
+                }
+                int inMin; perLevel.TryGetValue(minLevel, out inMin);
+                inMin = Math.Min(inMin, ZLevelScale - 2);
                 int rank = 0, lastLevel = int.MinValue, bi = 0;
                 foreach (var kw in order)
                 {
                     ZState z; ZStates.TryGetValue(kw[1], out z);
                     int want;
-                    if (bottom[kw[1]]) want = minLevel * ZLevelScale - bottoms + bi++; // below the lowest level of the panel
+                    // maximized maps: below the backmost window of the lowest level
+                    if (bottom[kw[1]]) want = minLevel * ZLevelScale - 1 - inMin - bottoms + bi++;
                     else
                     {
                         if (z.Level != lastLevel) { lastLevel = z.Level; rank = 0; }
-                        want = z.Level * ZLevelScale + Math.Min(rank++, ZLevelScale - 1);
+                        // back to front (the order is ascending): the front one gets level * 1000 - 1, the ones behind count down
+                        want = z.Level * ZLevelScale - 1 - Math.Min(perLevel[z.Level] - 1 - rank++, ZLevelScale - 2);
                     }
                     var cur = Invoke(_getZ, null, kw[0]);
                     if (cur == Failed || (int)cur != want) Invoke(_setZ, null, kw[0], want);
+                }
+                if (_debug)
+                {
+                    // diagnostics: the panel's windows, back to front, with the ZIndex now set (and the game's level)
+                    var sb = new StringBuilder("z-order (" + why + ") in " + Describe(panel) + ":");
+                    foreach (var kw in order)
+                    {
+                        ZState z; ZStates.TryGetValue(kw[1], out z);
+                        sb.Append(" '").Append(TextOf(Get(kw[1], "Header"))).Append("' ").Append(Invoke(_getZ, null, kw[0])).Append(" (game ").Append(z.Level).Append(')');
+                    }
+                    if (others > 0) sb.Append("; other elements left as the game set them: ").Append(others);
+                    Trace(sb.ToString());
                 }
             }
             catch (Exception e) { Trace("BringToFront: " + e.Message); }

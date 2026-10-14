@@ -239,7 +239,7 @@ LoadScreen `<ExecuteLoadScreen>.MoveNext` (конец загрузки), `FileMa
 RemoveSizeLimits, MaximizeOnDoubleClick, ImprovedUnitReferenceUI (бывш. ImprovedUI, миграция `BindRenamed`), SettingsButton,
 SnapWindows, SnapDistance (1.3.0), Debug. [UnitReference]: TreeWidth, TreeVisible, Country; RememberSearchPanel, Category,
 FilterByDate, SearchByNameOnly, SearchText (1.3.0); OptimizeTree, ScrollToSelected, ShowLoadoutList, ArmedOnly (1.4.0).
-[UnitStatus]: SectionsMinHeight (1.3.0), UnitReferenceTab (1.5.0). Удаляемые ключи прошлых версий — `DropRetiredEntries`.
+[UnitStatus]: SectionsMinHeight (1.3.0), UnitReferenceTab (1.5.0). [WindowBorder]: Enabled, Thickness, Color, ToolTips (1.5.2). Удаляемые ключи прошлых версий — `DropRetiredEntries`.
 [Layouts] `x,y,w,h[,max]` (раскладка всегда «с деревом»). [WindowBorder] — ниже.
 [OpenWindows] open/closed (проверено в игре, включая мгновенный старт и блокировку открытия игрой). Окна HUD — через «рычаги» игры:
 MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext или SeaPower.Globals._mainGameViewModel),
@@ -266,10 +266,24 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 его отступы → Margin рамки. Верхней стороны нет (BorderThickness = t,0,t,t).
 Старый формат [OpenWindows] `state,ТипVM` читается (берётся первое поле).
 
+## Рамка подсказок ([WindowBorder] ToolTips, 1.5.2, `src/TooltipFrame.cs`)
+* Class handler `EventManager.RegisterClassHandler(typeof(ToolTip), ToolTip.OpenedEvent)` (есть и в Noesis 0.8.4) — все
+  подсказки UI, и модов тоже. Шаблон подсказки игры (`NoesisTheme.Styles.xaml`, Template.ToolTip) — Border с Background и
+  Padding (без рамки, LayoutTransform масштаба UI): ему ставятся BorderBrush / BorderThickness (со всех 4 сторон, ширина и цвет
+  из [WindowBorder]). Шаблон с собственной рамкой не трогается; корень-Panel — поверх кладётся свой Border. Применяется при
+  каждом открытии подсказки (смена настроек — со следующей); свои Border помечены (`TipOwn`), выключение снимает рамку.
+
 ## Порядок окон и Weapon Reference (проверено в игре)
 * BringToFrontOnClick: PreviewMouseDown / Loaded окна → вверх от окна до первой панели, где в другом ребёнке есть ещё окно;
   только если все дети панели — окна. Состояние (уровень = ZIndex элемента при первом обнаружении, отметка клика) хранится
-  ПО ОКНУ: Noesis-обёртки детей панели (ContentPresenter, Grid) при каждом обходе новые — по ним хранить нельзя. ZIndex = уровень × 1000 + ранг.
+  ПО ОКНУ: Noesis-обёртки детей панели (ContentPresenter, Grid) при каждом обходе новые — по ним хранить нельзя. ZIndex окон — ОТРИЦАТЕЛЬНЫЙ, вниз от уровня
+  игры: переднее окно уровня — уровень × 1000 − 1, за ним − 2, − 3… (как в рабочей сборке 1.2.0 со своим исправлением, потерянным в истории; восстановлено в 1.5.2). Всё, что игра ставит в ту же панель со своим
+  ZIndex 0 — брифинг миссии и скриптовые сообщения (`SeapowerUI.Modal` / `RichMissionMessageModal` через WindowHost), только
+  что открытые окна, — всегда выше наших окон, без знания их типов. Не-окна панели не трогаются (раньше из-за них мод весь
+  порядок оставлял игре: trace «shares … with RichMissionMessageModal»). Панель — первая панель-предок, которая `IsItemsHost`
+  (Grid списка окон над WindowHost.Windows; так и с одним окном), иначе первая, где в другом ребёнке есть окно.
+  Раньше было «уровень × 1000 + ранг» (≥ 0): окна с рангом > 0 закрывали сообщения игры. Trace при Debug:
+  «z-order (почему) in панель: окна сзади вперёд с ZIndex (уровень игры)».
   Развёрнутые Tactical Display / World View — ТОЛЬКО эти два окна (`IsMapWindow`: заголовок целиком TacticalDisplay /
   WorldView, либо собственный — не унаследованный от родителя — DataContext SceneMapViewModel / WorldViewWindowViewModel) всегда ниже всех окон панели (ZIndex = минимальный уровень × 1000 − n), клик по ним порядок не
   меняет; пересчёт и в `MaximizeChanged` (разворот/сворачивание).
@@ -378,4 +392,7 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 * 13.10.2026: 1.4.0 закоммичена («Smart Windows 1.4.0»): дерево Unit Reference, прокрутка, список loadout'ов, Armed only.
 * 13.10.2026: 1.5.0 закоммичена («Smart Windows 1.5.0»): вкладка Reference в Unit Status, «Show all settings».
 * 14.10.2026: 1.5.1 закоммичена («Smart Windows 1.5.1»): окна установок как Weapon Reference; вкладка Weapons вынесена в Alternative Weapons Control.
-* Версия: константа `PluginVersion` (BepInPlugin, ACPlugin, лог) + `<Version>` в csproj — менять обе.
+* 14.10.2026: 1.5.2 выложена в Steam Workshop (коммит «Smart Windows 1.5.2»): сообщения игры над окнами (отрицательный ZIndex),
+  рамка подсказок, описание Steam с версией.
+* Версия: константа `PluginVersion` (BepInPlugin, ACPlugin, лог) + `<Version>` в csproj — менять обе; и строку «Version N» в
+  начале README.BBCode.txt / README.md (описание Steam). Список изменений к выкладке — одним списком, без разбивки по версиям.

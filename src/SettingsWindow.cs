@@ -58,6 +58,7 @@ namespace SmartWindows
                 Add(TFrame, "Frame around draggable windows", p._borderOn, 'b', "Frame", "");
                 Add(TFrame, "Frame around draggable windows", p._borderThickness, 'f', "Width", "px", 0.5f, 0.5f, 10f);
                 Add(TFrame, "Frame around draggable windows", p._borderColor, 'c', "Colour", "#AARRGGBB");
+                Add(TFrame, "Frame around draggable windows", p._tipBorder, 'b', "Tooltips too", "all four sides");
 
                 Add(TStatus, "Damage Control tab", p._secMin, 'f', "Sections min height", "px · 0 = game", 10f, 0f, 3000f);
                 Add(TStatus, "Reference tab", p._statusRef, 'b', "Reference tab", "");
