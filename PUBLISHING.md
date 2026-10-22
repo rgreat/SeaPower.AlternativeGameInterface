@@ -2,7 +2,7 @@
 
 ## 0. Переименование (было «Window Memory»)
 
-Мод переименован в **Smart Windows**: папка и DLL `SmartWindows`, настройки `com.rgreat.seapower.smartwindows.cfg`.
+Мод переименован в **Smart Windows**: папка и DLL `SmartWindows`, настройки `Sea Power_Data/StreamingAssets/user/SmartWindows/SmartWindows.cfg` (как у AWC/ADM; файл BepInEx/config/com.rgreat.seapower.smartwindows.cfg версий до 1.6.0 копируется туда один раз).
 * При первом запуске плагин **один раз копирует** старый `com.rgreat.seapower.windowmemory.cfg` в новый файл (настройки и сохранённые
   окна не теряются). Старый cfg потом можно удалить.
 * **Удалите старый `SeaPowerWindowMemory.dll`** из `BepInEx\plugins` и старую папку мода из StreamingAssets, если она там есть.
@@ -25,6 +25,12 @@ SmartWindows/                 <- проект (хранится у вас, в Wo
 │  ├─ ArmedFilter.cs                  <- галочка «Armed only» на панели поиска Unit Reference
 │  ├─ StatusReference.cs              <- вкладка Reference в окне Unit Status
 │  ├─ TooltipFrame.cs                 <- рамка вокруг всплывающих подсказок ([WindowBorder] ToolTips)
+│  ├─ Backgrounds.cs                  <- фоновые картинки модов вместо игровых ([General] ModBackgroundsOnly)
+│  ├─ Pickers.cs                      <- _Custom Mission, папка редактора, синие ini, старые логи
+│  ├─ TreeSearch.cs / HoverHelp.cs    <- опции дерева Unit Reference 1.6.0, подсказки по ссылкам
+│  ├─ UnitMenu.cs / GameFixes.cs / CampaignLoadouts.cs    <- меню панели юнита, фикс окна Information, StrictLoadouts
+│  ├─ Loc.cs                                              <- локализация (таблица D(...), файлы lang/<код>.ini)
+│  ├─ MaxFit.cs                       <- развёрнутое окно в пределах экрана
 │  └─ AnchorChainEntry.cs             <- точка входа Anchor Chain ([ACPlugin] + IAnchorChainMod)
 └─ Release/                   <- ЭТО и есть мод: содержимое этой папки выкладываете
    ├─ _info.ini                       <- название/описание в менеджере модов + версия игры
@@ -61,7 +67,7 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
    `D:\Steam\steamapps\common\Sea Power\Sea Power_Data\StreamingAssets\SmartWindows`.
 3. Запустите игру -> **Mods** -> включите **Anchor Chain** и **Smart Windows** -> Apply -> **полностью перезапустите игру**
    (код-моды загружаются только при старте процесса; Apply перезагружает лишь сцену).
-4. В `BepInEx\LogOutput.log` должно быть `Smart Windows 1.5.2 (build ...) loaded` и позже `Window hooks installed.`
+4. В `BepInEx\LogOutput.log` должно быть `Smart Windows 1.6.1 (build ...) loaded` и позже `Window hooks installed.`
    Предупреждения `Smart Windows ...` покажут, если игра изменилась.
 5. Проверьте: положение окон запоминается, F12 добавляет окно, окна уходят за край.
 
@@ -109,7 +115,7 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
 ## 7. Что проверить перед публикацией
 
 * `_info.ini`: `ApproximateVersion` — нижняя граница: игра считает мод совместимым при той же 0.8 и патче не меньше указанного
-  (0.8.3 принимает 0.8.3, 0.8.4, 0.8.5...). Несовместимому моду игра не скачивает обновления из Workshop, поэтому
+  (0.8.3 принимает 0.8.3 … 0.8.6...). Несовместимому моду игра не скачивает обновления из Workshop, поэтому
   поднимайте значение только когда мод действительно перестал работать на старых версиях.
 * Версия плагина: константа `PluginVersion` в `SmartWindowsPlugin.cs` (её берут `[BepInPlugin]`, `[ACPlugin]` и лог) и `<Version>` в csproj.
 * В папке мода только 4 файла (`_info.ini`, dll, `thumbnail.jpg`, `README.md`).

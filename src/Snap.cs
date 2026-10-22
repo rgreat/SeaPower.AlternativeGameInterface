@@ -352,7 +352,13 @@ namespace SmartWindows
             if (float.IsNaN(width) || float.IsNaN(height)) return;
             float minW = Math.Max(20f, GetF(w, "MinWidth", 0f)), minH = Math.Max(20f, GetF(w, "MinHeight", 0f));
             bool changed = false;
-            Func<float> L = () => x + ins[0], R = () => x + width - ins[2], T = () => y + ins[1], Bt = () => y + height - ins[3];
+            // the insets are measured on the template's root panel, which is larger than Width / Height (the resize zone around the
+            // window, e.g. 620 x 420 for 600 x 380): the right / bottom edges are taken from the panel's size, else they were off by
+            // that difference (~20 units, ~28 px - right / bottom edges snapped that far beyond their lines)
+            var panel = TemplateRootPanel(w);
+            float exW = panel != null && panel.ActualWidth > 1f ? panel.ActualWidth - width : 0f;
+            float exH = panel != null && panel.ActualHeight > 1f ? panel.ActualHeight - height : 0f;
+            Func<float> L = () => x + ins[0], R = () => x + width + exW - ins[2], T = () => y + ins[1], Bt = () => y + height + exH - ins[3];
             if (mL)
             {
                 float d = Nearest(L(), EdgeLines(sp, 0, L(), T(), R(), Bt(), dist), dist);

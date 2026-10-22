@@ -38,9 +38,14 @@ namespace SmartWindows
         static void FilteredEntriesPostfix(object __instance)
         {
             var a = Active;
-            if ((object)a == null || !a._improvedUI.Value || !a._armOnly.Value) return;
-            try { a.FilterArmed(__instance); }
-            catch (Exception e) { Trace("FilterArmed: " + e); }
+            if ((object)a == null) return;
+            if (a._improvedUI.Value && a._armOnly.Value)
+            {
+                try { a.FilterArmed(__instance); }
+                catch (Exception e) { Trace("FilterArmed: " + e); }
+            }
+            try { a.AfterFilters(__instance); }
+            catch (Exception e) { Trace("AfterFilters: " + e); }
         }
 
         void FilterArmed(object browser)
@@ -93,26 +98,26 @@ namespace SmartWindows
         // ---------------------------------------------------------------- the check box
 
         /// <summary>Each frame for a Unit Reference window on screen: adds the check box once its search panel is there.</summary>
-        void ArmedBoxStep(object w)
+        void ArmedBoxStep(object w, object vm)
         {
             var st = ArmStates.GetOrCreateValue(w);
             if (st.Done) return;
-            var vm = InfoViewModel(w);
             var browser = vm == null ? null : Get(vm, "Browser");
             if (browser == null) return;
-            if (++st.Tries > 120) { st.Done = true; Trace("armed only: search panel not found"); return; }
-            var root = w as DependencyObject;
-            if (root == null) { st.Done = true; return; }
-            ToggleButton date = null, name = null;
-            FindPanelBoxes(root, browser, ref date, ref name);
+            // the game's check boxes were caught when they loaded (ViewCapture): no search
+            VmParts parts;
+            if (!PartsByVm.TryGetValue(vm, out parts)) return;
+            var date = PartOf(parts.Date) as ToggleButton;
+            var name = PartOf(parts.Name) as ToggleButton;
             if (date == null) return;
+            if (name == null && ++st.Tries < 10) return;   // the name box loads next to the date box: a moment's wait for it
             st.Done = true;
             Trace("armed only: date box " + date.GetType().Name + " in " + Describe(VisualTreeHelper.GetParent(date)) + (name != null ? ", name box in " + Describe(VisualTreeHelper.GetParent(name)) : ", no name box"));
             var last = name ?? date;
             var parent = VisualTreeHelper.GetParent(last) as Panel;
             if (parent == null) { Trace("armed only: the date box is in " + (VisualTreeHelper.GetParent(last) == null ? "nothing" : VisualTreeHelper.GetParent(last).GetType().Name) + ", not a panel"); return; }
 
-            var box = new CheckBox { Content = "Armed only", IsChecked = _armOnly.Value };
+            var box = new CheckBox { Content = Loc.T("ui.armedOnly"), IsChecked = _armOnly.Value };
             if (last is CheckBox) box.Style = last.Style;
             box.Margin = last.Margin;
             box.Padding = last.Padding;
@@ -120,7 +125,7 @@ namespace SmartWindows
             box.Foreground = last.Foreground;
             box.VerticalAlignment = last.VerticalAlignment;
             box.HorizontalAlignment = last.HorizontalAlignment;
-            try { ToolTipService.SetToolTip(box, "Hide units without weapons"); } catch { }
+            try { ToolTipService.SetToolTip(box, Loc.T("tip.armedOnly")); } catch { }
             box.Click += (o, e) => { try { SetArmedOnly(browser, box.IsChecked == true); } catch (Exception ex) { Trace("armed only: " + ex.Message); } };
 
             var grid = parent as Grid;
@@ -152,35 +157,6 @@ namespace SmartWindows
             else parent.Children.Insert(parent.Children.IndexOf(last) + 1, box);
             st.Box = box;
             Trace("armed only: check box added to " + parent.GetType().Name);
-        }
-
-        /// <summary>
-        /// The game's "Filter by date" / "Search by name only" check boxes of this window: IsChecked bound to a path ending with
-        /// FilterByDate / SearchByNameOnly (the view binds through the window's view model: "Browser.FilterByDate").
-        /// </summary>
-        static void FindPanelBoxes(DependencyObject root, object browser, ref ToggleButton date, ref ToggleButton name)
-        {
-            var stack = new System.Collections.Generic.Stack<DependencyObject>();
-            stack.Push(root);
-            int budget = 30000;
-            while (stack.Count > 0 && --budget > 0)
-            {
-                var e = stack.Pop();
-                var cb = e as ToggleButton;
-                if (cb != null)
-                {
-                    BindingExpression x = null;
-                    try { x = BindingOperations.GetBindingExpression(cb, ToggleButton.IsCheckedProperty); } catch { }
-                    var b = x != null ? x.ParentBinding : null;
-                    if (b == null) try { b = BindingOperations.GetBinding(cb, ToggleButton.IsCheckedProperty); } catch { }
-                    var path = b == null || b.Path == null ? null : b.Path.Path;
-                    if (path != null && path.EndsWith("FilterByDate", StringComparison.Ordinal) && date == null) date = cb;
-                    else if (path != null && path.EndsWith("SearchByNameOnly", StringComparison.Ordinal) && name == null) name = cb;
-                    if (date != null && name != null) return;
-                }
-                int n = VisualTreeHelper.GetChildrenCount(e);
-                for (int k = n - 1; k >= 0; k--) { var c = VisualTreeHelper.GetChild(e, k); if (c != null) stack.Push(c); }
-            }
         }
 
         void SetArmedOnly(object browser, bool on)

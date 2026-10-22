@@ -45,7 +45,7 @@ namespace SmartWindows
     public partial class SmartWindowsPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.smartwindows";
-        public const string PluginVersion = "1.5.2"; // also <Version> in SmartWindows.csproj
+        public const string PluginVersion = "1.6.1"; // also <Version> in SmartWindows.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
 
         struct Layout
@@ -104,6 +104,7 @@ namespace SmartWindows
             public bool UrDone;          // Unit Reference set-up (size limits, tree width, splitter) done for this opening
             public int UrTries;
             public float UrNext;
+            public float UiNext, PollNext;   // throttles: the Unit Reference helpers and the position polling do not run every frame
         }
 
         /// <summary>The splitter added between the unit tree and the unit information of one Unit Reference window.</summary>
@@ -201,6 +202,7 @@ namespace SmartWindows
         static string _traceFile;
 
         ConfigEntry<string> _windows;
+        ConfigEntry<string> _language;
         ConfigEntry<bool> _debugEntry, _dragOutside, _improvedUI, _dblClickMax, _removeLimitsAll, _toFront;
         Type _uiElementType;
         ConfigEntry<float> _secMin;
@@ -257,7 +259,7 @@ namespace SmartWindows
         readonly Dictionary<string, Layout> _saved = new Dictionary<string, Layout>(StringComparer.Ordinal);
         readonly Dictionary<string, ConfigEntry<string>> _layoutEntries = new Dictionary<string, ConfigEntry<string>>(StringComparer.Ordinal);
         readonly List<Tracked> _tracked = new List<Tracked>();
-        readonly Dictionary<string, PropertyInfo> _props = new Dictionary<string, PropertyInfo>();
+        readonly Dictionary<Type, Dictionary<string, PropertyInfo>> _props = new Dictionary<Type, Dictionary<string, PropertyInfo>>();
         int _registered;
         bool _hooked, _hookFailed, _loadHookTried;
         Type _winType;
@@ -305,15 +307,46 @@ namespace SmartWindows
 
         // ------------------------------------------------------------------ setup
 
+        /// <summary>
+        /// The settings file: Sea Power_Data/StreamingAssets/user/SmartWindows/SmartWindows.cfg, as the other mods of the project keep
+        /// theirs (BepInEx/config when that folder cannot be used). The BepInEx file of an earlier version is copied there once.
+        /// </summary>
+        new ConfigFile Config;
+
+        void OpenSettingsFile()
+        {
+            Config = base.Config;
+            try
+            {
+                string dir = Path.Combine(Path.Combine(UnityEngine.Application.streamingAssetsPath, "user"), "SmartWindows");
+                Directory.CreateDirectory(dir);
+                string path = Path.Combine(dir, "SmartWindows.cfg");
+                bool moved = false;
+                if (!File.Exists(path))
+                {
+                    string old = base.Config.ConfigFilePath;
+                    if (!string.IsNullOrEmpty(old) && File.Exists(old)) { File.Copy(old, path); moved = true; }
+                }
+                Config = new ConfigFile(path, true);
+                if (moved) Logger.LogInfo("Settings copied from " + base.Config.ConfigFilePath + " to " + path + " (the old file is not used any more).");
+            }
+            catch (Exception e)
+            {
+                Config = base.Config;
+                Logger.LogWarning("Settings in StreamingAssets/user not available (" + e.Message + "); BepInEx/config is used.");
+            }
+        }
+
         void Awake()
         {
             _inst = this;
+            OpenSettingsFile();
             Config.SaveOnConfigSet = false; // we save explicitly (debounced)
             if (Chainloader.PluginInfos.ContainsKey(OldGuid))
                 Logger.LogWarning("The old 'Window Memory' plugin is still installed: delete SeaPowerWindowMemory.dll from BepInEx/plugins, two copies conflict.");
 
             _windows = Config.Bind("General", "WindowPatterns",
-                "Tactical Display,World View,Unit Reference*,Weapon Reference*,Unit Status*,Event Log,Formation Manager,FORMATION EDITOR,LinearCampaignTaskForceBuilderViewModel",
+                "Tactical Display,World View,Unit Reference*,Unit Status*,Event Log,Formation Manager,Task Force Builder,Weapon Reference",
                 "Comma-separated names of the windows to remember. Case-insensitive, spaces are ignored when comparing " +
                 "('Unit Status*' also matches 'UnitStatusView'), '*' matches any text (also nothing). " +
                 "A pattern is compared with the window's name, header text, content type and view-model type and must " +
@@ -338,7 +371,7 @@ namespace SmartWindows
                 "No size limits for the remembered windows (WindowPatterns, Unit Reference included): no minimum or maximum size of their " +
                 "own - down to " + WindowMinWidth + "x" + WindowMinHeight + " px - and resizing by an edge is not stopped by the screen's edges " +
                 "(the top stays on the screen, so the title bar can be reached). Switching it applies to the windows on screen at once.");
-            _secMin = Config.Bind("UnitStatus", "SectionsMinHeight", 0f,
+            _secMin = Config.Bind("UnitStatus", "SectionsMinHeight", 278f,
                 "Unit Status window, Damage Control tab: minimum height of the section panels (Aft ... Forward with their damage lists), " +
                 "in screen pixels. A shorter window shrinks them down to this; below it the tab stops shrinking and the 'Auto Damage " +
                 "Control Status' panel at the bottom moves out of the window. 0 = as in the game (the whole tab has a fixed minimum; the " +
@@ -376,9 +409,18 @@ namespace SmartWindows
             _treeScroll = Config.Bind("UnitReference", "ScrollToSelected", true,
                 "Unit Reference tree: scroll the tree so that the selected unit is visible (centred when " +
                 "the window opens or the tree is shown).");
+            _treeWheel = Config.Bind("UnitReference", "TreeWheelOnlyOver", true,
+                "Unit Reference tree: the mouse wheel scrolls the tree only while the cursor is over it.");
             _loadoutList = Config.Bind("UnitReference", "ShowLoadoutList", true,
                 "Unit Reference: show the loadout selector for ships, submarines and land units with several loadouts too (the game shows it " +
                 "for aircraft only); the unit's information follows the chosen loadout.");
+            BindTreeSearchConfig();
+            BindPickersConfig();
+            BindUnitMenuConfig();
+            BindGameFixConfig();
+            BindCampaignLoadoutsConfig();
+            CleanLogsOnce();   // as early as possible: before the game starts this session's files
+            BindLinkHelpConfig();
             _armOnly = Config.Bind("UnitReference", "ArmedOnly", false, "The \"Armed only\" check box the mod adds to the Unit Reference search panel (with ImprovedUnitReferenceUI): when ticked, units without weapons (decoys, sonobuoys, fuel tanks do not count) are left out of the tree.");
             _statusRef = Config.Bind("UnitStatus", "UnitReferenceTab", true,
                 "Unit Status window: a \"Reference\" tab (last) with the Unit Reference of the selected unit - its ship / variant and loadout - " +
@@ -405,11 +447,20 @@ namespace SmartWindows
                 "Colour of the frame: #RRGGBB or #AARRGGBB (AA = opacity, 00 transparent - FF solid).");
             _tipBorder = Config.Bind("WindowBorder", "ToolTips", true,
                 "Frame around the game's tooltips (pop-up hints) too, on all four sides, with the width and colour above.");
+            _modBackgrounds = Config.Bind("General", "ModBackgroundsOnly", true,
+                "Background pictures of the main menu and the loading screens: when mods bring their own (ui/backgrounds), only theirs " +
+                "are shown, not mixed with the game's. Off = as the game: one picked at random from the game's and every mod's together.");
             _gearOn = Config.Bind("General", "SettingsButton", true,
                 "A gear button in the title bar of every remembered window (WindowPatterns) opens the Smart Windows settings window.");
             _debugEntry = Config.Bind("General", "Debug", false,
                 "Enables verbose logging and BepInEx/SmartWindows.trace.txt.");
             _debug = _debugEntry.Value;
+            _language = Config.Bind("General", "Language", "",
+                "Language of the mod's texts: a code of a game language (en, ru ...); empty = the game's own language. The texts are in the files lang/<code>.ini in the mod folder - edit them to translate.");
+            Loc.Trace = Trace;
+            Loc.GameAsm = () => GameAssembly();
+            Loc.Forced = () => _language == null ? "" : _language.Value;
+            SettingsWindow.RegisterTexts(this);
 
             _traceFile = Path.Combine(Paths.BepInExRootPath, "SmartWindows.trace.txt");
             if (_debug) { try { File.WriteAllText(_traceFile, ""); } catch { } }
@@ -483,10 +534,14 @@ namespace SmartWindows
 
         // ------------------------------------------------------- hook installation
 
+        static Assembly _gameAsm;
+
+        /// <summary>The game's assembly; found once (the list of all assemblies is not walked again).</summary>
         static Assembly GameAssembly()
         {
+            if (_gameAsm != null) return _gameAsm;
             foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
-                if (a.GetName().Name == "Seapower-Scripts") return a;
+                if (a.GetName().Name == "Seapower-Scripts") return _gameAsm = a;
             return null;
         }
 
@@ -526,6 +581,7 @@ namespace SmartWindows
                 var save = fm == null ? null : fm.GetMethod("SaveDirectories", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 if (save != null) { lsHarmony.Patch(save, postfix: Hm("ModsSavedPostfix")); Trace("patched FileManager.SaveDirectories"); }
                 else Trace("FileManager.SaveDirectories not found: the Mods menu tick is re-read after load screens only");
+                try { HookBackgrounds(lsHarmony, asm); } catch (Exception e) { Trace("HookBackgrounds: " + e.Message); }
             }
             catch (Exception e) { Logger.LogWarning("Load-screen hook failed: " + e.Message); Trace("TryInstallLoadScreenHook: " + e); }
         }
@@ -648,6 +704,10 @@ namespace SmartWindows
                     HookCountry(harmony, asm);
                     HookLoadoutList(harmony, asm);
                     HookArmedFilter(harmony, asm);
+                    HookTreeSearch(harmony, asm);
+                    HookPickers(harmony, asm);
+                    HookGameFixes(harmony, asm);
+                    HookCampaignLoadouts(harmony, asm);
                     HookStatusReference(harmony, asm);
                 }
 
@@ -672,6 +732,7 @@ namespace SmartWindows
                 }
 
                 HookToolTips();
+                HookCapture();
                 Logger.LogInfo("Window hooks installed.");
             }
             catch (Exception e)
@@ -2262,7 +2323,8 @@ namespace SmartWindows
             SetV(w, "MaxHeight", float.PositiveInfinity);
 
             // the view inside may carry its own minimum: clear it on the way from the view up to the window
-            var view = (InfoViewModel(w) != null ? FindByType(w, "ObjectInformationView", 3000) : null) ?? ContentRoot(w);
+            WeakReference ivr;
+            var view = (InfoViewByWindow.TryGetValue(w, out ivr) ? ivr.Target : null) ?? ContentRoot(w);   // the view was caught when it loaded
             for (var e = view; e != null && !e.Equals(w); e = VtParent(e))
             {
                 bool mw = GetF(e, "MinWidth", 0f) > 0f, mh = GetF(e, "MinHeight", 0f) > 0f;
@@ -2326,23 +2388,6 @@ namespace SmartWindows
                 {
                     var ch = VtChild(e, k);
                     if (ch != null) stack.Push(ch);
-                }
-            }
-            return null;
-        }
-
-        object FindByType(object root, string typeName, int budget)
-        {
-            var stack = new Stack<object>();
-            stack.Push(root);
-            while (stack.Count > 0 && --budget > 0)
-            {
-                var e = stack.Pop();
-                if (TypeName(e) == typeName) return e;
-                for (int k = VtChildrenCount(e) - 1; k >= 0; k--)
-                {
-                    var c = VtChild(e, k);
-                    if (c != null) stack.Push(c);
                 }
             }
             return null;
@@ -2567,26 +2612,16 @@ namespace SmartWindows
             return false;
         }
 
+        /// <summary>The UnitTreeBrowserView of this browser inside 'root' (a window / view): the TreeView was caught when it loaded, the view is above it.</summary>
         object FindTreeView(object root, object vm, object browser)
         {
-            var stack = new Stack<object>();
-            stack.Push(root);
-            int budget = 20000;
-            while (stack.Count > 0 && --budget > 0)
+            var tv = TreeViewOf(browser ?? Get(vm, "Browser"));
+            if (tv == null) return null;
+            object view = null;
+            for (object e = tv; e != null; e = VtParent(e))
             {
-                var e = stack.Pop();
-                if (TypeName(e) == "UnitTreeBrowserView")
-                {
-                    var dc = Get(e, "DataContext");
-                    if (dc != null && (ReferenceEquals(dc, vm) || ReferenceEquals(dc, browser))) return e;
-                    continue; // another window's tree: no need to look inside
-                }
-                int n = VtChildrenCount(e);
-                for (int k = n - 1; k >= 0; k--)
-                {
-                    var c = VtChild(e, k);
-                    if (c != null) stack.Push(c);
-                }
+                if (view == null && TypeName(e) == "UnitTreeBrowserView") view = e;
+                if (ReferenceEquals(e, root)) return view;   // it lies in 'root'
             }
             return null;
         }
@@ -2617,16 +2652,22 @@ namespace SmartWindows
 
         int VtChildrenCount(object o)
         {
+            var d = o as Noesis.DependencyObject;
+            if (d != null) { try { return Noesis.VisualTreeHelper.GetChildrenCount(d); } catch { return 0; } }
             try { return (int)_vtChildrenCount.Invoke(null, new[] { o }); } catch { return 0; }
         }
 
         object VtChild(object o, int i)
         {
+            var d = o as Noesis.DependencyObject;
+            if (d != null) { try { return Noesis.VisualTreeHelper.GetChild(d, i); } catch { return null; } }
             try { return _vtChild.Invoke(null, new[] { o, i }); } catch { return null; }
         }
 
         object VtParent(object o)
         {
+            var d = o as Noesis.DependencyObject;
+            if (d != null) { try { return Noesis.VisualTreeHelper.GetParent(d); } catch { return null; } }
             try { return _vtParent.Invoke(null, new[] { o }); } catch { return null; }
         }
 
@@ -2696,15 +2737,17 @@ namespace SmartWindows
         PropertyInfo Prop(object o, string name)
         {
             if (o == null) return null;
-            string k = o.GetType().FullName + "." + name;
+            var type = o.GetType();
+            Dictionary<string, PropertyInfo> byName;
+            if (!_props.TryGetValue(type, out byName)) _props[type] = byName = new Dictionary<string, PropertyInfo>(StringComparer.Ordinal);
             PropertyInfo p;
-            if (_props.TryGetValue(k, out p)) return p;
+            if (byName.TryGetValue(name, out p)) return p;
             // walk up from the real type: Noesis ColumnDefinition/RowDefinition derive from FrameworkElement and declare their own
             // Width/Height (GridLength) next to the inherited float ones, so a plain GetProperty throws AmbiguousMatchException
             p = null;
             for (var ty = o.GetType(); ty != null && p == null; ty = ty.BaseType)
                 p = ty.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
-            _props[k] = p;
+            byName[name] = p;
             return p;
         }
 
@@ -2748,6 +2791,8 @@ namespace SmartWindows
             }
 
             if (_hooked && !_hookFailed && Input.GetKeyDown(_addKey.Value)) AddWindowUnderCursor();
+            CleanLogsOnce();
+            RerollFirstBackground();
 
             if (!_hooked && LoadScreenDone) TryHook();
             if (!_hooked || _hookFailed) return;
@@ -2761,7 +2806,7 @@ namespace SmartWindows
                 var t = _tracked[i];
                 var w = t.Ref.Target;
                 if (w == null) { _tracked.RemoveAt(i); continue; } // collected
-                try { Step(t, w, now); TrackOpenState(t, w, now); if (_statusRef.Value && t.WasActive) StatusRefStep(w); }
+                try { Step(t, w, now); TrackOpenState(t, w, now); FitMaximized(w, now); PickerStep(w, now); if (_statusRef.Value && t.WasActive) StatusRefStep(w); }
                 catch (Exception e)
                 {
                     if (!t.Warned) { t.Warned = true; Logger.LogWarning("Window '" + t.Label + "': " + e.Message); Trace("Step error: " + e); }
@@ -2833,9 +2878,20 @@ namespace SmartWindows
             if (!active) return;
 
             if (_improvedUI.Value && !t.UrDone && now >= t.UrNext) SetupUnitReference(t, w, now);
-            if (_treeScroll.Value) TreeScrollStep(w);
-            if (_improvedUI.Value) ArmedBoxStep(w);
-            if (_loadoutList.Value) ReplaceButtonStep(w);
+            // the Unit Reference helpers (tree scroll / wheel guard, Armed only box, Replace button): a few times a second
+            // is plenty for them, and only for windows that show a Unit Reference page (the view model is looked up once per round)
+            if (now >= t.UiNext && (_treeScroll.Value || _treeWheel.Value || _improvedUI.Value || _loadoutList.Value))
+            {
+                t.UiNext = now + 0.12f;
+                var ivm = InfoViewModel(w);
+                if (ivm != null)
+                {
+                    if (_treeScroll.Value) TreeScrollStep(w, ivm);
+                    if (_treeWheel.Value) TreeWheelStep(w, ivm);
+                    if (_improvedUI.Value) ArmedBoxStep(w, ivm);
+                    if (_loadoutList.Value) ReplaceButtonStep(w, ivm);
+                }
+            }
 
             // identify (content/header may be assigned shortly after the window becomes visible)
             if (t.Key == null)
@@ -2880,6 +2936,8 @@ namespace SmartWindows
             }
 
             if (!t.Settled) return;
+            if (now < t.PollNext) return;   // moves / resizes are noticed within a tenth of a second; no need to read the window every frame
+            t.PollNext = now + 0.1f;
             bool max = GetB(w, "Maximized");
             Layout sv;
             bool has = _saved.TryGetValue(t.Key, out sv);

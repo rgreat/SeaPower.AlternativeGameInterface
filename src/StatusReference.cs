@@ -66,15 +66,43 @@ namespace SmartWindows
             harmony.Patch(sw, postfix: Hm("StatusSwitchPostfix"));
             harmony.Patch(ens, postfix: Hm("StatusEnsurePostfix"));
             harmony.Patch(disp, prefix: Hm("StatusDisposePrefix"));
+            var cv = _oivmType.GetMethod("ChangeVariant", inst);
+            if (cv != null) TryPatch(harmony, cv, null, "ChangeVariantPostfix", null);
             Trace("patched UnitStatusViewModel (Reference tab)");
         }
 
         // ---------------------------------------------------------------- hooks
 
+        static readonly List<WeakReference> Statuses = new List<WeakReference>();
+
+        /// <summary>FullUnitName: the game sets the header name only when the window switches to another unit; Replace (Unit Reference, encyclopedia
+        /// mode) swaps / changes the unit under the same window, and ObjectInformationViewModel.ChangeVariant (its last step) triggers this.</summary>
+        void SyncFullNames()
+        {
+            if (!_fullName.Value) return;
+            lock (Statuses)
+            {
+                for (int i = Statuses.Count - 1; i >= 0; i--)
+                {
+                    var st = Statuses[i].Target;
+                    if (st == null) { Statuses.RemoveAt(i); continue; }
+                    try { FullUnitName(st); } catch { }
+                }
+            }
+        }
+
+        static void ChangeVariantPostfix()
+        {
+            var a = Active;
+            if ((object)a == null) return;
+            a.SyncFullNames();
+        }
+
         static void StatusCreatedPostfix(object __instance)
         {
             var a = Active;
             if ((object)a == null) return;
+            lock (Statuses) Statuses.Add(new WeakReference(__instance));
             try { a.AddRefTab(__instance); } catch (Exception e) { Trace("Reference tab: " + e); }
         }
 
@@ -83,6 +111,17 @@ namespace SmartWindows
             var a = Active;
             if ((object)a == null) return;
             try { a.UpdateRefTab(__instance); } catch (Exception e) { Trace("Reference tab: " + e); }
+            try { a.FullUnitName(__instance); } catch (Exception e) { Trace("full unit name: " + e.Message); }
+        }
+
+        /// <summary>FullUnitName: the unit's full name (DisplayNameFull) in the Unit Status header instead of the short one.</summary>
+        void FullUnitName(object status)
+        {
+            if (!_fullName.Value) return;
+            var unit = StatusUnit(status);
+            if (unit == null) return;
+            var full = Get(unit, "DisplayNameFull") as string;
+            if (!string.IsNullOrEmpty(full) && !string.Equals(Get(status, "UnitName") as string, full)) SetV(status, "UnitName", full);
         }
 
         static void StatusEnsurePostfix(object __instance, object tab)
@@ -198,7 +237,7 @@ namespace SmartWindows
         // next to the place of the Engagement tab's content (same panel, grid cell, margins) and shows it while the Reference
         // tab is selected. If the game does show the view itself (it has a visual parent), nothing is added.
 
-        sealed class RefHost { public WeakReference View; public Noesis.Border Host; public bool Failed; public int Tries; }
+        sealed class RefHost { public WeakReference View; public Noesis.Border Host; public bool Failed; }
         static readonly ConditionalWeakTable<object, RefHost> RefHosts = new ConditionalWeakTable<object, RefHost>();
 
         /// <summary>Each frame for a window on screen: if it is a Unit Status window, show / hide our host of the Reference tab.</summary>
@@ -207,14 +246,14 @@ namespace SmartWindows
             if (RefTabs == null) return;
             var rh = RefHosts.GetOrCreateValue(w);
             if (rh.Failed) return;
+            // the UnitStatusView of this window was caught when it loaded (ViewCapture): no search
             var usv = rh.View == null ? null : rh.View.Target as Noesis.DependencyObject;
             if (usv == null || Noesis.VisualTreeHelper.GetParent(usv) == null)
             {
-                if (rh.Failed || ++rh.Tries > 120) { rh.Failed = true; return; }
-                usv = FindTypeNamed(w as Noesis.DependencyObject, "UnitStatusView");
-                if (usv == null) return;
+                WeakReference r;
+                usv = StatusViewByWindow.TryGetValue(w, out r) ? r.Target as Noesis.DependencyObject : null;
+                if (usv == null || Noesis.VisualTreeHelper.GetParent(usv) == null) return;
                 rh.View = new WeakReference(usv);
-                rh.Tries = 0;
             }
             var status = Get(usv, "DataContext");
             RefTab rt;
@@ -245,22 +284,6 @@ namespace SmartWindows
                 if (rh.Host.Visibility != Noesis.Visibility.Collapsed) rh.Host.Visibility = Noesis.Visibility.Collapsed;
                 if (view == null && rh.Host.Child != null) rh.Host.Child = null;
             }
-        }
-
-        static Noesis.DependencyObject FindTypeNamed(Noesis.DependencyObject root, string name)
-        {
-            if (root == null) return null;
-            var stack = new Stack<Noesis.DependencyObject>();
-            stack.Push(root);
-            int budget = 30000;
-            while (stack.Count > 0 && --budget > 0)
-            {
-                var e = stack.Pop();
-                if (e.GetType().Name == name) return e;
-                int n = Noesis.VisualTreeHelper.GetChildrenCount(e);
-                for (int k = n - 1; k >= 0; k--) { var c = Noesis.VisualTreeHelper.GetChild(e, k); if (c != null) stack.Push(c); }
-            }
-            return null;
         }
 
         /// <summary>A Border next to where the game shows another tab's content (the Engagement board first), same cell and margins.</summary>

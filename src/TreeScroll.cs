@@ -30,10 +30,8 @@ namespace SmartWindows
 
         static readonly ConditionalWeakTable<object, ScrollState> ScrollStates = new ConditionalWeakTable<object, ScrollState>();
 
-        void TreeScrollStep(object w)
+        void TreeScrollStep(object w, object vm)
         {
-            var vm = InfoViewModel(w);
-            if (vm == null) return;
             var st = ScrollStates.GetOrCreateValue(w);
             bool shown = GetB(vm, "ToggleTreeCommandVisible") && GetB(vm, "MuseumEntriesVisible");
             if (!shown) { st.Shown = false; return; }
@@ -50,8 +48,7 @@ namespace SmartWindows
             var tv = st.Tree == null ? null : st.Tree.Target as TreeView;
             if (tv == null || VisualTreeHelper.GetParent(tv) == null)
             {
-                var view = FindTreeView(w, vm, browser) as DependencyObject;
-                tv = view == null ? null : FindDescendant<TreeView>(view);
+                tv = TreeViewOf(browser);
                 st.Tree = tv == null ? null : new WeakReference(tv);
                 if (tv == null) return;
             }
@@ -131,5 +128,70 @@ namespace SmartWindows
                 if (p is T) return p as T;
             return null;
         }
-    }
+    
+        // ---- TreeWheelOnlyOver ------------------------------------------------------------------------------------------------
+
+        ConfigEntry<bool> _treeWheel;
+        static readonly ConditionalWeakTable<object, object> WheelHooked = new ConditionalWeakTable<object, object>();
+
+        /// <summary>
+        /// TreeWheelOnlyOver: the unit tree scrolled with the wheel while the cursor was outside it (the wheel reached its ScrollViewer
+        /// although the cursor was over other parts of the window - the tree's own area is wider / taller than its visible cell).
+        /// A PreviewMouseWheel handler on the TreeView lets the wheel through only when the cursor is inside the tree and inside every
+        /// ancestor's bounds up to the window (the visible part); otherwise the event is handled there and passed to the ScrollViewer
+        /// actually under the cursor (hit test), if any.
+        /// </summary>
+        void TreeWheelStep(object w, object vm)
+        {
+            if (!GetB(vm, "ToggleTreeCommandVisible") || !GetB(vm, "MuseumEntriesVisible")) return;   // tree hidden
+            var st = ScrollStates.GetOrCreateValue(w);
+            var tv = st.Tree == null ? null : st.Tree.Target as TreeView;
+            if (tv == null || VisualTreeHelper.GetParent(tv) == null)
+            {
+                tv = TreeViewOf(Get(vm, "Browser"));
+                st.Tree = tv == null ? null : new WeakReference(tv);
+                if (tv == null) return;
+            }
+            object x;
+            if (WheelHooked.TryGetValue(tv, out x)) return;
+            WheelHooked.Add(tv, new object());
+            var win = new WeakReference(w);
+            tv.PreviewMouseWheel += (sender, e) =>
+            {
+                try { if (Enabled && _treeWheel.Value) TreeWheel(sender as TreeView, win.Target as UIElement, e); }
+                catch (Exception ex) { Trace("tree wheel: " + ex.Message); }
+            };
+            Verbose("tree wheel: guard added");
+        }
+
+        void TreeWheel(TreeView tv, UIElement win, MouseWheelEventArgs e)
+        {
+            if (tv == null) return;
+            bool inside = true;
+            for (DependencyObject d = tv; d != null && inside; d = VisualTreeHelper.GetParent(d))
+            {
+                var fe = d as FrameworkElement;
+                if (fe != null && fe.ActualWidth > 0f && fe.ActualHeight > 0f)
+                {
+                    var p = e.GetPosition(fe);
+                    if (p.X < 0f || p.Y < 0f || p.X > fe.ActualWidth || p.Y > fe.ActualHeight) inside = false;
+                }
+                if (win != null && ReferenceEquals(d, win)) break;
+            }
+            if (inside) return;
+            e.Handled = true;
+            if (win == null) return;
+            var hit = VisualTreeHelper.HitTest(win, e.GetPosition(win)).VisualHit;
+            for (var d = hit; d != null; d = VisualTreeHelper.GetParent(d))
+            {
+                if (ReferenceEquals(d, tv) || ReferenceEquals(d, win)) return;
+                var sv = d as ScrollViewer;
+                if (sv != null && sv.ScrollableHeight > 0f)
+                {
+                    sv.ScrollToVerticalOffset(Math.Max(0f, Math.Min(sv.ScrollableHeight, sv.VerticalOffset - e.Delta * 0.4f)));
+                    return;
+                }
+            }
+        }
+}
 }

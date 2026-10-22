@@ -48,8 +48,48 @@ namespace SmartWindows
             __state = null;
             var a = Active;
             if ((object)a == null || !a._loadoutList.Value || entry == null || !a.GetB(entry, "IsLoadoutUnit")) return;
+            try { a.CompleteLoadoutData(entry); } catch (Exception e) { Trace("loadout data: " + e.Message); }
             a.SetV(entry, "IsLoadoutUnit", false);
             __state = entry;
+        }
+
+        // A loadout unit is built from parameters that hold only its own loadout (SimpleObjectParameters.CreateLoadoutUnit:
+        // _loadouts = { that one }), so its entry knows the sensors to remove (LoadoutSensorsToRemove, ini "<loadout>_SensorsToRemove"),
+        // the weapon mounts (LoadoutWeaponSystemEntries) and pod ammunition of that loadout only. With the other loadouts in the list,
+        // choosing one of them showed the sensors of every loadout (nothing to remove found for it). The entry's tables get the other
+        // loadouts' rows from the entries of the same ini (the base unit and its other loadout units) - once per table.
+        static readonly HashSet<object> LoadoutDataDone = new HashSet<object>();
+
+        void CompleteLoadoutData(object entry)
+        {
+            var ini = Get(entry, "IniRef") as string;
+            if (string.IsNullOrEmpty(ini)) return;
+            var sensors = Get(entry, "LoadoutSensorsToRemove") as IDictionary;
+            var mounts = Get(entry, "LoadoutWeaponSystemEntries") as IDictionary;
+            var pods = Get(entry, "LoadoutPodAmmunition") as IDictionary;
+            if ((sensors == null || LoadoutDataDone.Contains(sensors)) && (mounts == null || LoadoutDataDone.Contains(mounts)) && (pods == null || LoadoutDataDone.Contains(pods))) return;
+            var edm = GameAssembly().GetType("SeaPower.EncyclopedicDataManager");
+            var inst = edm == null ? null : edm.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy).GetValue(null, null);
+            var all = Get(inst, "MuseumObjectEntries") as IEnumerable;
+            if (all == null) return;
+            int added = 0;
+            foreach (var other in all)
+            {
+                if (other == null || ReferenceEquals(other, entry) || (Get(other, "IniRef") as string) != ini) continue;
+                added += Merge(sensors, Get(other, "LoadoutSensorsToRemove") as IDictionary);
+                added += Merge(mounts, Get(other, "LoadoutWeaponSystemEntries") as IDictionary);
+                added += Merge(pods, Get(other, "LoadoutPodAmmunition") as IDictionary);
+            }
+            foreach (var d in new[] { sensors, mounts, pods }) if (d != null) LoadoutDataDone.Add(d);
+            if (added > 0) Trace("loadout data: " + ini + " (loadout unit) got " + added + " row(s) of its other loadouts");
+        }
+
+        static int Merge(IDictionary into, IDictionary from)
+        {
+            if (into == null || from == null || ReferenceEquals(into, from)) return 0;
+            int n = 0;
+            foreach (DictionaryEntry kv in from) if (!into.Contains(kv.Key)) { into[kv.Key] = kv.Value; n++; }
+            return n;
         }
 
         static Exception LoadoutsForEntryFinalizer(Exception __exception, object __state)
@@ -72,9 +112,8 @@ namespace SmartWindows
         sealed class ReplaceState { public WeakReference Element; public int Tries; public bool Done, Hidden; public Noesis.Visibility Before; }
         static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, ReplaceState> ReplaceStates = new System.Runtime.CompilerServices.ConditionalWeakTable<object, ReplaceState>();
 
-        void ReplaceButtonStep(object w)
+        void ReplaceButtonStep(object w, object vm)
         {
-            var vm = InfoViewModel(w);
             if (vm != null) ReplaceStep(w, w as Noesis.DependencyObject, vm);
         }
 
@@ -85,8 +124,8 @@ namespace SmartWindows
             var el = st.Element == null ? null : st.Element.Target as Noesis.UIElement;
             if (el == null)
             {
-                if (st.Done || ++st.Tries > 120) { if (!st.Done) Trace("loadout list: Replace button not found"); st.Done = true; return; }
-                el = FindReplaceHolder(root);
+                if (st.Done) return;
+                el = ReplaceHolderOf(vm);
                 if (el == null) return;
                 st.Element = new WeakReference(el);
                 st.Done = true;
@@ -108,29 +147,11 @@ namespace SmartWindows
             }
         }
 
-        /// <summary>The Replace button (Command bound to ...TestCommand) or, going up, the element holding only it and decoration.</summary>
-        Noesis.UIElement FindReplaceHolder(Noesis.DependencyObject root)
+        /// <summary>The Replace button (Command bound to ...TestCommand; caught when it loaded) or, going up, the element holding only it and decoration.</summary>
+        Noesis.UIElement ReplaceHolderOf(object vm)
         {
-            if (root == null) return null;
-            var stack = new Stack<Noesis.DependencyObject>();
-            stack.Push(root);
-            int budget = 30000;
-            Noesis.Button btn = null;
-            while (stack.Count > 0 && --budget > 0 && btn == null)
-            {
-                var e = stack.Pop();
-                var b = e as Noesis.Button;
-                if (b != null)
-                {
-                    Noesis.BindingExpression x = null;
-                    try { x = Noesis.BindingOperations.GetBindingExpression(b, Noesis.ButtonBase.CommandProperty); } catch { }
-                    var path = x == null || x.ParentBinding == null || x.ParentBinding.Path == null ? null : x.ParentBinding.Path.Path;
-                    if (path != null && path.EndsWith("TestCommand", StringComparison.Ordinal)) { btn = b; break; }
-                    continue;
-                }
-                int n = Noesis.VisualTreeHelper.GetChildrenCount(e);
-                for (int k = n - 1; k >= 0; k--) { var c = Noesis.VisualTreeHelper.GetChild(e, k); if (c != null) stack.Push(c); }
-            }
+            VmParts parts;
+            var btn = vm != null && PartsByVm.TryGetValue(vm, out parts) ? PartOf(parts.Replace) as Noesis.Button : null;
             if (btn == null) return null;
             Noesis.UIElement holder = btn;
             var chain = Describe(btn);

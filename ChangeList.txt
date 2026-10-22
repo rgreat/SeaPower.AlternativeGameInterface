@@ -1,0 +1,5 @@
+Version 1.6.1
+- Fixed: game messages in the bottom right corner blocked clicks on buttons under them even after fading.
+- Fewer FPS drops: the mod no longer scans the game's interface in the background (this caused the slowdown after loading a save); needed elements are caught when the game creates them.
+- Faster Unit Reference search and contact Information window.
+- Supports Sea Power 0.8.6.

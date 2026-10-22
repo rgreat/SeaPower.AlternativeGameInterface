@@ -26,10 +26,11 @@ namespace SmartWindows
                 public ConfigEntryBase Entry;
                 public float Step, Min, Max;
                 public Field Needs;          // shown only while this (bool) field is on
+                public bool TfbOnly;         // shown only when the window is opened from the campaign Task Force Builder
             }
 
-            const string TGeneral = "General", TRemembered = "Remembered Windows", TFrame = "Frame", TStatus = "Unit Status", TRef = "Unit Reference";
-            static readonly string[] Tabs = { TGeneral, TRemembered, TFrame, TStatus, TRef };
+            const string TWindows = "Windows", TRemembered = "Remembered Windows", TFrame = "Frame", TMission = "In Mission", TFiles = "Game Menus", TDebug = "Debug", TCampaign = "Campaign", TStatus = "Unit Status", TRef = "Unit Reference";
+            static readonly string[] Tabs = { TWindows, TRemembered, TFrame, TMission, TFiles, TStatus, TRef, TCampaign, TDebug };
             static readonly List<Field> Fields = new List<Field>();
 
             static void Add(string tab, string group, ConfigEntryBase e, char kind, string label, string unit, float step = 0f, float min = 0f, float max = 0f)
@@ -37,19 +38,52 @@ namespace SmartWindows
                 if (e != null) Fields.Add(new Field { Tab = tab, Group = group, Entry = e, Kind = kind, Label = label, Unit = unit, Step = step, Min = min, Max = max });
             }
 
+            // texts of a row in the current language (the English ones in the Field stay the ids)
+            static string KeyOf(Field f) { return f.Entry.Definition.Section + "/" + f.Entry.Definition.Key; }
+            static string LabelOf(Field f) { return Loc.Or("lbl." + KeyOf(f), f.Label); }
+            static string UnitOf(Field f) { return Loc.Or("unit." + KeyOf(f), f.Unit); }
+            static string HelpOf(Field f) { return Loc.Or("help." + KeyOf(f), f.Entry.Description == null ? "" : f.Entry.Description.Description); }
+            static string GroupOf(string g) { return Loc.Or("grp." + g, g); }
+            static string TabOf(string t) { return Loc.Or("tab." + t, t); }
+
+            /// <summary>Puts the settings table's texts into the translation table (once, when the config is bound).</summary>
+            public static void RegisterTexts(SmartWindowsPlugin p)
+            {
+                Define(p);
+                foreach (var t in Tabs) Loc.Register("tab." + t, t);
+                foreach (var f in Fields)
+                {
+                    Loc.Register("grp." + f.Group, f.Group);
+                    Loc.Register("lbl." + KeyOf(f), f.Label);
+                    if (!string.IsNullOrEmpty(f.Unit)) Loc.Register("unit." + KeyOf(f), f.Unit);
+                    if (f.Entry.Description != null) Loc.Register("help." + KeyOf(f), f.Entry.Description.Description);   // also the entries of the other config file (Campaign)
+                }
+            }
+
             static void Define(SmartWindowsPlugin p)
             {
                 if (Fields.Count > 0) return;
-                Add(TGeneral, "Moving and sizing", p._dragOutside, 'b', "Drag partly off-screen", "");
-                Add(TGeneral, "Moving and sizing", p._minVisible, 'f', "Visible at the edge", "px", 5f, 1f, 10000f);
-                Add(TGeneral, "Moving and sizing", p._dblClickMax, 'b', "Maximize by double-click", "");
-                Add(TGeneral, "Moving and sizing", p._removeLimitsAll, 'b', "No size limits", "");
-                Add(TGeneral, "Snapping", p._snapOn, 'b', "Snap edges", "");
-                Add(TGeneral, "Snapping", p._snapDist, 'f', "Snap distance", "px", 1f, 1f, 50f);
-                Add(TGeneral, "Order", p._toFront, 'b', "Clicked window to front", "");
-                Add(TGeneral, "Order", p._cascade, 'f', "Cascade shift", "px · 0 = off", 5f, 0f, 500f);
-                Add(TGeneral, "Settings window", p._gearOn, 'b', "Gear in title bars", "");
-                Add(TGeneral, "Logging", p._debugEntry, 'b', "Debug trace", "");
+                Add(TWindows, "Language", p._language, 'l', "Language", "");
+                Add(TWindows, "Moving, sizing and snapping", p._dragOutside, 'b', "Drag partly off-screen", "");
+                Add(TWindows, "Moving, sizing and snapping", p._minVisible, 'f', "Visible at the edge", "px", 5f, 1f, 10000f);
+                Add(TWindows, "Moving, sizing and snapping", p._dblClickMax, 'b', "Maximize by double-click", "");
+                Add(TWindows, "Moving, sizing and snapping", p._removeLimitsAll, 'b', "No size limits", "");
+                Add(TWindows, "Moving, sizing and snapping", p._snapOn, 'b', "Snap edges", "");
+                Add(TWindows, "Moving, sizing and snapping", p._snapDist, 'f', "Snap distance", "px", 1f, 1f, 50f);
+                Add(TWindows, "Order and title bars", p._toFront, 'b', "Clicked window to front", "");
+                Add(TWindows, "Order and title bars", p._cascade, 'f', "Cascade shift", "px · 0 = off", 5f, 0f, 500f);
+                Add(TWindows, "Order and title bars", p._gearOn, 'b', "Gear in title bars", "");
+
+                Add(TMission, "In Mission", p._unitMenu, 'b', "Menu on the unit panel's flag/name", "");
+                Add(TMission, "In Mission", p._fixContact, 'b', "Fix contact Information ages", "");
+
+                Add(TFiles, "Scenarios", p._hideCustom, 'b', "Hide _Custom Mission", "");
+                Add(TFiles, "Backgrounds", p._modBackgrounds, 'b', "Backgrounds from mods only", "");
+                Add(TFiles, "Mission editor", p._rememberFolder, 'b', "Remember last folder", "");
+                Add(TFiles, "Mission editor", p._blueIni, 'b', "Highlight ini files", "");
+                Add(TCampaign, "This campaign", p._strictLoadouts, 'b', "Strict campaign loadouts", "");
+                Add(TDebug, "Game logs", p._deleteLogs, 'b', "Delete old game logs at start", "");
+                Add(TDebug, "Mod log", p._debugEntry, 'b', "Debug trace", "");
 
                 Add(TRemembered, "Position and size", p._windows, 'w', "Remembered windows", "'*' = any text");
                 Add(TRemembered, "Position and size", p._addKey, 'k', "Add window under mouse", "key");
@@ -62,21 +96,22 @@ namespace SmartWindows
 
                 Add(TStatus, "Damage Control tab", p._secMin, 'f', "Sections min height", "px · 0 = game", 10f, 0f, 3000f);
                 Add(TStatus, "Reference tab", p._statusRef, 'b', "Reference tab", "");
+                Add(TStatus, "Unit name", p._fullName, 'b', "Full unit name in the header", "");
 
-                Add(TRef, "Unit Reference window", p._improvedUI, 'b', "Layout Improvements", "");
-                Add(TRef, "Unit Reference window", p._searchOn, 'b', "Remember search panel", "");
-                Add(TRef, "Unit Reference window", p._treeOpt, 'b', "Optimize the tree", "");
-                Add(TRef, "Unit Reference window", p._treeScroll, 'b', "Scroll to the selected unit", "");
-                Add(TRef, "Unit Reference window", p._loadoutList, 'b', "Loadout list for all units", "");
-                Add(TRef, "Kept by the mod", p._treeWidth, 'f', "Unit tree width", "px · 0 = auto", 10f, 0f, 3000f);
-                Add(TRef, "Kept by the mod", p._treeShown, 'b', "Unit tree shown", "");
-                Add(TRef, "Kept by the mod", p._nation, 's', "Country", "empty = game");
-                Add(TRef, "Kept by the mod", p._searchCategory, 's', "Category", "empty = game");
-                Add(TRef, "Kept by the mod", p._searchByDate, 'b', "Filter by date", "");
-                Add(TRef, "Kept by the mod", p._searchNameOnly, 'b', "Search by name only", "");
-                Add(TRef, "Kept by the mod", p._searchText, 's', "Search text", "");
-                Add(TRef, "Kept by the mod", p._armOnly, 'b', "Armed only", "");
+                Add(TRef, "Window and tree", p._improvedUI, 'b', "Layout Improvements", "");
+                Add(TRef, "Window and tree", p._loadoutList, 'b', "Loadout list for all units", "");
+                Add(TRef, "Window and tree", p._treeOpt, 'b', "Optimize the tree", "");
+                Add(TRef, "Window and tree", p._treeScroll, 'b', "Scroll to the selected unit", "");
+                Add(TRef, "Window and tree", p._earliest, 'b', "Class click: earliest variant", "");
+                Add(TRef, "Window and tree", p._keepOpened, 'b', "Keep the opened unit in the tree", "");
+                Add(TRef, "Window and tree", p._treeWheel, 'b', "Wheel only over the tree", "");
+                Add(TRef, "Search and help", p._searchOn, 'b', "Remember search panel", "");
+                Add(TRef, "Search and help", p._hideCountries, 'b', "Hide countries with no results", "");
+                Add(TRef, "Search and help", p._searchDesc, 'b', "Search in description and id", "");
+                Add(TRef, "Search and help", p._linkHelp, 'b', "Help tooltips on links", "");
 
+                var sl = Fields.Find(f => ReferenceEquals(f.Entry, p._strictLoadouts));
+                if (sl != null) sl.TfbOnly = true;
                 // work only with Layout Improvements (ImprovedUnitReferenceUI): hidden while it is off
                 var ui = Fields.Find(f => ReferenceEquals(f.Entry, p._improvedUI));
                 foreach (var f in Fields)
@@ -106,20 +141,21 @@ namespace SmartWindows
             static int _tab;
             static bool _unitRef;              // opened from a Unit Reference window: its tab is shown
             static bool _unitStatus;           // opened from a Unit Status window: its tab is shown
+            static bool _tfb;                  // opened from the campaign Task Force Builder: its own options are shown
             static bool _saidOpen;
 
             static bool _showAll;              // "Show all settings": the tabs of the other windows too (until the window closes)
             static Button _showAllButton;
 
-            static bool TabShown(int i) { return _showAll || (Tabs[i] == TRef ? _unitRef : Tabs[i] == TStatus ? _unitStatus : true); }
+            static bool TabShown(int i) { return _showAll || (Tabs[i] == TRef ? _unitRef : Tabs[i] == TStatus ? _unitStatus : Tabs[i] == TCampaign ? _tfb : true); }
 
             /// <summary>The button toggles the hidden tabs; not shown when no tab is hidden.</summary>
             static void UpdateShowAll()
             {
                 if (_showAllButton == null) return;
-                bool hidden = !_unitRef || !_unitStatus;
+                bool hidden = !_unitRef || !_unitStatus || !_tfb;
                 _showAllButton.Visibility = hidden ? Visibility.Visible : Visibility.Collapsed;
-                _showAllButton.Content = _showAll ? "Show fewer settings" : "Show all settings";
+                _showAllButton.Content = Loc.T(_showAll ? "btn.showFewer" : "btn.showAll");
             }
 
             public static bool IsOpen
@@ -138,23 +174,26 @@ namespace SmartWindows
             /// from it (not an items host), above everything. Open already: only the Unit Reference / Unit Status tabs follow where it was
             /// opened from.
             /// </summary>
-            public static void Open(SmartWindowsPlugin p, UIElement anchor, bool unitReference, bool unitStatus)
+            public static void Open(SmartWindowsPlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false)
             {
                 if (p == null || anchor == null) return;
                 P = p;
                 try
                 {
                     Define(p);
-                    bool tabChange = _unitRef != unitReference || _unitStatus != unitStatus;
+                    bool tabChange = _unitRef != unitReference || _unitStatus != unitStatus || _tfb != taskForce;
+                    _tfb = taskForce;
+                    if (taskForce) p.LoadStrictToProxy();
                     _unitRef = unitReference;
                     _unitStatus = unitStatus;
                     // opened from Unit Reference / Unit Status: that window's own tab first
                     if (tabChange && unitReference) _tab = Array.IndexOf(Tabs, TRef);
                     else if (tabChange && unitStatus) _tab = Array.IndexOf(Tabs, TStatus);
+                    else if (taskForce) _tab = Array.IndexOf(Tabs, TCampaign);
                     if (IsOpen)
                     {
                         UpdateShowAll();
-                        if (tabChange) ShowTab(_tab);
+                        if (tabChange || taskForce) ShowTab(_tab);
                         return;
                     }
                     Close();
@@ -240,6 +279,12 @@ namespace SmartWindows
             static void BuildWindow()
             {
                 _root = new Grid { Width = _winW, Height = _winH };
+                FillWindow();
+            }
+
+            /// <summary>The content of the window (its texts are read now): also used to rebuild it after the language changed.</summary>
+            static void FillWindow()
+            {
                 var win = new Border { Background = B(CBg), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), CornerRadius = new CornerRadius(4f) };
                 _root.Children.Add(win);
                 var parts = new List<UIElement>();
@@ -248,7 +293,7 @@ namespace SmartWindows
                 var title = new Grid { Background = B(CTitle), Height = 32f };
                 title.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1f, GridUnitType.Star) });
                 title.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                var tt = Text("Smart Windows - Settings", CText, 14f); tt.Margin = new Thickness(10f, 0f, 0f, 0f);
+                var tt = Text(Loc.T("ui.title"), CText, 14f); tt.Margin = new Thickness(10f, 0f, 0f, 0f);
                 title.Children.Add(tt);
                 var x = new Button { Content = Cross(10f), Width = 28f, Height = 24f, Padding = new Thickness(0f), Margin = new Thickness(0f, 0f, 4f, 0f),
                                      HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
@@ -259,17 +304,17 @@ namespace SmartWindows
                 parts.Add(title);
 
                 // tabs
-                var tabs = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 10f, 12f, 0f) };
+                var tabs = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 10f, 12f, 0f) };
                 _tabButtons.Clear(); _tabDots.Clear();
                 for (int i = 0; i < Tabs.Length; i++)
                 {
                     int idx = i;
                     var row = new StackPanel { Orientation = Orientation.Horizontal };
-                    row.Children.Add(Text(Tabs[i], CDim));
+                    row.Children.Add(Text(TabOf(Tabs[i]), CDim));
                     var dot = new Ellipse { Width = 6f, Height = 6f, Fill = B(CWarn), Margin = new Thickness(5f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
                     row.Children.Add(dot);
                     _tabDots.Add(dot);
-                    var tb = new Border { Child = row, Padding = new Thickness(12f, 6f, 12f, 6f), Margin = new Thickness(0f, 0f, 2f, 0f), BorderBrush = B(CLine),
+                    var tb = new Border { Child = row, Padding = new Thickness(10f, 6f, 10f, 6f), Margin = new Thickness(0f, 0f, 2f, 0f), BorderBrush = B(CLine),
                                           BorderThickness = new Thickness(1f, 1f, 1f, 0f), CornerRadius = new CornerRadius(3f, 3f, 0f, 0f), Background = B(CPanel) };
                     try { tb.Cursor = Cursors.Hand; } catch { }
                     tb.MouseLeftButtonUp += (o, e) => { ShowTab(idx); e.Handled = true; };
@@ -283,7 +328,7 @@ namespace SmartWindows
                 var settingsArea = new Border { Child = scroll, Background = B(CCard), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 0f) };
                 parts.Add(settingsArea);
 
-                _help = new TextBlock { Foreground = B(Color.FromRgb(194, 199, 204)), FontSize = 12f, TextWrapping = TextWrapping.Wrap, Text = "Point at a setting to see what it does." };
+                _help = new TextBlock { Foreground = B(Color.FromRgb(194, 199, 204)), FontSize = 12f, TextWrapping = TextWrapping.Wrap, Text = Loc.T("ui.help") };
                 parts.Add(new Border { Child = _help, Background = B(Color.FromRgb(34, 38, 44)), BorderBrush = B(CLine), BorderThickness = new Thickness(1f),
                                        Padding = new Thickness(10f, 8f, 10f, 8f), Margin = new Thickness(12f, 8f, 12f, 0f), Height = 108f, CornerRadius = new CornerRadius(3f) });   // fixed: the window does not jump
 
@@ -292,7 +337,7 @@ namespace SmartWindows
                 foot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 foot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1f, GridUnitType.Star) });
                 foot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                _showAllButton = Btn("Show all settings", () => { _showAll = !_showAll; UpdateShowAll(); ShowTab(_tab); }, 70f);
+                _showAllButton = Btn(Loc.T("btn.showAll"), () => { _showAll = !_showAll; UpdateShowAll(); ShowTab(_tab); }, 70f);
                 foot.Children.Add(_showAllButton);
                 UpdateShowAll();
                 _status = Text("", CDim, 11f);
@@ -300,9 +345,9 @@ namespace SmartWindows
                 Grid.SetColumn(_status, 1);
                 foot.Children.Add(_status);
                 var right = new StackPanel { Orientation = Orientation.Horizontal };
-                right.Children.Add(Btn("Cancel", Cancel, 70f));
-                right.Children.Add(Btn("Apply", () => Commit(false), 70f));
-                var ok = Btn("OK", () => Commit(true), 70f); ok.Margin = new Thickness(0f);
+                right.Children.Add(Btn(Loc.T("btn.cancel"), Cancel, 70f));
+                right.Children.Add(Btn(Loc.T("btn.apply"), () => Commit(false), 70f));
+                var ok = Btn(Loc.T("btn.ok"), () => Commit(true), 70f); ok.Margin = new Thickness(0f);
                 right.Children.Add(ok);
                 Grid.SetColumn(right, 2); foot.Children.Add(right);
                 parts.Add(foot);
@@ -351,8 +396,8 @@ namespace SmartWindows
             // the screen, not in the panel it is put into.
             static int _place;
             static bool _sizedOnce;
-            const float PixW = 900f, PixH = 1140f;
-            static float _winW = 900f, _winH = 1140f;   // UI units; set from PixW x PixH screen pixels at the first opening
+            const float PixW = 980f, PixH = 830f;
+            static float _winW = 980f, _winH = 830f;   // UI units; set from PixW x PixH screen pixels at the first opening
 
             static void OnLayout(object sender, Noesis.EventArgs e)
             {
@@ -411,7 +456,7 @@ namespace SmartWindows
                 {
                     h.Margin = new Thickness(0f, 0f, 1f, 1f);
                     h.Child = new Path { Data = new StreamGeometry("M15,4 L4,15 M15,8 L8,15 M15,12 L12,15"), Stroke = B(CDim), StrokeThickness = 1f };
-                    try { ToolTipService.SetToolTip(h, "Drag to resize"); } catch { }
+                    try { ToolTipService.SetToolTip(h, Loc.T("tip.resize")); } catch { }
                 }
                 try { h.Cursor = corner ? (sx == sy ? Cursors.SizeNWSE : Cursors.SizeNESW) : sx != 0 ? Cursors.SizeWE : Cursors.SizeNS; } catch { }
                 bool down = false; Point start = new Point(); float w0 = 0f, h0 = 0f;
@@ -473,7 +518,7 @@ namespace SmartWindows
             }
 
             /// <summary>The row is shown: the switch it depends on (if any) is on in the window.</summary>
-            static bool Shown(Field f) { return f.Needs == null || (Get(f.Needs) is bool && (bool)Get(f.Needs)); }
+            static bool Shown(Field f) { return (!f.TfbOnly || _tfb || _showAll) && (f.Needs == null || (Get(f.Needs) is bool && (bool)Get(f.Needs))); }
 
             static bool Dirty() { return _pending.Count > 0 || _resets.Count > 0 || _osStates.Count > 0; }
 
@@ -482,10 +527,12 @@ namespace SmartWindows
             {
                 if (_commitFocused != null) { try { _commitFocused(); } catch (Exception e) { Trace("commit focused: " + e.Message); } }
                 int n = 0;
+                bool langChanged = false;
                 foreach (var f in Fields)
                 {
                     object v;
                     if (!_pending.TryGetValue(f, out v)) continue;
+                    if (ReferenceEquals(f.Entry, P._language)) langChanged = true;
                     try { f.Entry.BoxedValue = v; P.AfterChange(f.Entry); n++; }
                     catch (Exception e) { Trace("settings: " + f.Entry.Definition.Key + ": " + e.Message); }
                 }
@@ -505,7 +552,34 @@ namespace SmartWindows
                 if (o > 0) P.Config.Save();
                 Trace("settings applied: " + n + " value(s), " + r + " layout(s) forgotten, " + o + " open / closed state(s)");
                 if (close) Close();
-                else ShowTab(_tab);
+                else
+                {
+                    ShowTab(_tab);
+                    if (langChanged) RebuildAfterLayout();
+                }
+            }
+
+            /// <summary>The language changed: the window is built again with the new texts - not inside the click, on the next layout pass.</summary>
+            static void RebuildAfterLayout()
+            {
+                Loc.Refresh();
+                var root = _root;
+                if (root == null) return;
+                Noesis.EventHandler h = null;
+                h = (o, e) =>
+                {
+                    root.LayoutUpdated -= h;
+                    if (!ReferenceEquals(root, _root)) return;
+                    try
+                    {
+                        _root.Children.Clear();
+                        FillWindow();
+                        ShowTab(_tab);
+                    }
+                    catch (Exception ex) { Trace("settings rebuild: " + ex.Message); }
+                };
+                root.LayoutUpdated += h;
+                try { root.InvalidateMeasure(); } catch { }
             }
 
             /// <summary>Cancel / ✕: what was changed in the window is dropped.</summary>
@@ -519,17 +593,20 @@ namespace SmartWindows
 
             static string Show(Field f, object v)
             {
-                if (v is bool) return (bool)v ? "on" : "off";
+                if (v is bool) return Loc.T((bool)v ? "val.on" : "val.off");
                 if (v is float) return ((float)v).ToString("0.##", CultureInfo.InvariantCulture);
                 return Convert.ToString(v, CultureInfo.InvariantCulture) ?? "";
             }
 
             static string DefaultText(Field f)
             {
-                if (ReferenceEquals(f.Entry, P._secMin))
-                    return P.SectionsGamePx > 0f ? "game: ≈ " + Fmt(P.SectionsGamePx) + " px" : "game: open the tab";
                 var d = Show(f, f.Entry.DefaultValue);
-                return "default: " + (d.Length == 0 ? "empty" : d);
+                if (f.Kind == 'l' && d.Length == 0) d = Loc.T("val.gameLang");
+                var text = Loc.F("val.default", d.Length == 0 ? Loc.T("val.empty") : d);
+                // the game's own minimum height (0 = as in the game) is known once the Damage Control tab has been open
+                if (ReferenceEquals(f.Entry, P._secMin))
+                    text += "\n" + (P.SectionsGamePx > 0f ? Loc.F("val.gamePx", Fmt(P.SectionsGamePx)) : Loc.T("val.gameOpenTab"));
+                return text;
             }
 
             static bool TryNum(string s, out float v)
@@ -581,7 +658,7 @@ namespace SmartWindows
                     foreach (var f in Fields) if (f.Tab == Tabs[t] && Changed(f)) { any = true; break; }
                     _tabDots[t].Visibility = any ? Visibility.Visible : Visibility.Collapsed;
                 }
-                if (_status != null) _status.Text = Dirty() ? "● = changed, not applied yet   ↺ = the default" : "↺ = the default";
+                if (_status != null) _status.Text = Loc.T(Dirty() ? "st.dirty" : "st.clean");
             }
 
             // ------------------------------------------------------------ tabs and rows
@@ -606,7 +683,7 @@ namespace SmartWindows
                 foreach (var f in Fields)
                 {
                     if (f.Tab != Tabs[_tab] || !Shown(f)) continue;
-                    if (f.Group != group) { group = f.Group; _body.Children.Add(GroupTitle(group)); }
+                    if (f.Group != group) { group = f.Group; _body.Children.Add(GroupTitle(GroupOf(group))); }
                     _body.Children.Add(f.Kind == 'w' ? ListRow(f) : Row(f));
                 }
                 UpdateHeader();
@@ -614,15 +691,15 @@ namespace SmartWindows
 
             static TextBlock GroupTitle(string s)
             {
-                return new TextBlock { Text = s.ToUpperInvariant(), Foreground = B(CDim), FontSize = 11f, Margin = new Thickness(12f, 10f, 12f, 2f) };
+                return new TextBlock { Text = s.ToUpperInvariant(), Foreground = B(CDim), FontSize = 11f, Margin = new Thickness(12f, 6f, 12f, 0f) };
             }
 
             static Grid RowGrid()
             {
                 var g = new Grid { Background = Clear };
-                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(210f) });
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1f, GridUnitType.Star) });
-                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(124f) });
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(260f) });
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100f) });
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30f) });
                 return g;
             }
@@ -638,7 +715,7 @@ namespace SmartWindows
                 var lab = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
                 var dot = Dot();
                 lab.Children.Add(dot);
-                lab.Children.Add(Text(f.Label, CText));
+                lab.Children.Add(Text(LabelOf(f), CText));
                 g.Children.Add(lab);
                 return () => { dot.Visibility = Changed(f) ? Visibility.Visible : Visibility.Hidden; };
             }
@@ -655,7 +732,7 @@ namespace SmartWindows
 
             static Button BackButton(Field f, Action refresh, Action mark)
             {
-                return SmallButton("↺", "The default", () => { Set(f, f.Entry.DefaultValue); refresh(); mark(); });
+                return SmallButton("↺", Loc.T("tip.default"), () => { Set(f, f.Entry.DefaultValue); refresh(); mark(); });
             }
 
             static FrameworkElement Row(Field f)
@@ -664,7 +741,7 @@ namespace SmartWindows
                 var outer = new Border { Child = g, Padding = new Thickness(12f, 4f, 6f, 4f), Background = Clear };
                 var mark = Label(g, f);
                 Action refresh;
-                FrameworkElement editor = f.Kind == 'b' ? BoolEditor(f, mark, out refresh) : f.Kind == 'f' ? NumberEditor(f, mark, out refresh) : TextEditor(f, mark, out refresh);
+                FrameworkElement editor = f.Kind == 'b' ? BoolEditor(f, mark, out refresh) : f.Kind == 'f' ? NumberEditor(f, mark, out refresh) : f.Kind == 'l' ? LanguageEditor(f, mark, out refresh) : TextEditor(f, mark, out refresh);
                 Grid.SetColumn(editor, 1);
                 g.Children.Add(editor);
 
@@ -675,7 +752,7 @@ namespace SmartWindows
                 Grid.SetColumn(rst, 3);
                 g.Children.Add(rst);
                 mark();
-                Hover(outer, f.Label, f.Entry.Description.Description, null);
+                Hover(outer, LabelOf(f), HelpOf(f), null);
                 return outer;
             }
 
@@ -726,7 +803,7 @@ namespace SmartWindows
                 Action typed = () => { float v; if (TryNum(box.Text, out v)) { if (Math.Abs(v - cur()) > 1e-6f) put(v); else box.Text = Show(f, Get(f)); } else box.Text = Show(f, Get(f)); };
                 Commits(box, typed, () => box.Text = Show(f, Get(f)));
                 sp.Children.Add(minus); sp.Children.Add(box); sp.Children.Add(plus);
-                if (!string.IsNullOrEmpty(f.Unit)) { var u = Text(f.Unit, CDim, 12f); u.Margin = new Thickness(8f, 0f, 0f, 0f); sp.Children.Add(u); }
+                if (!string.IsNullOrEmpty(f.Unit)) { var u = Text(UnitOf(f), CDim, 12f); u.Margin = new Thickness(8f, 0f, 0f, 0f); sp.Children.Add(u); }
                 refresh = () => box.Text = Show(f, Get(f));
                 return sp;
             }
@@ -738,8 +815,29 @@ namespace SmartWindows
                 var cb = new CheckBox { IsChecked = on(), VerticalAlignment = VerticalAlignment.Center };
                 cb.Click += (o, e) => { Set(f, cb.IsChecked == true); mark(); };
                 sp.Children.Add(cb);
-                if (!string.IsNullOrEmpty(f.Unit)) { var u = Text(f.Unit, CDim, 12f); u.Margin = new Thickness(8f, 0f, 0f, 0f); sp.Children.Add(u); }
+                if (!string.IsNullOrEmpty(f.Unit)) { var u = Text(UnitOf(f), CDim, 12f); u.Margin = new Thickness(8f, 0f, 0f, 0f); sp.Children.Add(u); }
                 refresh = () => cb.IsChecked = on();
+                return sp;
+            }
+
+            /// <summary>The language of the mod's texts: the game's own or one of the game's languages.</summary>
+            static FrameworkElement LanguageEditor(Field f, Action mark, out Action refresh)
+            {
+                var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                var codes = new List<string> { "" };
+                var cb = new ComboBox { Width = 160f, MinHeight = 22f, VerticalContentAlignment = VerticalAlignment.Center };
+                cb.Items.Add(Loc.T("val.gameLang"));
+                foreach (var l in Loc.GameLanguages()) { codes.Add(l.Key); cb.Items.Add(l.Value); }
+                Func<int> index = () => { int k = codes.IndexOf((Convert.ToString(Get(f), CultureInfo.InvariantCulture) ?? "").Trim()); return k < 0 ? 0 : k; };
+                bool busy = false;
+                cb.SelectedIndex = index();
+                cb.SelectionChanged += (o, e) =>
+                {
+                    if (busy || cb.SelectedIndex < 0) return;
+                    Set(f, codes[cb.SelectedIndex]); mark();
+                };
+                sp.Children.Add(cb);
+                refresh = () => { busy = true; cb.SelectedIndex = index(); busy = false; };
                 return sp;
             }
 
@@ -771,7 +869,7 @@ namespace SmartWindows
                 };
                 Commits(box, typed, show);
                 sp.Children.Add(box);
-                if (!string.IsNullOrEmpty(f.Unit)) { var u = Text(f.Unit, CDim, 12f); u.Margin = new Thickness(8f, 0f, 0f, 0f); sp.Children.Add(u); }
+                if (!string.IsNullOrEmpty(f.Unit)) { var u = Text(UnitOf(f), CDim, 12f); u.Margin = new Thickness(8f, 0f, 0f, 0f); sp.Children.Add(u); }
                 show();
                 refresh = show;
                 return sp;
@@ -790,7 +888,7 @@ namespace SmartWindows
                 var g = RowGrid();
                 var head = new Border { Child = g, Padding = new Thickness(12f, 4f, 6f, 2f), Background = Clear };
                 var mark = Label(g, f);
-                var unit = Text(f.Unit, CDim, 12f);
+                var unit = Text(UnitOf(f), CDim, 12f);
                 Grid.SetColumn(unit, 1); Grid.SetColumnSpan(unit, 2);
                 g.Children.Add(unit);
                 panel.Children.Add(head);
@@ -807,7 +905,7 @@ namespace SmartWindows
                     var applied = Split(f.Entry.BoxedValue);
                     for (int i = 0; i < list.Count; i++) items.Children.Add(ListItem(f, list, i, applied, layouts, rebuild, mark, i == list.Count - 1 ? focus : null));
                     var bar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0f, 4f, 0f, 4f) };
-                    bar.Children.Add(Btn("+ Add window", () =>
+                    bar.Children.Add(Btn(Loc.T("btn.addWindow"), () =>
                     {
                         if (list.Count > 0 && list[list.Count - 1].Length == 0) return; // an empty one waits already
                         list.Add("");
@@ -818,23 +916,23 @@ namespace SmartWindows
                     {
                         bool any = false;
                         foreach (var k in list) { Layout l; if (P._saved.TryGetValue(k, out l) && !_resets.Contains(k)) any = true; }
-                        var all = Btn("Forget all positions", () =>
+                        var all = Btn(Loc.T("btn.forgetAll"), () =>
                         {
                             foreach (var k in list) { Layout l; if (P._saved.TryGetValue(k, out l)) _resets.Add(k); }
                             UpdateHeader(); rebuild();
                         });
                         all.IsEnabled = any;
-                        try { ToolTipService.SetToolTip(all, "On Apply the saved position and size of every remembered window is forgotten"); } catch { }
+                        try { ToolTipService.SetToolTip(all, Loc.T("tip.forgetAll")); } catch { }
                         bar.Children.Add(all);
                     }
-                    var hint = Text("empty name = removed", CDim, 11f);
+                    var hint = Text(Loc.T("hint.emptyName"), CDim, 11f);
                     hint.Margin = new Thickness(6f, 0f, 0f, 0f);
                     bar.Children.Add(hint);
                     items.Children.Add(bar);
                     focus = null;
                     mark();
                 };
-                var back = SmallButton("↺", "The default list", () =>
+                var back = SmallButton("↺", Loc.T("tip.defaultList"), () =>
                 {
                     list.Clear(); list.AddRange(Split(f.Entry.DefaultValue));
                     Set(f, Join(list)); rebuild();
@@ -842,7 +940,7 @@ namespace SmartWindows
                 Grid.SetColumn(back, 3);
                 g.Children.Add(back);
                 rebuild();
-                Hover(head, f.Label, f.Entry.Description.Description, "Default: " + Show(f, f.Entry.DefaultValue));
+                Hover(head, LabelOf(f), HelpOf(f), Loc.F("val.defaultCap", Show(f, f.Entry.DefaultValue)));
                 return panel;
             }
 
@@ -886,9 +984,9 @@ namespace SmartWindows
 
                 if (layouts)
                 {
-                    var info = name.Length == 0 ? "" : forget ? "position forgotten on Apply"
-                             : saved ? (float.IsNaN(l.W) ? "" : Fmt(l.W) + " x " + Fmt(l.H) + " at " + Fmt(l.X) + ", " + Fmt(l.Y)) + (l.Max ? " · max" : "")
-                             : "position not saved yet";
+                    var info = name.Length == 0 ? "" : forget ? Loc.T("info.forgotten")
+                             : saved ? (float.IsNaN(l.W) ? "" : Loc.F("info.at", Fmt(l.W), Fmt(l.H), Fmt(l.X), Fmt(l.Y))) + (l.Max ? " · " + Loc.T("info.max") : "")
+                             : Loc.T("info.notSaved");
                     var it = Text(info, forget ? CWarn : CDim, 12f);
                     it.Margin = new Thickness(8f, 0f, 4f, 0f);
                     it.TextTrimming = TextTrimming.CharacterEllipsis;
@@ -900,12 +998,12 @@ namespace SmartWindows
                     // open / closed at the next mission: the kept state, editable (set on Apply)
                     var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(8f, 0f, 4f, 0f), VerticalAlignment = VerticalAlignment.Center };
                     var cb = new ComboBox { Width = 96f, MinHeight = 22f, VerticalContentAlignment = VerticalAlignment.Center };
-                    cb.Items.Add("open");
-                    cb.Items.Add("closed");
+                    cb.Items.Add(Loc.T("val.open"));
+                    cb.Items.Add(Loc.T("val.closed"));
                     string st;
                     if (!_osStates.TryGetValue(name, out st)) st = OsState(name);
                     cb.SelectedIndex = st == "open" ? 0 : st == "closed" ? 1 : -1;
-                    try { ToolTipService.SetToolTip(cb, st.Length == 0 ? "Not seen yet: the mod writes it when the window is opened or closed in a mission" : "As it was left last time; change it here"); } catch { }
+                    try { ToolTipService.SetToolTip(cb, Loc.T(st.Length == 0 ? "tip.notSeen" : "tip.asLeft")); } catch { }
                     cb.SelectionChanged += (o, e) =>
                     {
                         if (cb.SelectedIndex < 0) return;
@@ -921,7 +1019,7 @@ namespace SmartWindows
 
                 if (layouts)
                 {
-                    var fg = SmallButton("↺", forget ? "Keep the saved position" : "Forget the saved position and size (on Apply): the window opens where the game puts it", () =>
+                    var fg = SmallButton("↺", Loc.T(forget ? "tip.keepPos" : "tip.forgetPos"), () =>
                     {
                         if (!_resets.Remove(name)) _resets.Add(name);
                         UpdateHeader(); rebuild();
@@ -930,7 +1028,7 @@ namespace SmartWindows
                     Grid.SetColumn(fg, 3);
                     g.Children.Add(fg);
                 }
-                var rm = SmallButton(Cross(8f), "Remove from the list", () =>
+                var rm = SmallButton(Cross(8f), Loc.T("tip.remove"), () =>
                 {
                     if (!list.Remove(name)) return;
                     Set(f, Join(list));
@@ -938,11 +1036,7 @@ namespace SmartWindows
                 });
                 Grid.SetColumn(rm, 4);
                 g.Children.Add(rm);
-                Hover(outer, name.Length == 0 ? "New window" : name, layouts
-                    ? "A window to remember. The name is compared with the window's title, name, content type and view-model type, case and spaces " +
-                      "ignored, from its beginning: 'Unit Reference*' also matches 'Unit Reference - XYZ'; '*' = any text. Hover a window and press the " +
-                      "'add' key to put it here by itself."
-                    : "A window whose open / closed state is restored at the next mission (same naming rules as the remembered windows).", null);
+                Hover(outer, name.Length == 0 ? Loc.T("hov.newWindow") : name, Loc.T(layouts ? "hov.layoutHelp" : "hov.openHelp"), null);
                 return outer;
             }
         }

@@ -100,6 +100,7 @@ namespace SmartWindows
             else if (ReferenceEquals(e, _openWindows)) { ReloadOpenPatterns(); RematchOpenWindows(); }
             else if (ReferenceEquals(e, _borderOn) || ReferenceEquals(e, _borderThickness) || ReferenceEquals(e, _borderColor)) RefreshBorders();
             else if (ReferenceEquals(e, _gearOn)) RefreshGears();
+            else if (ReferenceEquals(e, _strictLoadouts)) SaveStrictFromProxy();
             else if (ReferenceEquals(e, _removeLimitsAll)) RefreshSizeLimits();
             else if (ReferenceEquals(e, _secMin)) ReapplyDamageControl();
             else if (ReferenceEquals(e, _debugEntry))
@@ -264,7 +265,7 @@ namespace SmartWindows
                 };
                 gear.MouseEnter += (s, e) => gear.Opacity = 1f;
                 gear.MouseLeave += (s, e) => gear.Opacity = 0.9f;
-                try { gear.Cursor = Cursors.Hand; ToolTipService.SetToolTip(gear, "Smart Windows settings"); } catch { }
+                try { gear.Cursor = Cursors.Hand; ToolTipService.SetToolTip(gear, Loc.T("tip.gear")); } catch { }
                 var owner = new WeakReference(w);
                 gear.PreviewMouseLeftButtonDown += (s, e) =>
                 {
@@ -273,7 +274,7 @@ namespace SmartWindows
                     var ow = owner.Target;
                     Trace("settings gear clicked");
                     // the Unit Reference / Unit Status tabs are shown only when the window is opened from such a window
-                    SettingsWindow.Open(this, gear, ow != null && InfoViewModel(ow) != null, ow != null && IsUnitStatusWindow(ow));
+                    SettingsWindow.Open(this, gear, ow != null && InfoViewModel(ow) != null, ow != null && IsUnitStatusWindow(ow), ow != null && IsTaskForceBuilderWindow(ow));
                 };
                 Panel.SetZIndex(gear, 100001);
                 var grid = panel as Grid;
@@ -291,6 +292,13 @@ namespace SmartWindows
         }
 
         /// <summary>A Unit Status window: one of its identifying strings is 'Unit Status...' (header, UnitStatusView, UnitStatusViewModel).</summary>
+        bool IsTaskForceBuilderWindow(object w)
+        {
+            foreach (var c in Candidates(w))
+                if (GlobMatch("LinearCampaignTaskForceBuilder*", Squash(c))) return true;
+            return false;
+        }
+
         bool IsUnitStatusWindow(object w)
         {
             foreach (var c in Candidates(w))
