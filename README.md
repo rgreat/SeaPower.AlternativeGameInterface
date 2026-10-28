@@ -2,7 +2,7 @@
 
 A Sea Power mod that makes the game's windows smarter.
 
-**Version 1.6.1**
+**Version 1.7.0**
 
 ## Features
 
@@ -43,10 +43,17 @@ A Sea Power mod that makes the game's windows smarter.
 19. Campaign, "Strict loadouts" (optional): a check box on the campaign start screen. The Task Force Builder then offers ship versions only for ships available in the mission or already owned. Stored per campaign; the settings window opened from the Task Force Builder starts on the Campaign tab.
 20. Game messages in the bottom right corner no longer block clicks on buttons under them.
 21. Localization: all texts of the mod's settings window and hints in the 9 languages of the game (en, ru, cn, de, es, fr, ko, ja, vn); the language of the game or [General] Language in the .cfg. The texts are in the lang folder of the mod and can be edited.
+22. Optional "Map and World View only in windows": Tactical Display and World View work as ordinary windows (free move and size, snapping, order and level like the others, no Tab). The World View picture is rendered into a texture of the window's own size, pixel for pixel; both windows open and close independently of each other. A topographic backdrop (SmartWindows_Backdrop.jpg next to the dll - replace it with any picture) is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
+23. A small arrow next to the gear of a window opens its look menu: opacity, scale and level (bottom / default / top).
+24. Windows docked to a screen edge can still be resized from that edge.
+25. The mission's time panel can be dragged; double-click puts it back.
+26. Unit Status: a "Track State" tab for a selected contact of another side (the contact's Information).
+27. Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); the ship's loadouts are sorted by date; the price of a hull swap is counted from the roster.
+28. The News window of the main menu gets the mod's gear, frame and remembered position; the game's resize cursors work outside a mission.
 
 ## Compatibility
 
-- Supports Sea Power version 0.8.6.
+- Supports Sea Power versions 0.8.6 – 0.8.7.
 - Requires Anchor Chain.
 - Can be switched on/off in the game's Mods menu.
 

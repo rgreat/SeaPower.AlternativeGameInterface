@@ -1,4 +1,4 @@
-[b]Version 1.6.1[/b]
+[b]Version 1.7.0[/b]
 
 [h1]Features[/h1]
 [olist]
@@ -39,11 +39,18 @@ The full name of the unit in the header.
 [*]Game messages in the bottom right corner no longer block clicks on buttons under them.
 [*]Campaign, "Strict loadouts" (optional): a check box on the campaign start screen. The Task Force Builder then offers ship versions only for ships available in the mission or already owned. Stored per campaign; the settings window opened from the Task Force Builder starts on the Campaign tab.
 [*]Localization: all texts of the settings window and its hints in the 9 languages of the game (en, ru, cn, de, es, fr, ko, ja, vn); the game's language or [General] Language in the .cfg. The texts are in the mod's lang folder and can be edited.
+[*]Optional "Map and World View only in windows": Tactical Display and World View work as ordinary windows (free move and size, snapping, order and level like the others, no Tab). The World View picture is rendered into a texture of the window's own size, pixel for pixel; both windows open and close independently of each other. A topographic backdrop (SmartWindows_Backdrop.jpg next to the dll - replace it with any picture) is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
+[*]A small arrow next to the gear of a window opens its look menu: opacity, scale and level (bottom / default / top).
+[*]Windows docked to a screen edge can still be resized from that edge.
+[*]The mission's time panel can be dragged; double-click puts it back.
+[*]Unit Status: a "Track State" tab for a selected contact of another side (the contact's Information).
+[*]Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); the ship's loadouts are sorted by date; the price of a hull swap is counted from the roster.
+[*]The News window of the main menu gets the mod's gear, frame and remembered position; the game's resize cursors work outside a mission.
 [/olist]
 
 [h1]Compatibility[/h1]
 [list]
-[*]Supports Sea Power version 0.8.6.
+[*]Supports Sea Power versions 0.8.6 – 0.8.7.
 [*]Requires Anchor Chain.
 [*]Can be switched on/off in the game's Mods menu.
 [/list]

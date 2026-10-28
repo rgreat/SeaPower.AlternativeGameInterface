@@ -45,7 +45,7 @@ namespace SmartWindows
     public partial class SmartWindowsPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.smartwindows";
-        public const string PluginVersion = "1.6.1"; // also <Version> in SmartWindows.csproj
+        public const string PluginVersion = "1.7.0"; // also <Version> in SmartWindows.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
 
         struct Layout
@@ -383,6 +383,11 @@ namespace SmartWindows
             _dblClickMax = Config.Bind("General", "MaximizeOnDoubleClick", true,
                 "Double-click a window's title bar to maximize it to the full screen, double-click again to restore it " +
                 "(windows that can be resized). A window closed maximized opens maximized (',max' after its layout in [Layouts]).");
+            _windowedMap = BindRenamed("General", "MapWindowsNotMaximized", "WindowedMapAndWorldView", false,
+                "Tactical Display and World View work only as ordinary windows that can be moved and sized freely (like the other windows): " +
+                "they are not remembered as maximized (no ',max' in [Layouts]), both are always shown (the game is put into its map fullscreen + World View state once), " +
+                "they stay below every other window and change places only between themselves. Tab no longer toggles the map, the maximize / restore buttons act on the window only, " +
+                "and the screen behind the windows is cleared by the mod (the game does not draw it in this state).");
             _improvedUI = BindRenamed("General", "ImprovedUI", "ImprovedUnitReferenceUI", true,
                 "Unit Reference window improvements: " +
                 "hiding the unit tree (the '<' button at the left edge) also hides the search / filter panel, makes the window " +
@@ -419,6 +424,13 @@ namespace SmartWindows
             BindUnitMenuConfig();
             BindGameFixConfig();
             BindCampaignLoadoutsConfig();
+            BindDismissConfig();
+            BindUpgradeConfig();
+            BindLoadoutsOrderConfig();
+            BindLookConfig();
+            BindTrackStateConfig();
+            BindCursorConfig();
+            BindXamlDumpConfig();
             CleanLogsOnce();   // as early as possible: before the game starts this session's files
             BindLinkHelpConfig();
             _armOnly = Config.Bind("UnitReference", "ArmedOnly", false, "The \"Armed only\" check box the mod adds to the Unit Reference search panel (with ImprovedUnitReferenceUI): when ticked, units without weapons (decoys, sonobuoys, fuel tanks do not count) are left out of the tree.");
@@ -436,6 +448,7 @@ namespace SmartWindows
             _snapOn = Config.Bind("General", "SnapWindows", true,
                 "While a window is dragged or resized with the mouse, its edges snap to the edges of the other windows and of the screen " +
                 "when they come closer than SnapDistance (the visible edges, without the invisible resize zone around a window).");
+            BindDockReachConfig(); BindTimePanelConfig();
             _snapDist = Config.Bind("General", "SnapDistance", 10f,
                 "SnapWindows: how close an edge must come to snap, in pixels (1 - 50).");
             _borderOn = Config.Bind("WindowBorder", "Enabled", true,
@@ -450,8 +463,6 @@ namespace SmartWindows
             _modBackgrounds = Config.Bind("General", "ModBackgroundsOnly", true,
                 "Background pictures of the main menu and the loading screens: when mods bring their own (ui/backgrounds), only theirs " +
                 "are shown, not mixed with the game's. Off = as the game: one picked at random from the game's and every mod's together.");
-            _gearOn = Config.Bind("General", "SettingsButton", true,
-                "A gear button in the title bar of every remembered window (WindowPatterns) opens the Smart Windows settings window.");
             _debugEntry = Config.Bind("General", "Debug", false,
                 "Enables verbose logging and BepInEx/SmartWindows.trace.txt.");
             _debug = _debugEntry.Value;
@@ -708,6 +719,10 @@ namespace SmartWindows
                     HookPickers(harmony, asm);
                     HookGameFixes(harmony, asm);
                     HookCampaignLoadouts(harmony, asm);
+                    HookLoadoutsOrder(harmony, asm);
+                    HookCampaignDismiss(harmony, asm);
+                    HookPipScene(harmony, asm);
+                    HookMapFullscreen(harmony, asm);
                     HookStatusReference(harmony, asm);
                 }
 
@@ -923,6 +938,7 @@ namespace SmartWindows
                 if (st.Key == null) return; // not a remembered window (or not recognisable yet)
                 Layout s;
                 if (!_saved.TryGetValue(st.Key, out s) || !s.Max) return;
+                if (MapNoMax(w, st.Key)) { s.Max = false; _saved[st.Key] = s; _dirty = true; _dirtySince = Time.unscaledTime; Verbose("'" + st.Key + "': ',max' dropped (WindowedMapAndWorldView)"); return; }
                 if (!GetB(w, "CanResize") || GetB(w, "Maximized")) return;
                 if (st.MaxOpened) return; // once per window: a later restore by the user stays restored
                 st.MaxOpened = true;
@@ -956,6 +972,7 @@ namespace SmartWindows
                 }
                 Layout sv;
                 if (st.Key == null || !_saved.TryGetValue(st.Key, out sv)) return; // no normal layout to keep yet
+                if (MapNoMax(w, st.Key)) return;   // the game's own maximizing (Tab) is not saved
                 bool max = GetB(w, "Maximized");
                 if (!max) { Trace("'" + st.Key + "' Maximized dropped (not by the user's restore): ',max' kept"); return; }
                 if (sv.Max) return;
@@ -1195,6 +1212,16 @@ namespace SmartWindows
         /// ZIndex 0) and any window or pop-up just opened (0) - without knowing what those are. Other elements of the panel
         /// (not windows) are left as the game set them.
         /// </summary>
+        ConfigEntry<bool> _windowedMap;
+
+        /// <summary>WindowedMapAndWorldView: this is the Tactical Display / World View (by the window or by its remembered key) and the option is on.</summary>
+        bool MapNoMax(object w, string key)
+        {
+            if (_windowedMap == null || !_windowedMap.Value) return false;
+            if (key != null && Array.Exists(MapHeaders, m => Squash(key).Equals(m, StringComparison.OrdinalIgnoreCase))) return true;
+            return IsMapWindow(w);
+        }
+
         static readonly string[] MapHeaders = { "TacticalDisplay", "WorldView" };
         static readonly string[] MapViewModels = { "SceneMapViewModel", "WorldViewWindowViewModel" };
 
@@ -1221,6 +1248,12 @@ namespace SmartWindows
 
         bool IsBottomWindow(object w) { return GetB(w, "Maximized") && IsMapWindow(w); }
 
+        /// <summary>Below every other window: a maximized map window.</summary>
+        bool MapMaxBottom(object w) { return IsMapWindow(w) && GetB(w, "Maximized"); }
+        /// <summary>The window's level category: -1 below the others (a maximized map or the window's own "Bottom" level), 0 as the game has it, 1 above.</summary>
+        int ZCategory(object w) { int l = MapMaxBottom(w) ? -1 : LevelOf(w); return l; }
+        bool IsBottomZ(object w) { return ZCategory(w) < 0; }
+
         void BringToFront(object w, string why) { BringToFront(w, why, true); }
 
         /// <param name="raise">false: only put the order right (a map window was maximized / restored), nothing is raised</param>
@@ -1229,7 +1262,7 @@ namespace SmartWindows
             try
             {
                 if (w == null || !InitZ()) return;
-                if (raise && IsBottomWindow(w)) raise = false; // a maximized map window: a click does not change the order
+                if (raise && MapMaxBottom(w) && !(_windowedMap != null && _windowedMap.Value)) raise = false; // a maximized map window: a click does not change the order (WindowedMapAndWorldView: the two map windows change places)
                 object c = w, panel = null;
                 for (var p = VtParent(w); p != null; c = p, p = VtParent(p))
                 {
@@ -1273,17 +1306,22 @@ namespace SmartWindows
                 // maximized map windows first (below everything), then the others: level, never raised (in the panel's order),
                 // then by the time raised
                 var bottom = new Dictionary<object, bool>();
-                int minLevel = int.MaxValue;
+                var cat = new Dictionary<object, int>();
+                int minLevel = int.MaxValue, maxLevel = int.MinValue;
                 foreach (var kw in kids)
                 {
-                    bottom[kw[1]] = IsBottomWindow(kw[1]);
+                    cat[kw[1]] = ZCategory(kw[1]);
+                    bottom[kw[1]] = cat[kw[1]] < 0;
                     ZState z; ZStates.TryGetValue(kw[1], out z);
                     if (z.Level < minLevel) minLevel = z.Level;
+                    if (z.Level > maxLevel) maxLevel = z.Level;
                 }
                 var order = new List<object[]>(kids);
                 order.Sort((a, b) =>
                 {
                     int r = bottom[b[1]].CompareTo(bottom[a[1]]); // bottom ones first
+                    if (r != 0) return r;
+                    r = (cat[a[1]] > 0).CompareTo(cat[b[1]] > 0); // "top" ones last
                     if (r != 0) return r;
                     ZState za, zb; ZStates.TryGetValue(a[1], out za); ZStates.TryGetValue(b[1], out zb);
                     r = za.Level.CompareTo(zb.Level);
@@ -1296,7 +1334,8 @@ namespace SmartWindows
                 {
                     if (bottom[kw[1]]) { bottoms++; continue; }
                     ZState z; ZStates.TryGetValue(kw[1], out z);
-                    int n; perLevel.TryGetValue(z.Level, out n); perLevel[z.Level] = n + 1;
+                    int lv = cat[kw[1]] > 0 ? maxLevel : z.Level;   // "top" windows count as the highest level
+                    int n; perLevel.TryGetValue(lv, out n); perLevel[lv] = n + 1;
                 }
                 int inMin; perLevel.TryGetValue(minLevel, out inMin);
                 inMin = Math.Min(inMin, ZLevelScale - 2);
@@ -1309,9 +1348,10 @@ namespace SmartWindows
                     if (bottom[kw[1]]) want = minLevel * ZLevelScale - 1 - inMin - bottoms + bi++;
                     else
                     {
-                        if (z.Level != lastLevel) { lastLevel = z.Level; rank = 0; }
+                        int lv = cat[kw[1]] > 0 ? maxLevel : z.Level;
+                        if (lv != lastLevel) { lastLevel = lv; rank = 0; }
                         // back to front (the order is ascending): the front one gets level * 1000 - 1, the ones behind count down
-                        want = z.Level * ZLevelScale - 1 - Math.Min(perLevel[z.Level] - 1 - rank++, ZLevelScale - 2);
+                        want = lv * ZLevelScale - 1 - Math.Min(perLevel[lv] - 1 - rank++, ZLevelScale - 2);
                     }
                     var cur = Invoke(_getZ, null, kw[0]);
                     if (cur == Failed || (int)cur != want) Invoke(_setZ, null, kw[0], want);
@@ -2186,6 +2226,7 @@ namespace SmartWindows
         void OnWindowLoaded(object w)
         {
             if (w == null || _hookFailed) return;
+            Trace("window loaded: '" + TextOf(Get(w, "Header")) + "'" + WindowInfo(w));
             if (_borderOn.Value) AddBorder(w);
             if (_toFront.Value) BringToFront(w, "opened");
             HookHeader(w); // the double-click checks MaximizeOnDoubleClick itself
@@ -2780,6 +2821,13 @@ namespace SmartWindows
 
         // ----------------------------------------------------------------- update
 
+        // after the game's UI has handled this frame's mouse (a window being dragged): the World View texture follows its window at once
+        void LateUpdate()
+        {
+            if (!_hooked || _hookFailed || _windowedMap == null || !_windowedMap.Value) return;
+            MapPipStep();
+        }
+
         void Update()
         {
             if (!_loadHookTried) TryInstallLoadScreenHook();
@@ -2797,16 +2845,20 @@ namespace SmartWindows
             if (!_hooked && LoadScreenDone) TryHook();
             if (!_hooked || _hookFailed) return;
 
+            ScanStep(Time.unscaledTime); XamlDumpStep(Time.unscaledTime);
             for (; _registered < Created.Count; _registered++)
                 _tracked.Add(new Tracked { Ref = Created[_registered] });
 
             float now = Time.unscaledTime;
+            BackdropStep();
+            TimePanelStep(now);
+            CompassTapeStep(now);
             for (int i = _tracked.Count - 1; i >= 0; i--)
             {
                 var t = _tracked[i];
                 var w = t.Ref.Target;
                 if (w == null) { _tracked.RemoveAt(i); continue; } // collected
-                try { Step(t, w, now); TrackOpenState(t, w, now); FitMaximized(w, now); PickerStep(w, now); if (_statusRef.Value && t.WasActive) StatusRefStep(w); }
+                try { Step(t, w, now); TrackOpenState(t, w, now); FitMaximized(w, now); PinStep(t, w, now); LookStep(w); MapModeStep(w, now); PickerStep(w, now); if (_statusRef.Value && t.WasActive) StatusRefStep(w); if (t.WasActive) TrackStateStep(w); if (t.WasActive) ResizeCursorStep(w, now); if (t.WasActive) DockReachStep(w, now); if (t.WasActive) UpgradeStep(w, now); if (t.WasActive) LoadoutOrderStep(w, now); }
                 catch (Exception e)
                 {
                     if (!t.Warned) { t.Warned = true; Logger.LogWarning("Window '" + t.Label + "': " + e.Message); Trace("Step error: " + e); }

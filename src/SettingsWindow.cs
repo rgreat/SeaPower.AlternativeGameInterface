@@ -67,23 +67,31 @@ namespace SmartWindows
                 Add(TWindows, "Moving, sizing and snapping", p._dragOutside, 'b', "Drag partly off-screen", "");
                 Add(TWindows, "Moving, sizing and snapping", p._minVisible, 'f', "Visible at the edge", "px", 5f, 1f, 10000f);
                 Add(TWindows, "Moving, sizing and snapping", p._dblClickMax, 'b', "Maximize by double-click", "");
+                Add(TWindows, "Moving, sizing and snapping", p._windowedMap, 'b', "Map and World View only in windows", "free move and size, no Tab");
                 Add(TWindows, "Moving, sizing and snapping", p._removeLimitsAll, 'b', "No size limits", "");
                 Add(TWindows, "Moving, sizing and snapping", p._snapOn, 'b', "Snap edges", "");
                 Add(TWindows, "Moving, sizing and snapping", p._snapDist, 'f', "Snap distance", "px", 1f, 1f, 50f);
+                Add(TWindows, "Moving, sizing and snapping", p._dockReach, 'b', "Resize docked windows", "zone reaches inside at screen edges");
                 Add(TWindows, "Order and title bars", p._toFront, 'b', "Clicked window to front", "");
                 Add(TWindows, "Order and title bars", p._cascade, 'f', "Cascade shift", "px · 0 = off", 5f, 0f, 500f);
-                Add(TWindows, "Order and title bars", p._gearOn, 'b', "Gear in title bars", "");
+                Add(TWindows, "Order and title bars", p._fixCursors, 'b', "Fix game resize cursors", "menus and campaign");
 
+                Add(TMission, "In Mission", p._timeDrag, 'b', "Draggable time panel", "double-click: back to the corner");
                 Add(TMission, "In Mission", p._unitMenu, 'b', "Menu on the unit panel's flag/name", "");
-                Add(TMission, "In Mission", p._fixContact, 'b', "Fix contact Information ages", "");
+                if (_contactFixApplies) Add(TMission, "In Mission", p._fixContact, 'b', "Fix contact Information ages", "");   // hidden when this game version has nothing to fix
 
                 Add(TFiles, "Scenarios", p._hideCustom, 'b', "Hide _Custom Mission", "");
                 Add(TFiles, "Backgrounds", p._modBackgrounds, 'b', "Backgrounds from mods only", "");
                 Add(TFiles, "Mission editor", p._rememberFolder, 'b', "Remember last folder", "");
                 Add(TFiles, "Mission editor", p._blueIni, 'b', "Highlight ini files", "");
                 Add(TCampaign, "This campaign", p._strictLoadouts, 'b', "Strict campaign loadouts", "");
+                Add(TCampaign, "Task Force", p._dismissDamaged, 'b', "Dismiss damaged ships", "refund minus repair");
+                Add(TCampaign, "Task Force", p._sortLoadouts, 'b', "Sort loadouts by date", "own versions first");
+                Add(TCampaign, "Task Force", p._fixSwapPrice, 'b', "Fix version swap price", "roster price");
+                Add(TCampaign, "Task Force", p._upgradeShip, 'b', "Upgrade ship button in the Builder", "crew -1 level");
                 Add(TDebug, "Game logs", p._deleteLogs, 'b', "Delete old game logs at start", "");
                 Add(TDebug, "Mod log", p._debugEntry, 'b', "Debug trace", "");
+                if (!IsWorkshopInstall()) Add(TDebug, "Game UI", p._dumpXaml, 'b', "Dump XAML now", "switches itself off");   // a development tool: not for the Steam Workshop copy
 
                 Add(TRemembered, "Position and size", p._windows, 'w', "Remembered windows", "'*' = any text");
                 Add(TRemembered, "Position and size", p._addKey, 'k', "Add window under mouse", "key");
@@ -96,6 +104,7 @@ namespace SmartWindows
 
                 Add(TStatus, "Damage Control tab", p._secMin, 'f', "Sections min height", "px · 0 = game", 10f, 0f, 3000f);
                 Add(TStatus, "Reference tab", p._statusRef, 'b', "Reference tab", "");
+                Add(TStatus, "Track State", p._trackState, 'b', "Track State of a selected contact", "");
                 Add(TStatus, "Unit name", p._fullName, 'b', "Full unit name in the header", "");
 
                 Add(TRef, "Window and tree", p._improvedUI, 'b', "Layout Improvements", "");

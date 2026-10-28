@@ -24,7 +24,17 @@ namespace SmartWindows
         void HookBackgrounds(Harmony harmony, Assembly asm)
         {
             var fm = asm.GetType("SeaPower.FileManager");
-            var m = fm == null ? null : fm.GetMethod("GetAllFiles", BindingFlags.Instance | BindingFlags.Public, null, new[] { typeof(string), typeof(string) }, null);
+            // 0.8.6: GetAllFiles(string path, string pattern); 0.8.7 adds a third parameter (LayerKind kinds = All): any overload that takes the path and
+            // the pattern first and returns the file list is the one (the callers pass two arguments, the default fills the rest)
+            MethodInfo m = null;
+            if (fm != null)
+                foreach (var c in fm.GetMethods(BindingFlags.Instance | BindingFlags.Public))
+                {
+                    if (c.Name != "GetAllFiles" || c.ReturnType != typeof(List<string>)) continue;
+                    var ps = c.GetParameters();
+                    if (ps.Length < 2 || ps[0].ParameterType != typeof(string) || ps[1].ParameterType != typeof(string)) continue;
+                    if (m == null || ps.Length < m.GetParameters().Length) m = c;
+                }
             if (m == null) { Trace("FileManager.GetAllFiles not found: ModBackgroundsOnly does nothing"); return; }
             harmony.Patch(m, postfix: Hm("AllFilesPostfix"));
             Trace("patched FileManager.GetAllFiles (ModBackgroundsOnly)");
