@@ -1,0 +1,14 @@
+Smart Windows 
+
+Version 1.7.0
+- New desktop mode: Tactical Display and World View are ordinary free windows. The 3D view is rendered pixel for pixel into the World View window; backdrop picture behind the windows (SmartWindows_Backdrop.jpg, replaceable); The minimap key (Tab) switches 2-5 desktops (window positions, visibility, look), the active one is remembered; "Desktops" settings page; World View on/off key; Backspace: 3D view fullscreen; compass tape inside the window, white or black by brightness.
+- Window look menu: opacity, scale, level (map and 3D start at Bottom).
+- Docked windows can be resized from every edge.
+- Draggable time panel, kept per desktop.
+- Keep map view on resize (option).
+- Unit Status: "Track State" tab for other sides' contacts.
+- Campaign: "Upgrade ship...", dismiss damaged, loadouts by date, swap price fix.
+- News window gets gear, frame, remembered position.
+- Backgrounds from mods and Strict loadouts fixes.
+- AddWindowKey (F12) removed.
+- Sea Power 0.8.6 - 0.8.7.

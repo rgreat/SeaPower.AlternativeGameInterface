@@ -93,7 +93,7 @@ namespace SmartWindows
                 Trace("Task Force Builder (LoadCampaignTaskForceData / GetFamilyVersions) not found: StrictLoadouts not available");
                 return;
             }
-            TryPatch(harmony, load, null, "BuilderLoadedPostfix", null);
+            TryPatch(harmony, load, "BuilderLoadedPrefix", "BuilderLoadedPostfix", null);
             TryPatch(harmony, fam, null, "FamilyVersionsPostfix", null);
             var rules = asm.GetType("SeapowerUI.ViewModels.LinearCampaignTaskForceDifficultyRules");
             var seed = rules == null ? null : rules.GetMethod("SeedPersistentDataForNewCampaign", all);
@@ -103,27 +103,64 @@ namespace SmartWindows
             Trace("patched GetFamilyVersions (StrictLoadouts)");
         }
 
+        // the builder is known before the lists are built (the first build of the groups happens inside LoadCampaignTaskForceData, before its postfix)
+        static void BuilderLoadedPrefix(object __instance) { _builderVm = __instance; }
         static void BuilderLoadedPostfix(object __instance) { _builderVm = __instance; }
 
-        /// <summary>Builder tab: the groups merged by tag keep only the variants of units the mission allows or the player owns.</summary>
+        /// <summary>The unit's loadout (a ship position of the builder is one unit with one fixed loadout) is one the campaign has not opened yet
+        /// (a loadout the campaign hands out as a reward: "Level 2" in Task Force Grom; the game's own names, Early / Late ..., are never locked).</summary>
+        static bool LoadoutLocked(SmartWindowsPlugin a, object v)
+        {
+            try
+            {
+                var fixedP = v.GetType().GetProperty("HasFixedLoadout", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (fixedP == null || !(bool)fixedP.GetValue(v, null)) return false;
+                string sel = a.Get(v, "SelectedLoadoutVariant") as string;
+                var opts = a.Get(v, "LoadoutOptions") as IEnumerable;
+                if (string.IsNullOrEmpty(sel) || opts == null) return false;
+                int n = 0, closed = 0;
+                foreach (var o in opts)
+                {
+                    bool lk = a.GetB(o, "IsLocked");
+                    if (string.Equals(a.Get(o, "Reference") as string, sel, StringComparison.OrdinalIgnoreCase)) return lk;
+                    n++; if (lk) closed++;
+                }
+                // the position's loadout is not one of the unit's own (the game fell back to "Default" for a unit whose loadouts it did not know when it built
+                // the list), and every loadout the unit has is still closed: the unit cannot be taken yet
+                return n > 0 && closed == n;
+            }
+            catch { }
+            return false;
+        }
+
+        /// <summary>Builder tab: the groups merged by tag keep only the variants of units the mission allows or the player owns, and not the ones whose
+        /// loadout the campaign has not opened yet.</summary>
         static void MergedGroupsPostfix(ref object __result)
         {
             var a = Active;
-            if ((object)a == null || !StrictActive() || _builderVm == null) return;
+            if ((object)a == null) return;
+            bool strict = StrictActive();
+            if (!strict || _builderVm == null) { Trace("strict loadouts: builder list not filtered (" + (!strict ? "the option is off in this campaign" : "builder not known yet") + ")"); return; }
             try
             {
                 var groups = __result as IList;
                 if (groups == null || groups.Count == 0) return;
-                var bt = _builderVm.GetType();
-                var allowAllProp = bt.GetProperty("AllowAllRosterUnits", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                if (allowAllProp != null && (bool)allowAllProp.GetValue(_builderVm, null)) return;   // unrestricted / debug mode chosen by the player
-                var restr = _restrictionField.GetValue(_builderVm);
-                if (restr == null) return;
-                var rt = restr.GetType();
-                var aa = rt.GetProperty("IsAllowAll", BindingFlags.Instance | BindingFlags.Public);
-                if (aa != null && (bool)aa.GetValue(restr, null)) return;
-                var allows = rt.GetMethod("Allows", BindingFlags.Instance | BindingFlags.Public);
-                if (allows == null) return;
+                // the mission's roster restriction (null: none / unrestricted mode - only the loadout lock applies)
+                object restr = null; MethodInfo allows = null; string why = null;
+                var allowAllProp = _builderVm.GetType().GetProperty("AllowAllRosterUnits", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (allowAllProp != null && (bool)allowAllProp.GetValue(_builderVm, null)) why = "unrestricted mode";
+                else
+                {
+                    restr = _restrictionField.GetValue(_builderVm);
+                    if (restr == null) why = "no mission restriction";
+                    else
+                    {
+                        var aa = restr.GetType().GetProperty("IsAllowAll", BindingFlags.Instance | BindingFlags.Public);
+                        if (aa != null && (bool)aa.GetValue(restr, null)) { why = "the mission allows all units"; restr = null; }
+                        else allows = restr.GetType().GetMethod("Allows", BindingFlags.Instance | BindingFlags.Public);
+                    }
+                }
+                int removed = 0, locked = 0;
                 for (int gi = groups.Count - 1; gi >= 0; gi--)
                 {
                     var vars = a.Get(groups[gi], "Variants") as IList;
@@ -132,11 +169,15 @@ namespace SmartWindows
                     {
                         var v = vars[i];
                         if (a.GetB(v, "IsCurrentTaskForceUnit")) continue;
-                        if ((bool)allows.Invoke(restr, new object[] { a.Get(v, "UnitType") as string, a.Get(v, "VariantReference") as string })) continue;
-                        vars.RemoveAt(i);
+                        if (LoadoutLocked(a, v)) { vars.RemoveAt(i); locked++; continue; }
+                        if (allows == null || (bool)allows.Invoke(restr, new object[] { a.Get(v, "UnitType") as string, a.Get(v, "VariantReference") as string })) continue;
+                        vars.RemoveAt(i); removed++;
                     }
                     if (vars.Count == 0) groups.RemoveAt(gi);
                 }
+                int left = 0; foreach (var g0 in groups) { var v0 = a.Get(g0, "Variants") as IList; if (v0 != null) left += v0.Count; }
+                Trace("strict loadouts: builder list " + removed + " unit(s) the mission does not offer and " + locked + " with a loadout not opened yet left out, " + left + " kept in "
+                      + groups.Count + " group(s)" + (why == null ? "" : " (mission restriction not applied: " + why + ")"));
             }
             catch (Exception e) { Trace("MergedGroupsPostfix: " + e.Message); }
         }
@@ -190,13 +231,15 @@ namespace SmartWindows
                 if (list.Count == 0) return;
                 var f0 = list[0].GetType().GetField("Item1");
                 if (f0 == null) return;
+                int fr = 0;
                 for (int i = list.Count - 1; i >= 0; i--)
                 {
                     var ty = f0.GetValue(list[i]) as string;
                     if (ty == null) continue;
                     if (string.Equals(ty, self, StringComparison.OrdinalIgnoreCase) || allowed.Contains(ty) || owned.Contains(ty)) continue;
-                    list.RemoveAt(i);
+                    list.RemoveAt(i); fr++;
                 }
+                if (fr > 0) Trace("strict loadouts: " + fr + " version(s) left out of the loadouts list of " + self);
             }
             catch (Exception e) { Trace("FamilyVersionsPostfix: " + e.Message); }
         }

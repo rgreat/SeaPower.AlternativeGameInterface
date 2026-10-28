@@ -18,6 +18,7 @@ namespace SmartWindows
         ConfigEntry<bool> _fixContact;
         static MethodInfo _elapsedGet;
         static FieldInfo _sessionField;
+        static bool _contactFixApplies;   // the game version still has the call the fix redirects
         static Func<float> _sessionFn;
         static Func<double> _elapsedFn;
 
@@ -65,6 +66,7 @@ namespace SmartWindows
                 if (m != null && ci.opcode == System.Reflection.Emit.OpCodes.Call && m == _elapsedGet) { ci.operand = mine; n++; }
                 yield return ci;
             }
+            _contactFixApplies = n > 0;
             Trace("FixContactInfo: " + n + " call(s) of missionElapsedTime redirected");
         }
 

@@ -16,7 +16,7 @@ namespace SmartWindows
         /// The Unit Reference / Unit Status tabs are shown only when the window is opened from such a window.
         /// While a text box has the keyboard, the game's hot keys are off (InputHandler.typingActive).
         /// </summary>
-        static class SettingsWindow
+        static partial class SettingsWindow
         {
             // ------------------------------------------------------------ what is shown
             sealed class Field
@@ -29,8 +29,8 @@ namespace SmartWindows
                 public bool TfbOnly;         // shown only when the window is opened from the campaign Task Force Builder
             }
 
-            const string TWindows = "Windows", TRemembered = "Remembered Windows", TFrame = "Frame", TMission = "In Mission", TFiles = "Game Menus", TDebug = "Debug", TCampaign = "Campaign", TStatus = "Unit Status", TRef = "Unit Reference";
-            static readonly string[] Tabs = { TWindows, TRemembered, TFrame, TMission, TFiles, TStatus, TRef, TCampaign, TDebug };
+            const string TWindows = "Windows", TMap = "Desktop mode", TTact = "Tactical Display", TRemembered = "Remembered Windows", TFrame = "Frame", TMission = "In Mission", TFiles = "Game Menus", TDebug = "Debug", TCampaign = "Campaign", TStatus = "Unit Status", TRef = "Unit Reference";
+            static readonly string[] Tabs = { TWindows, TMap, TTact, TRemembered, TFrame, TMission, TFiles, TStatus, TRef, TCampaign, TDebug };
             static readonly List<Field> Fields = new List<Field>();
 
             static void Add(string tab, string group, ConfigEntryBase e, char kind, string label, string unit, float step = 0f, float min = 0f, float max = 0f)
@@ -70,23 +70,35 @@ namespace SmartWindows
                 Add(TWindows, "Moving, sizing and snapping", p._removeLimitsAll, 'b', "No size limits", "");
                 Add(TWindows, "Moving, sizing and snapping", p._snapOn, 'b', "Snap edges", "");
                 Add(TWindows, "Moving, sizing and snapping", p._snapDist, 'f', "Snap distance", "px", 1f, 1f, 50f);
+                Add(TWindows, "Moving, sizing and snapping", p._dockReach, 'b', "Resize docked windows", "zone reaches inside at screen edges");
                 Add(TWindows, "Order and title bars", p._toFront, 'b', "Clicked window to front", "");
                 Add(TWindows, "Order and title bars", p._cascade, 'f', "Cascade shift", "px · 0 = off", 5f, 0f, 500f);
-                Add(TWindows, "Order and title bars", p._gearOn, 'b', "Gear in title bars", "");
+                Add(TWindows, "Order and title bars", p._fixCursors, 'b', "Fix game resize cursors", "menus and campaign");
 
+                Add(TTact, "Map", p._keepMapView, 'b', "Keep map view on resize", "zoom follows the window size");
+
+                Add(TMap, "Desktop mode", p._windowedMap, 'b', "Enable desktop mode", "free move and size");
+                Add(TMap, "Desktop mode", p._deskCount, 'f', "Number of desktops", "2 - 5", 1f, 2f, 5f);
+                Add(TMap, "Desktop mode", p._wvKey, 'k', "World View on / off key", "Insert by default");
+
+                Add(TMission, "In Mission", p._timeDrag, 'b', "Draggable time panel", "double-click: back to the corner");
                 Add(TMission, "In Mission", p._unitMenu, 'b', "Menu on the unit panel's flag/name", "");
-                Add(TMission, "In Mission", p._fixContact, 'b', "Fix contact Information ages", "");
+                if (_contactFixApplies) Add(TMission, "In Mission", p._fixContact, 'b', "Fix contact Information ages", "");   // hidden when this game version has nothing to fix
 
                 Add(TFiles, "Scenarios", p._hideCustom, 'b', "Hide _Custom Mission", "");
                 Add(TFiles, "Backgrounds", p._modBackgrounds, 'b', "Backgrounds from mods only", "");
                 Add(TFiles, "Mission editor", p._rememberFolder, 'b', "Remember last folder", "");
                 Add(TFiles, "Mission editor", p._blueIni, 'b', "Highlight ini files", "");
                 Add(TCampaign, "This campaign", p._strictLoadouts, 'b', "Strict campaign loadouts", "");
+                Add(TCampaign, "Task Force", p._dismissDamaged, 'b', "Dismiss damaged ships", "refund minus repair");
+                Add(TCampaign, "Task Force", p._sortLoadouts, 'b', "Sort loadouts by date", "own versions first");
+                Add(TCampaign, "Task Force", p._fixSwapPrice, 'b', "Fix version swap price", "roster price");
+                Add(TCampaign, "Task Force", p._upgradeShip, 'b', "Upgrade ship button in the Builder", "crew -1 level");
                 Add(TDebug, "Game logs", p._deleteLogs, 'b', "Delete old game logs at start", "");
                 Add(TDebug, "Mod log", p._debugEntry, 'b', "Debug trace", "");
+                if (!IsWorkshopInstall()) Add(TDebug, "Game UI", p._dumpXaml, 'b', "Dump XAML now", "switches itself off");   // a development tool: not for the Steam Workshop copy
 
                 Add(TRemembered, "Position and size", p._windows, 'w', "Remembered windows", "'*' = any text");
-                Add(TRemembered, "Position and size", p._addKey, 'k', "Add window under mouse", "key");
                 Add(TRemembered, "Open or closed at mission start", p._openWindows, 'w', "Windows", "");
 
                 Add(TFrame, "Frame around draggable windows", p._borderOn, 'b', "Frame", "");
@@ -96,6 +108,7 @@ namespace SmartWindows
 
                 Add(TStatus, "Damage Control tab", p._secMin, 'f', "Sections min height", "px · 0 = game", 10f, 0f, 3000f);
                 Add(TStatus, "Reference tab", p._statusRef, 'b', "Reference tab", "");
+                Add(TStatus, "Track State", p._trackState, 'b', "Track State of a selected contact", "");
                 Add(TStatus, "Unit name", p._fullName, 'b', "Full unit name in the header", "");
 
                 Add(TRef, "Window and tree", p._improvedUI, 'b', "Layout Improvements", "");
@@ -109,6 +122,13 @@ namespace SmartWindows
                 Add(TRef, "Search and help", p._hideCountries, 'b', "Hide countries with no results", "");
                 Add(TRef, "Search and help", p._searchDesc, 'b', "Search in description and id", "");
                 Add(TRef, "Search and help", p._linkHelp, 'b', "Help tooltips on links", "");
+
+                var wm = Fields.Find(f => ReferenceEquals(f.Entry, p._windowedMap));
+                var dc = Fields.Find(f => ReferenceEquals(f.Entry, p._deskCount));
+                _mapField = wm;
+                var wk = Fields.Find(f => ReferenceEquals(f.Entry, p._wvKey));
+                if (wm != null && wk != null) wk.Needs = wm;
+                if (wm != null && dc != null) dc.Needs = wm;       // the desktops exist only in this mode
 
                 var sl = Fields.Find(f => ReferenceEquals(f.Entry, p._strictLoadouts));
                 if (sl != null) sl.TfbOnly = true;
@@ -141,19 +161,21 @@ namespace SmartWindows
             static int _tab;
             static bool _unitRef;              // opened from a Unit Reference window: its tab is shown
             static bool _unitStatus;           // opened from a Unit Status window: its tab is shown
+            static bool _tact;                 // opened from the Tactical Display window: its tab is shown
             static bool _tfb;                  // opened from the campaign Task Force Builder: its own options are shown
             static bool _saidOpen;
 
             static bool _showAll;              // "Show all settings": the tabs of the other windows too (until the window closes)
             static Button _showAllButton;
 
-            static bool TabShown(int i) { return _showAll || (Tabs[i] == TRef ? _unitRef : Tabs[i] == TStatus ? _unitStatus : Tabs[i] == TCampaign ? _tfb : true); }
+            static Field _mapField;
+            static bool TabShown(int i) { return _showAll || (Tabs[i] == TRef ? _unitRef : Tabs[i] == TStatus ? _unitStatus : Tabs[i] == TCampaign ? _tfb : Tabs[i] == TTact ? _tact : true); }
 
             /// <summary>The button toggles the hidden tabs; not shown when no tab is hidden.</summary>
             static void UpdateShowAll()
             {
                 if (_showAllButton == null) return;
-                bool hidden = !_unitRef || !_unitStatus || !_tfb;
+                bool hidden = !_unitRef || !_unitStatus || !_tfb || !_tact;
                 _showAllButton.Visibility = hidden ? Visibility.Visible : Visibility.Collapsed;
                 _showAllButton.Content = Loc.T(_showAll ? "btn.showFewer" : "btn.showAll");
             }
@@ -174,14 +196,15 @@ namespace SmartWindows
             /// from it (not an items host), above everything. Open already: only the Unit Reference / Unit Status tabs follow where it was
             /// opened from.
             /// </summary>
-            public static void Open(SmartWindowsPlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false)
+            public static void Open(SmartWindowsPlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false, bool tactical = false)
             {
                 if (p == null || anchor == null) return;
                 P = p;
                 try
                 {
                     Define(p);
-                    bool tabChange = _unitRef != unitReference || _unitStatus != unitStatus || _tfb != taskForce;
+                    bool tabChange = _unitRef != unitReference || _unitStatus != unitStatus || _tfb != taskForce || _tact != tactical;
+                    _tact = tactical;
                     _tfb = taskForce;
                     if (taskForce) p.LoadStrictToProxy();
                     _unitRef = unitReference;
@@ -190,6 +213,7 @@ namespace SmartWindows
                     if (tabChange && unitReference) _tab = Array.IndexOf(Tabs, TRef);
                     else if (tabChange && unitStatus) _tab = Array.IndexOf(Tabs, TStatus);
                     else if (taskForce) _tab = Array.IndexOf(Tabs, TCampaign);
+                    else if (tabChange && tactical) _tab = Array.IndexOf(Tabs, TTact);
                     if (IsOpen)
                     {
                         UpdateShowAll();
@@ -198,6 +222,7 @@ namespace SmartWindows
                     }
                     Close();
                     _pending.Clear();   // a new copy of the settings
+                    ClearDesktops();
                     _resets.Clear();
                     _osStates.Clear();
                     DependencyObject top = anchor; Panel panel = null;
@@ -304,7 +329,7 @@ namespace SmartWindows
                 parts.Add(title);
 
                 // tabs
-                var tabs = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 10f, 12f, 0f) };
+                var tabs = new WrapPanel { Orientation = Orientation.Horizontal };
                 _tabButtons.Clear(); _tabDots.Clear();
                 for (int i = 0; i < Tabs.Length; i++)
                 {
@@ -321,7 +346,9 @@ namespace SmartWindows
                     _tabButtons.Add(tb);
                     tabs.Children.Add(tb);
                 }
-                parts.Add(tabs);
+                // the empty part of the last row is filled too
+                parts.Add(new Border { Child = tabs, Background = B(Color.FromRgb(34, 38, 44)), BorderBrush = B(CLine), BorderThickness = new Thickness(1f, 1f, 1f, 0f), CornerRadius = new CornerRadius(3f, 3f, 0f, 0f),
+                                       Margin = new Thickness(12f, 10f, 12f, 0f), Padding = new Thickness(4f, 4f, 4f, 0f) });
 
                 _body = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 6f, 0f, 6f) };
                 var scroll = new ScrollViewer { Content = _body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
@@ -396,8 +423,8 @@ namespace SmartWindows
             // the screen, not in the panel it is put into.
             static int _place;
             static bool _sizedOnce;
-            const float PixW = 980f, PixH = 830f;
-            static float _winW = 980f, _winH = 830f;   // UI units; set from PixW x PixH screen pixels at the first opening
+            const float PixW = 1060f, PixH = 830f;
+            static float _winW = 1060f, _winH = 830f;   // UI units; set from PixW x PixH screen pixels at the first opening
 
             static void OnLayout(object sender, Noesis.EventArgs e)
             {
@@ -520,7 +547,7 @@ namespace SmartWindows
             /// <summary>The row is shown: the switch it depends on (if any) is on in the window.</summary>
             static bool Shown(Field f) { return (!f.TfbOnly || _tfb || _showAll) && (f.Needs == null || (Get(f.Needs) is bool && (bool)Get(f.Needs))); }
 
-            static bool Dirty() { return _pending.Count > 0 || _resets.Count > 0 || _osStates.Count > 0; }
+            static bool Dirty() { return _pending.Count > 0 || _resets.Count > 0 || _osStates.Count > 0 || _dkEdited.Count > 0; }
 
             /// <summary>Apply / OK: the changed values are stored (and take effect), then the saved layouts marked are forgotten.</summary>
             static void Commit(bool close)
@@ -550,6 +577,7 @@ namespace SmartWindows
                 }
                 _osStates.Clear();
                 if (o > 0) P.Config.Save();
+                CommitDesktops();
                 Trace("settings applied: " + n + " value(s), " + r + " layout(s) forgotten, " + o + " open / closed state(s)");
                 if (close) Close();
                 else
@@ -588,6 +616,7 @@ namespace SmartWindows
                 _pending.Clear();
                 _resets.Clear();
                 _osStates.Clear();
+                ClearDesktops();
                 Close();
             }
 
@@ -654,7 +683,7 @@ namespace SmartWindows
             {
                 for (int t = 0; t < Tabs.Length && t < _tabDots.Count; t++)
                 {
-                    bool any = Tabs[t] == TRemembered && (_resets.Count > 0 || _osStates.Count > 0);
+                    bool any = Tabs[t] == TRemembered && (_resets.Count > 0 || _osStates.Count > 0) || Tabs[t] == TMap && _dkEdited.Count > 0;
                     foreach (var f in Fields) if (f.Tab == Tabs[t] && Changed(f)) { any = true; break; }
                     _tabDots[t].Visibility = any ? Visibility.Visible : Visibility.Collapsed;
                 }
@@ -680,6 +709,9 @@ namespace SmartWindows
                 _commitFocused = null;
                 _body.Children.Clear();
                 string group = null;
+                // desktop mode: its own tab control (Settings / Desktops) inside the tab
+                if (Tabs[_tab] == TMap && MapSubTabs()) { BuildDesktops(); UpdateHeader(); return; }
+                if (Tabs[_tab] == TMap && _mapField != null && Changed(_mapField) && Get(_mapField) is bool && (bool)Get(_mapField)) _body.Children.Add(ApplyDesktopOffer());
                 foreach (var f in Fields)
                 {
                     if (f.Tab != Tabs[_tab] || !Shown(f)) continue;
@@ -687,6 +719,22 @@ namespace SmartWindows
                     _body.Children.Add(f.Kind == 'w' ? ListRow(f) : Row(f));
                 }
                 UpdateHeader();
+            }
+
+            /// <summary>Desktop mode was just switched on in the window: it starts with Apply, offered right here.</summary>
+            static FrameworkElement ApplyDesktopOffer()
+            {
+                var g = new Grid { Margin = new Thickness(12f, 4f, 12f, 4f) };
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1f, GridUnitType.Star) });
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                var t = Text(Loc.Or("dk.offer", "Desktop mode starts when the settings are applied."), CText);
+                t.TextWrapping = TextWrapping.Wrap; t.VerticalAlignment = VerticalAlignment.Center;
+                g.Children.Add(t);
+                var b = Btn(Loc.Or("dk.applyNow", "Apply now"), () => { Commit(false); try { ShowTab(_tab); } catch (Exception e) { Trace("settings: " + e.Message); } }, 90f);
+                b.Margin = new Thickness(10f, 0f, 0f, 0f);
+                Grid.SetColumn(b, 1);
+                g.Children.Add(b);
+                return new Border { Child = g, Background = B(Color.FromRgb(34, 38, 44)), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), CornerRadius = new CornerRadius(3f), Padding = new Thickness(10f, 8f, 10f, 8f), Margin = new Thickness(0f, 4f, 0f, 4f) };
             }
 
             static TextBlock GroupTitle(string s)

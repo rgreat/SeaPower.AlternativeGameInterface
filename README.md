@@ -2,7 +2,7 @@
 
 A Sea Power mod that makes the game's windows smarter.
 
-**Version 1.6.1**
+**Version 1.7.0**
 
 ## Features
 
@@ -43,10 +43,18 @@ A Sea Power mod that makes the game's windows smarter.
 19. Campaign, "Strict loadouts" (optional): a check box on the campaign start screen. The Task Force Builder then offers ship versions only for ships available in the mission or already owned. Stored per campaign; the settings window opened from the Task Force Builder starts on the Campaign tab.
 20. Game messages in the bottom right corner no longer block clicks on buttons under them.
 21. Localization: all texts of the mod's settings window and hints in the 9 languages of the game (en, ru, cn, de, es, fr, ko, ja, vn); the language of the game or [General] Language in the .cfg. The texts are in the lang folder of the mod and can be edited.
+22. Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, order and level like the others). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the position and size, open / closed, opacity, scale and level of the windows and whether the World View is open; the active desktop is remembered. The desktops start as built-in arrangements of the mod (1: World View on top, 2: Tactical Display on top - on an ultrawide screen three columns of 30 / 40 / 30 % of the width with the main view in the middle, 3: map on the whole screen, 4: 3D view on the whole screen, 5: both side by side); the "Desktops" page of the "Desktop mode" tab in the settings window shows what is saved for each window of each desktop - edit it or bring it back to the built-in arrangement. A key (Insert by default; never one the game uses) opens and closes the World View. The World View picture is rendered into a texture of the window's own size, pixel for pixel; both windows open and close independently of each other. A topographic backdrop (SmartWindows_Backdrop.jpg next to the dll - replace it with any picture) is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
+23. A small arrow next to the gear of a window opens its look menu: opacity, scale and level (bottom / default / top). The Tactical Display and the World View start at the bottom level.
+24. Windows docked to a screen edge can still be resized from that edge.
+25. The mission's time panel can be dragged; double-click puts it back. Its place is kept per desktop; in desktop mode it starts a little lower and to the left.
+26. Unit Status: a "Track State" tab for a selected contact of another side (the contact's Information).
+27. Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); the ship's loadouts are sorted by date; the price of a hull swap is counted from the roster.
+28. The News window of the main menu gets the mod's gear, frame and remembered position; the game's resize cursors work outside a mission.
+29. Optional "Keep map view on resize" (the Tactical Display tab, shown when the settings are opened from the map window): when the Tactical Display window is resized, its zoom follows, so the area that was visible stays visible.
 
 ## Compatibility
 
-- Supports Sea Power version 0.8.6.
+- Supports Sea Power versions 0.8.6 – 0.8.7.
 - Requires Anchor Chain.
 - Can be switched on/off in the game's Mods menu.
 
@@ -60,7 +68,7 @@ A Sea Power mod that makes the game's windows smarter.
 
 - Windows remembered by default: Tactical Display, World View, Unit Reference, Unit Status, Event Log, Formation Manager, Task Force Builder, Weapon Reference.
   Move or resize them as usual; they come back where you left them.
-- To remember another window, hover the mouse over it and press F12.
+- To remember another window, add its name in the settings window (Remembered Windows).
 - Most features can be turned off or customized in the settings window (the gear in the title bar of a remembered window). They are stored in:
   `Sea Power/Sea Power_Data/StreamingAssets/user/SmartWindows/SmartWindows.cfg`
 

@@ -13,7 +13,6 @@ namespace SmartWindows
     /// </summary>
     public partial class SmartWindowsPlugin
     {
-        ConfigEntry<bool> _gearOn;
         static readonly ConditionalWeakTable<object, object> Gears = new ConditionalWeakTable<object, object>(); // window -> its gear
         readonly List<WeakReference> _borderOwners = new List<WeakReference>(); // windows given a frame (to redraw it)
 
@@ -99,7 +98,6 @@ namespace SmartWindows
             }
             else if (ReferenceEquals(e, _openWindows)) { ReloadOpenPatterns(); RematchOpenWindows(); }
             else if (ReferenceEquals(e, _borderOn) || ReferenceEquals(e, _borderThickness) || ReferenceEquals(e, _borderColor)) RefreshBorders();
-            else if (ReferenceEquals(e, _gearOn)) RefreshGears();
             else if (ReferenceEquals(e, _strictLoadouts)) SaveStrictFromProxy();
             else if (ReferenceEquals(e, _removeLimitsAll)) RefreshSizeLimits();
             else if (ReferenceEquals(e, _secMin)) ReapplyDamageControl();
@@ -197,13 +195,13 @@ namespace SmartWindows
                 {
                     if (VisualTreeHelper.GetParent((DependencyObject)old) != null) return; // still there
                     Gears.Remove(w);
+                    RemoveLookButton(w);
                 }
-                if (!_gearOn.Value) return;
                 string label;
-                if (MatchPattern(w, out label) == null) return;
+                if (MatchPattern(w, out label) == null) { GearNote(w, "no pattern of WindowPatterns matches it; names tried: " + string.Join(" | ", Candidates(w).ToArray())); return; }
                 var win = (FrameworkElement)w;
                 var thumb = Get(w, "HeaderThumb") as FrameworkElement;
-                if (thumb == null || !thumb.IsVisible) return; // no title bar (or not built yet: tried again when recognised)
+                if (thumb == null || !thumb.IsVisible) { GearNote(w, "no title bar yet (HeaderThumb " + (thumb == null ? "missing" : "not visible") + ")"); return; } // not built yet: tried again when recognised
                 var panel = TemplateRootPanel(w);
                 if (panel == null) { Trace("gear: no panel at the root of " + Describe(w)); return; }
                 if (thumb.ActualWidth < 1f) win.UpdateLayout();
@@ -274,7 +272,7 @@ namespace SmartWindows
                     var ow = owner.Target;
                     Trace("settings gear clicked");
                     // the Unit Reference / Unit Status tabs are shown only when the window is opened from such a window
-                    SettingsWindow.Open(this, gear, ow != null && InfoViewModel(ow) != null, ow != null && IsUnitStatusWindow(ow), ow != null && IsTaskForceBuilderWindow(ow));
+                    SettingsWindow.Open(this, gear, ow != null && InfoViewModel(ow) != null, ow != null && IsUnitStatusWindow(ow), ow != null && IsTaskForceBuilderWindow(ow), ow != null && TypeName(Get(ow, "DataContext")) == "SceneMapViewModel");
                 };
                 Panel.SetZIndex(gear, 100001);
                 var grid = panel as Grid;
@@ -285,10 +283,22 @@ namespace SmartWindows
                 }
                 panel.Children.Add(gear);
                 Gears.Add(w, gear);
+                AddLookButton(w, panel, ty + (th - size) / 2f, Math.Max(0f, pw - right) + 6f, size);
                 Trace("gear added to '" + TextOf(Get(w, "Header")) + "': header " + Fmt(tw) + "x" + Fmt(th) + " at " + Fmt(tx) + "," + Fmt(ty) +
                       " in " + Describe(panel) + " " + Fmt(pw) + " wide; right edge " + Fmt(right) + (found.Length > 0 ? "; buttons" + found : "; no header buttons found"));
             }
             catch (Exception ex) { Trace("EnsureGear: " + ex); }
+        }
+
+        static readonly ConditionalWeakTable<object, object> GearNotes = new ConditionalWeakTable<object, object>();
+
+        /// <summary>Debug trace: why a window got no gear (once per reason and window).</summary>
+        void GearNote(object w, string why)
+        {
+            object seen;
+            if (GearNotes.TryGetValue(w, out seen) && (string)seen == why) return;
+            GearNotes.Remove(w); GearNotes.Add(w, why);
+            Trace("gear: '" + TextOf(Get(w, "Header")) + "': " + why);
         }
 
         /// <summary>A Unit Status window: one of its identifying strings is 'Unit Status...' (header, UnitStatusView, UnitStatusViewModel).</summary>
@@ -321,6 +331,7 @@ namespace SmartWindows
             if (w == null || !Gears.TryGetValue(w, out g)) return;
             RemoveFromParent(g);
             Gears.Remove(w);
+            RemoveLookButton(w);
         }
 
         /// <summary>SettingsButton or WindowPatterns changed: gears on the windows on screen follow.</summary>
@@ -331,7 +342,7 @@ namespace SmartWindows
                 var w = t.Ref.Target;
                 if (w == null || !IsOnScreen(w)) continue;
                 string label;
-                if (!_gearOn.Value || MatchPattern(w, out label) == null) RemoveGear(w);
+                if (MatchPattern(w, out label) == null) RemoveGear(w);
                 else EnsureGear(w);
             }
         }

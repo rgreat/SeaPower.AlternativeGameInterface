@@ -104,6 +104,7 @@ namespace SmartWindows
             if ((object)a == null) return;
             lock (Statuses) Statuses.Add(new WeakReference(__instance));
             try { a.AddRefTab(__instance); } catch (Exception e) { Trace("Reference tab: " + e); }
+            try { a.AddTrackTab(__instance); } catch (Exception e) { Trace("Track State tab: " + e); }
         }
 
         static void StatusSwitchPostfix(object __instance)
@@ -111,6 +112,7 @@ namespace SmartWindows
             var a = Active;
             if ((object)a == null) return;
             try { a.UpdateRefTab(__instance); } catch (Exception e) { Trace("Reference tab: " + e); }
+            try { a.TrackSwitch(__instance); } catch (Exception e) { Trace("Track State tab: " + e); }
             try { a.FullUnitName(__instance); } catch (Exception e) { Trace("full unit name: " + e.Message); }
         }
 
@@ -137,6 +139,7 @@ namespace SmartWindows
             var a = Active;
             if ((object)a == null) return;
             try { a.DropRefContent(__instance); } catch (Exception e) { Trace("Reference tab: " + e); }
+            try { a.DropTrackContent(__instance); } catch (Exception e) { Trace("Track State tab: " + e); }
         }
 
         // ---------------------------------------------------------------- the tab
