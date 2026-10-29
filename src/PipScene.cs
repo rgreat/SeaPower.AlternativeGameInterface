@@ -4,7 +4,7 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// HidePipScene (1.7.0): while the map is fullscreen the game shows the World View picture: its main camera is shrunk to a rectangle at the
@@ -13,7 +13,7 @@ namespace SmartWindows
     /// 3D picture. This patch paints that rectangle black after the game's blit (the copy into the picture is done by then), so only the
     /// World View window shows the 3D scene.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
 
         static MethodInfo _pipActive, _pipSource, _pipInstanceExists, _pipImage, _pipDownsample;

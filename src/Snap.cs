@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// SnapWindows: while a window is dragged by its title bar or resized by its edges, its visible edges snap to the visible edges of
@@ -17,7 +17,7 @@ namespace SmartWindows
     ///  - The game's drag and resize work in steps relative to the Thumb, which moves with the window: a snapped edge stays on its
     ///    target until the mouse has moved more than SnapDistance away, then follows the mouse again - no drift.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         FieldInfo _resizeParent;   // SeapowerUI.ResizeCommand._parent (the window)
         static readonly ConditionalWeakTable<object, float[]> SnapInsets = new ConditionalWeakTable<object, float[]>();

@@ -2,6 +2,6 @@ bin/
 obj/
 out/
 *.user
-/com.rgreat.seapower.smartwindows.cfg
+/com.rgreat.seapower.alternativegameinterface.cfg
 /GameRefs.zip
-/SmartWindows.trace.txt
+/AlternativeGameInterface.trace.txt

@@ -9,7 +9,7 @@ using HarmonyLib;
 using Noesis;
 using Path = System.IO.Path;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// Menus and files (1.6.0):
@@ -20,7 +20,7 @@ namespace SmartWindows
     ///  - ColorIniFiles: *.ini names in the mission editor's file pickers are light blue;
     ///  - DeleteOldLogs: at start the game's logs of earlier sessions (Logs\*_session_*, *_sessionEventLog_*) are deleted, the current ones stay.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _hideCustom, _rememberFolder, _blueIni, _deleteLogs;
         ConfigEntry<string> _lastMissionDir;

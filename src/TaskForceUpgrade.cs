@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// UpgradeShip (1.7.0): the campaign Task Force Builder gets an "Upgrade ship..." button under "Unit Reference". For the ship selected in the
@@ -16,7 +16,7 @@ namespace SmartWindows
     /// It is done through the game's own code in one go: the Status window's removal (points, snapshot, aircraft assignments) and then the
     /// Builder's purchase and confirmation, so everything else in the game keeps its usual state.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _upgradeShip;
 

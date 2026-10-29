@@ -2,7 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// A maximized window stretches over its cell of the game's UI, which can be larger than the screen (and the visible body sits
@@ -10,7 +10,7 @@ namespace SmartWindows
     /// visible body (template root panel minus VisibleInsets) is exactly inside the screen (UnityEngine.Screen); the window's own
     /// Margin comes back on restore. Checked a few times a second for maximized windows only.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         sealed class FitState { public bool On; public Thickness Orig; public float Next; }
         static readonly ConditionalWeakTable<object, FitState> FitStates = new ConditionalWeakTable<object, FitState>();

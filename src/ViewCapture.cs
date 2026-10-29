@@ -2,7 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// Elements of the game's views are caught as they appear, not searched for in the visual tree: class handlers of the Loaded event (and MouseEnter
@@ -10,7 +10,7 @@ namespace SmartWindows
     /// bindings and types): the tree and the filter boxes of a Unit Reference, its Replace button, the Unit Status view, the campaign start screen's
     /// check box, the MainGameView. No loop over the tree anywhere on these paths.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         /// <summary>The parts of one Unit Reference (the window's ObjectInformationViewModel).</summary>
         sealed class VmParts { public WeakReference Date, Name, Replace; }

@@ -3,7 +3,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// WindowedMapAndWorldView. What the game's XAML does (GameMapView.xaml, WorldViewWindowView.xaml, MainGameView.xaml):
@@ -18,7 +18,7 @@ namespace SmartWindows
     /// Tactical Display window is an ordinary window (its Maximized and IsFullscreen may differ freely, no revert, no blocking), Tab does not
     /// flip the fullscreen. Both windows are below every other window and change places only between themselves (BringToFront).
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         sealed class MapModeState { public float Next; public bool Set, MenuDone; public int MenuTries; }
         static readonly ConditionalWeakTable<object, MapModeState> MapMode = new ConditionalWeakTable<object, MapModeState>();
@@ -187,7 +187,7 @@ namespace SmartWindows
                 shown = new UnityEngine.RenderTexture(w, h, 0, UnityEngine.RenderTextureFormat.Default) { antiAliasing = 1 };
             }
             foreach (var t in new[] { camRt, shown }) { t.useMipMap = false; t.filterMode = UnityEngine.FilterMode.Bilinear; t.wrapMode = UnityEngine.TextureWrapMode.Clamp; }
-            camRt.name = "SmartWindows_WorldView_Camera"; shown.name = "SmartWindows_WorldView";
+            camRt.name = "AlternativeGameInterface_WorldView_Camera"; shown.name = "AlternativeGameInterface_WorldView";
             camRt.Create(); if (shown != camRt) shown.Create();
             _rtCam = camRt; _rtShown = shown;
             foreach (var c in RtCameras(cm))
@@ -203,14 +203,14 @@ namespace SmartWindows
         }
         static UnityEngine.Transform _backdropSprite;
         static float _backdropAspect;
-        const string BackdropFile = "SmartWindows_Backdrop";   // .jpg / .png next to SmartWindows.dll: replace it with any picture (cover-fitted)
+        const string BackdropFile = "AlternativeGameInterface_Backdrop";   // .jpg / .png next to AlternativeGameInterface.dll: replace it with any picture (cover-fitted)
 
-        /// <summary>The picture over the grey: SmartWindows_Backdrop.jpg / .png next to the dll (a world map). No file - plain grey.</summary>
+        /// <summary>The picture over the grey: AlternativeGameInterface_Backdrop.jpg / .png next to the dll (a world map). No file - plain grey.</summary>
         void AddBackdropMap()
         {
             try
             {
-                string dir = System.IO.Path.GetDirectoryName(typeof(SmartWindowsPlugin).Assembly.Location) ?? "";
+                string dir = System.IO.Path.GetDirectoryName(typeof(AlternativeGameInterfacePlugin).Assembly.Location) ?? "";
                 string file = null;
                 foreach (var ext in new[] { ".jpg", ".jpeg", ".png" })
                     if (System.IO.File.Exists(System.IO.Path.Combine(dir, BackdropFile + ext))) { file = System.IO.Path.Combine(dir, BackdropFile + ext); break; }
@@ -225,7 +225,7 @@ namespace SmartWindows
                 var tex = new UnityEngine.Texture2D(2, 2, UnityEngine.TextureFormat.RGBA32, true);
                 if (!(bool)load.Invoke(null, new object[] { tex, System.IO.File.ReadAllBytes(file) })) { Trace("backdrop picture: cannot read " + file); return; }
                 tex.wrapMode = UnityEngine.TextureWrapMode.Clamp; tex.filterMode = UnityEngine.FilterMode.Trilinear; tex.anisoLevel = 4;
-                var go = new UnityEngine.GameObject("SmartWindows_BackdropMap");
+                var go = new UnityEngine.GameObject("AlternativeGameInterface_BackdropMap");
                 go.layer = 31;
                 go.transform.SetParent(_backdrop.transform, false);
                 go.transform.localPosition = new UnityEngine.Vector3(0f, 0f, 10f);
@@ -269,7 +269,7 @@ namespace SmartWindows
             catch { }
             if (want && _backdrop == null)
             {
-                _backdrop = new UnityEngine.GameObject("SmartWindows_Backdrop");
+                _backdrop = new UnityEngine.GameObject("AlternativeGameInterface_Backdrop");
                 UnityEngine.Object.DontDestroyOnLoad(_backdrop);
                 var cam = _backdrop.AddComponent<UnityEngine.Camera>();
                 cam.clearFlags = UnityEngine.CameraClearFlags.SolidColor;

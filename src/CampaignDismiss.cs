@@ -3,7 +3,7 @@ using System.Reflection;
 using BepInEx.Configuration;
 using HarmonyLib;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// DismissDamaged (1.7.0): in the campaign Task Force status the game refuses to dismiss a ship that has damage (CanDismiss = no damage).
@@ -11,7 +11,7 @@ namespace SmartWindows
     /// facilities, the damage is of a repairable kind and a saved damage state exists); the refund is the usual Dismiss refund minus the repair
     /// cost, never below 0. Menu text and confirmation show the reduced figure (they read the same refund).
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _dismissDamaged;
 

@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 using BepInEx.Configuration;
 using HarmonyLib;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// Unit Reference tree, 1.6.0 (the encyclopedia browser only):
@@ -20,7 +20,7 @@ namespace SmartWindows
     /// The filters work as the game's own: FilteredMuseumEntries collections of the browser's copy of the tree, after the game's
     /// filters (postfix of UpdateFilteredMuseumEntries, see ArmedFilter.cs), the units' data untouched.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _earliest, _keepOpened, _hideCountries, _searchDesc, _fullName;
         MethodInfo _matchObject, _matchWeapon, _matchSensor, _missionYear;
@@ -167,7 +167,7 @@ namespace SmartWindows
                 if (e == null) continue;
                 path.Add(e);
                 if (ReferenceEquals(e, target)) return true;
-                if (PathTo(SmartWindowsPlugin.Active.Get(e, "MuseumEntries") as IList, target, path)) return true;
+                if (PathTo(AlternativeGameInterfacePlugin.Active.Get(e, "MuseumEntries") as IList, target, path)) return true;
                 path.RemoveAt(path.Count - 1);
             }
             return false;

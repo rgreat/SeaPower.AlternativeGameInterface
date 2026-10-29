@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// ResizeCursor (1.7.0): the game draws its own cursors (Unity cursors from the [Cursors] section of the UI ini) from a Noesis cursor
@@ -13,7 +13,7 @@ namespace SmartWindows
     /// (News) therefore shows the plain arrow on its resize edges. Here the edges' (ResizeThumb) Noesis cursor is turned into the game's
     /// cursor of that name on mouse enter / leave, in the main menu only (no main game view model).
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         static readonly ConditionalWeakTable<object, object> CursorDone = new ConditionalWeakTable<object, object>();   // window -> last scan time (boxed float)
 

@@ -4,14 +4,14 @@ using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// DragTimePanel (1.7.0): the mission HUD's time panel (TimeCompressionView: date / time, x speed, rewind, play / pause, fast forward) sits in the
     /// top right corner (Canvas.Top / Canvas.Right of its Grid). Pressing it anywhere but on a button and dragging moves it (no resizing); a
     /// double-click puts it back. The place is remembered (TimePanelPosition).
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _timeDrag;
         const string TimeKey = "Time Panel";      // its place is kept like a window's: [Layouts] and the desktops (X, Y from the left / top; no size)

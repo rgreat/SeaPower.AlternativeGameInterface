@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using BepInEx.Configuration;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// LinkHelp (1.6.0): the highlighted links of a Unit Reference page (weapons, sensors, guns, launchers, systems: Buttons of the
@@ -13,7 +13,7 @@ namespace SmartWindows
     /// part of its Description - when it has one. Set when a Button loads or the mouse enters it (ViewCapture): no search through the tree;
     /// a link gets its tooltip once and again if its entry changes.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _linkHelp;
 

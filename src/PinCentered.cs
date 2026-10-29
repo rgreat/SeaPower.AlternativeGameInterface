@@ -2,7 +2,7 @@ using System;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// Pinned centre (1.7.0): some of the game's windows (News in the main menu) put X and Y in bindings that centre the window on its canvas
@@ -10,7 +10,7 @@ namespace SmartWindows
     /// size, so the binding moves it: it jumps while it is dragged by an edge. For a remembered window the bindings are replaced by the
     /// values they gave, once the window has been laid out.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         static readonly ConditionalWeakTable<object, object> Pinned = new ConditionalWeakTable<object, object>();   // window -> time first seen laid out (boxed float)
 

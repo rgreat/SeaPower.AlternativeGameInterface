@@ -7,7 +7,7 @@ using BepInEx.Configuration;
 using Noesis;
 using HarmonyLib;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// StrictCampaignLoadouts (1.6.0): in the campaign Task Force Builder the ship versions / loadouts offered for a ship are found by
@@ -16,7 +16,7 @@ namespace SmartWindows
     /// the mission's roster allows (the builder's mission restriction) or that the player already has (current task force) - plus the ship itself.
     /// The builder is captured in a postfix of LoadCampaignTaskForceData; no builder / no restriction (allow all) = the game's list.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _strictLoadouts;
         static object _builderVm;
@@ -30,7 +30,7 @@ namespace SmartWindows
         /// campaign's persistent data (saved with the campaign), so it is per campaign, default off.</summary>
         void BindCampaignLoadoutsConfig()
         {
-            var proxy = new ConfigFile(System.IO.Path.Combine(BepInEx.Paths.CachePath, "SmartWindows.proxy.cfg"), false);
+            var proxy = new ConfigFile(System.IO.Path.Combine(BepInEx.Paths.CachePath, "AlternativeGameInterface.proxy.cfg"), false);
             proxy.SaveOnConfigSet = false;
             _strictLoadouts = proxy.Bind("Campaign", "StrictLoadouts", false,
                 "Campaign Task Force Builder: ship versions and loadouts are offered only for ships the mission lists as available or that you already own " +
@@ -109,7 +109,7 @@ namespace SmartWindows
 
         /// <summary>The unit's loadout (a ship position of the builder is one unit with one fixed loadout) is one the campaign has not opened yet
         /// (a loadout the campaign hands out as a reward: "Level 2" in Task Force Grom; the game's own names, Early / Late ..., are never locked).</summary>
-        static bool LoadoutLocked(SmartWindowsPlugin a, object v)
+        static bool LoadoutLocked(AlternativeGameInterfacePlugin a, object v)
         {
             try
             {

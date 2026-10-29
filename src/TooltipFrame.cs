@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// [WindowBorder] ToolTips: a frame around the game's tooltips (pop-up hints), on all four sides, with the width and colour of
@@ -13,7 +13,7 @@ namespace SmartWindows
     /// BorderThickness are set. Another template: a frame Border is laid over its root panel. Applied each time a tooltip opens,
     /// so a change of the settings shows on the next one.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _tipBorder;
         static bool _tipHooked;

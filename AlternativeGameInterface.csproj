@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Builds SmartWindows.dll. No NuGet packages: every reference is a direct path, so it works offline.
+  <!-- Builds AlternativeGameInterface.dll. No NuGet packages: every reference is a direct path, so it works offline.
        Needs the .NET SDK (6+), the game, BepInEx in the game folder and the Anchor Chain Workshop item.
        Adjust the three paths below or pass them on the command line:
          dotnet build -c Release -p:GameDir="D:\Steam\steamapps\common\Sea Power" -->
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <AssemblyName>SmartWindows</AssemblyName>
-    <RootNamespace>SmartWindows</RootNamespace>
+    <AssemblyName>AlternativeGameInterface</AssemblyName>
+    <RootNamespace>AlternativeGameInterface</RootNamespace>
     <LangVersion>9.0</LangVersion>
     <Nullable>disable</Nullable>
     <DebugType>none</DebugType>
@@ -48,10 +48,10 @@
   </ItemGroup>
 
   <!-- After every build copy the dll into Release: the mod folder that is uploaded to the Workshop
-       (its contents go to StreamingAssets\SmartWindows for a local test) -->
+       (its contents go to StreamingAssets\AlternativeGameInterface for a local test) -->
   <Target Name="StageRelease" AfterTargets="Build">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)\Release" />
-    <Message Importance="high" Text="Staged: Release\SmartWindows.dll" />
+    <Message Importance="high" Text="Staged: Release\AlternativeGameInterface.dll" />
   </Target>
 
 </Project>

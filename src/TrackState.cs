@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// TrackState (1.7.0): the Unit Status window shows only units the player controls; a selected contact of another side (a track,
@@ -16,7 +16,7 @@ namespace SmartWindows
     /// for a contact, its Damage State tab) only our tab is made available, and the user picks it. The view model is the game's own, made
     /// when the tab is shown and disposed when the selection changes; the body is the game's own item templates (VehicleInfo.xaml).
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _trackState;
 

@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using HarmonyLib;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// Campaign Task Force, Loadouts tab (1.7.0):
@@ -17,7 +17,7 @@ namespace SmartWindows
     /// ship you own from the campaign's roster (orbat) and the price of the new hull from the unit's ini only, so a roster price that differs from
     /// the ini made the swap look like a refund. On: the new hull is priced from the roster too (the same as buying it in the Builder).
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _sortLoadouts, _fixSwapPrice;
 
@@ -60,7 +60,7 @@ namespace SmartWindows
             catch (Exception e) { Trace("SortLoadoutsByDate: " + e.Message); }
         }
 
-        static int YearOf(SmartWindowsPlugin a, object row)
+        static int YearOf(AlternativeGameInterfacePlugin a, object row)
         {
             var o = a.Get(row, "Option");
             var y = o == null ? null : a.Get(o, "ServiceEntryYear");

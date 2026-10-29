@@ -4,14 +4,14 @@ using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// The gear button in the title bar of every remembered window, and what the settings window (SettingsWindow.cs) needs from
     /// the plugin: re-reading the window lists, redrawing frames and gears, applying a changed setting at once.
     /// Noesis is used directly here (as in Alternative Damage Model); the game's own types still only through reflection.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         static readonly ConditionalWeakTable<object, object> Gears = new ConditionalWeakTable<object, object>(); // window -> its gear
         readonly List<WeakReference> _borderOwners = new List<WeakReference>(); // windows given a frame (to redraw it)
@@ -104,7 +104,7 @@ namespace SmartWindows
             else if (ReferenceEquals(e, _debugEntry))
             {
                 _debug = _debugEntry.Value;
-                Trace("Smart Windows " + PluginVersion + " build " + BuildId + " - debug switched on in the settings window");
+                Trace("Alternative Game Interface " + PluginVersion + " build " + BuildId + " - debug switched on in the settings window");
             }
             Verbose("Setting " + e.Definition.Section + "." + e.Definition.Key + " = " + TextOf(e.BoxedValue));
         }

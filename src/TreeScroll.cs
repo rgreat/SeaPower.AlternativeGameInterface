@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// ScrollToSelected: keeps the selected entry of a Unit Reference window's unit tree in view. The game selects the entry
@@ -14,7 +14,7 @@ namespace SmartWindows
     /// when the tree is shown again, or when the tree's items change (category, filters). On opening / showing / new items the
     /// entry is centred; otherwise the tree scrolls just enough to show it whole. An entry inside a collapsed node: that node.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _treeScroll;
 

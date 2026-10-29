@@ -5,7 +5,7 @@ using System.Reflection;
 using BepInEx.Configuration;
 using HarmonyLib;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// [General] ModBackgroundsOnly: background pictures of mods replace the game's own.
@@ -16,7 +16,7 @@ namespace SmartWindows
     /// The loading screen (Singleton LoadScreen, made once at the start, before the mod's hooks) keeps the list it read in its
     /// Awake: a prefix of LoadScreen.ChangeBackground (every loading screen) filters its imagePaths the same way.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _modBackgrounds;
         static string _originalDir;

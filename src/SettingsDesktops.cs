@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         /// <summary>
         /// The "Desktops" tab of the settings window (desktop mode): the list of the desktops (their number is the DesktopCount setting, the list itself

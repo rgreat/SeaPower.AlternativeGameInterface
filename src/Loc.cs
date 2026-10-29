@@ -5,7 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// Localization. All the mod's texts are in the table below (key, English text); the translations are plain text files
@@ -20,7 +20,7 @@ namespace SmartWindows
     {
         public static Action<string> Trace = s => { };
         /// <summary>The mod's display name, written in the head of each lang file.</summary>
-        public const string ModName = "Smart Windows";
+        public const string ModName = "Alternative Game Interface";
         /// <summary>Set from the plugin: the game's assembly (Seapower-Scripts).</summary>
         public static Func<Assembly> GameAsm = () => null;
 
@@ -42,7 +42,7 @@ namespace SmartWindows
             // The labels, units, group / tab names of the settings window ("lbl." "unit." "grp." "tab.") and the .cfg descriptions ("help.")
             // are added by Loc.Register from the settings table / the config entries.
             // Settings window
-            D("ui.title", "Smart Windows - Settings");
+            D("ui.title", "Alternative Game Interface - Settings");
             D("ui.help", "Point at a setting to see what it does.");
             D("btn.showAll", "Show all settings");
             D("btn.showFewer", "Show fewer settings");
@@ -80,7 +80,7 @@ namespace SmartWindows
             D("hov.newWindow", "New window");
             D("hov.layoutHelp", "A window to remember. The name is compared with the window's title, name, content type and view-model type, case and spaces ignored, from its beginning: 'Unit Reference*' also matches 'Unit Reference - XYZ'; '*' = any text. Hover a window and press the 'add' key to put it here by itself.");
             D("hov.openHelp", "A window whose open / closed state is restored at the next mission (same naming rules as the remembered windows).");
-            D("tip.gear", "Smart Windows settings");
+            D("tip.gear", "Alternative Game Interface settings");
             D("tip.look", "Window opacity and scale");
             D("tab.track", "Track State");
             D("up.button", "Upgrade ship...");
@@ -99,7 +99,7 @@ namespace SmartWindows
             D("up.damaged", "The ship is damaged: the repair cost is already deducted from the refund ({0} pts).");
             D("up.points2", "Points: {0} > {1}");
             D("up.fleet", "Fleet value: {0} > {1} / {2}");
-            D("up.tip", "Replace a ship of the task force by the selected one: the old ship is sold at the Dismiss price (Decommission when only that is possible), the new one is bought, the crew loses one skill level (Smart Windows).");
+            D("up.tip", "Replace a ship of the task force by the selected one: the old ship is sold at the Dismiss price (Decommission when only that is possible), the new one is bought, the crew loses one skill level (Alternative Game Interface).");
             D("up.noSel", "Select a ship in the roster.");
             D("up.noStatus", "The task force is not available here.");
             D("up.hist", "Not available with historical reinforcements.");
@@ -121,7 +121,7 @@ namespace SmartWindows
             D("ui.armedOnly", "Armed only");
             D("tip.armedOnly", "Hide units without weapons");
             D("ui.strict", "Strict loadouts");
-            D("tip.strict", "Task Force Builder offers ship versions and purchases only for ships the mission lists as available or that you already own (Smart Windows).");
+            D("tip.strict", "Task Force Builder offers ship versions and purchases only for ships the mission lists as available or that you already own (Alternative Game Interface).");
         }
 
         // ------------------------------------------------------------ access

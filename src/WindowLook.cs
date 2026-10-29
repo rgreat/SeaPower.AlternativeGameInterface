@@ -5,14 +5,14 @@ using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// WindowLookMenu (1.7.0): next to the gear in a remembered window's title bar a small arrow button opens a drop-down list with the
     /// window's opacity and scale. The values are kept per window pattern (WindowPatterns entry) in [General] WindowLooks.
     /// Opacity = the backgrounds of the window (Border / panel brushes) only; scale = the content only (the window keeps its size).
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<string> _looks;
         Dictionary<string, float[]> _lookMap;   // pattern -> { opacity, scale, text outline 0/1 }

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using BepInEx.Configuration;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// Desktops (1.7.1), desktop mode (WindowedMapAndWorldView) only: the game's "Toggle fullscreen minimap" key (Tab by default) switches between
@@ -15,7 +15,7 @@ namespace SmartWindows
     /// "Desktops" tab with the saved position, size and open / closed of the windows of each desktop (edit, reset to the built-in arrangement).
     /// Record format (separated by ";;"): L|pattern|x,y,w,h[,max]   O|pattern|open / closed   K|WindowLooks   V|WindowLevels   W|open / closed (World View).
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<float> _deskCount;
         ConfigEntry<int> _setActive;

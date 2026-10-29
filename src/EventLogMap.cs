@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// CenterMapOnLogClick (1.7.0): a click on a contact / unit link in the Event Log (the Hyperlink of an Alert: SelectRaisingObject / SelectAboutObject, which
@@ -15,7 +15,7 @@ namespace SmartWindows
     /// object (its map track); an object that is not the player's and has no track is not shown (its real place is not given away).
     /// The Click event of the Hyperlinks bubbles up to the Event Log window: one handler on the window, no searching.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _logCenter, _logLinks;
         static readonly ConditionalWeakTable<object, object> LogHooked = new ConditionalWeakTable<object, object>();

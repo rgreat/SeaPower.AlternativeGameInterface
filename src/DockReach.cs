@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// ResizeDockedWindows (1.7.0): a window's resize zone (ResizeThumb, ResizeHandleWidth wide) lies around its visible body; a window docked to
@@ -12,7 +12,7 @@ namespace SmartWindows
     /// the edge. While an edge of the visible body is on the screen's edge, the thumbs of that edge reach a few units inside the body instead
     /// (a negative margin on the inner side: the thumbs are drawn after the content, so they are above it).
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _dockReach;
         const float ReachIn = 4f;                 // units the zone reaches into the body at a docked edge

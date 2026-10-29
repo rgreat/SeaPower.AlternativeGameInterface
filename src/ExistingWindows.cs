@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// Windows made before the mod hooked the game (1.7.0): the mod learns of a window from Window's constructor / OnInitialized, but the
@@ -12,7 +12,7 @@ namespace SmartWindows
     /// the hooks are in, so News never got its gear, frame or remembered position. After the hooks are in, the windows already on the
     /// game's window host (WindowHostManager.CurrentHost) are found in the tree and handled as if they had just been loaded.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         int _scanLeft = -1;
         float _scanNext;

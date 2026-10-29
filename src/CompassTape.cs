@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// WindowedMapAndWorldView: the compass tape (heading scale at the top centre of the mission HUD, MainGameView) is moved into the World View window,
@@ -10,7 +10,7 @@ namespace SmartWindows
     /// behind it: a few points of the 3D view's texture under the tape are averaged (a small copy of that part, read back asynchronously, about ten times a second),
     /// white on a dark picture, black on a light one (with a hysteresis). With the option off, or when the window is gone, the tape goes back.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         WeakReference _tapeCanvas, _tapeHome, _tapeStyled;      // the tape, its original panel
         int _tapeHomeIndex;

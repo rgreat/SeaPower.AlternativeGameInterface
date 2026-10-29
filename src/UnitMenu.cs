@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// UnitPanelMenu (1.6.0): a right click on the flag or the name of the selected unit in the unit panel at the bottom of the mission opens
@@ -13,7 +13,7 @@ namespace SmartWindows
     /// (InputHandler does the same for the selected unit). The elements are found in the MainGameView tree by their bindings:
     /// the flag Image (Source: ObjectNation.Value) and the name TextBlock (Text: ObjectName.Value), once per element.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _unitMenu;
         Type _mgvType, _rpType;

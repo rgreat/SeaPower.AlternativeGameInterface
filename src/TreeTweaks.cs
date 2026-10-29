@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using BepInEx.Configuration;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// OptimizeTree: the unit tree of the Unit Reference window (its own copy of the encyclopedia tree, made in
@@ -18,7 +18,7 @@ namespace SmartWindows
     /// Ships (children of a unit) are not touched. Only the encyclopedia browser ("Encyclopedia" state), only unit categories;
     /// applies to windows opened afterwards. The game's own data (EncyclopedicDataManager) is not touched: the browser works on a copy.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _treeOpt;
         ConfigEntry<bool> _loadoutList;

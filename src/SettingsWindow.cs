@@ -4,9 +4,9 @@ using System.Globalization;
 using BepInEx.Configuration;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         /// <summary>
         /// The settings window, opened by the gear in the title bar of a remembered window. Built and styled as the settings window
@@ -47,7 +47,7 @@ namespace SmartWindows
             static string TabOf(string t) { return Loc.Or("tab." + t, t); }
 
             /// <summary>Puts the settings table's texts into the translation table (once, when the config is bound).</summary>
-            public static void RegisterTexts(SmartWindowsPlugin p)
+            public static void RegisterTexts(AlternativeGameInterfacePlugin p)
             {
                 Define(p);
                 foreach (var t in Tabs) Loc.Register("tab." + t, t);
@@ -60,7 +60,7 @@ namespace SmartWindows
                 }
             }
 
-            static void Define(SmartWindowsPlugin p)
+            static void Define(AlternativeGameInterfacePlugin p)
             {
                 if (Fields.Count > 0) return;
                 Add(TWindows, "Language", p._language, 'l', "Language", "");
@@ -150,7 +150,7 @@ namespace SmartWindows
             static readonly SolidColorBrush Clear = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
 
             // ------------------------------------------------------------ state
-            static SmartWindowsPlugin P;
+            static AlternativeGameInterfacePlugin P;
             static UIElement _top;             // the screen the window is on (mouse positions for dragging)
             static Grid _root;
             static Panel _host;
@@ -199,7 +199,7 @@ namespace SmartWindows
             /// from it (not an items host), above everything. Open already: only the Unit Reference / Unit Status tabs follow where it was
             /// opened from.
             /// </summary>
-            public static void Open(SmartWindowsPlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false, bool tactical = false, bool eventLog = false)
+            public static void Open(AlternativeGameInterfacePlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false, bool tactical = false, bool eventLog = false)
             {
                 if (p == null || anchor == null) return;
                 P = p;
@@ -238,7 +238,7 @@ namespace SmartWindows
                         try { itemsHost = pn != null && pn.IsItemsHost; } catch { }
                         if (pn != null && !itemsHost && (pn is Grid || pn is Canvas)) panel = pn;
                     }
-                    if (panel == null) { p.Logger.LogWarning("Smart Windows: no place found for the settings window."); return; }
+                    if (panel == null) { p.Logger.LogWarning("Alternative Game Interface: no place found for the settings window."); return; }
                     _top = top as UIElement ?? anchor;
                     BuildWindow();
                     _move = new TranslateTransform(0f, 0f);
@@ -268,7 +268,7 @@ namespace SmartWindows
                     Trace("settings window: in " + panel.GetType().Name + " (" + panel.ActualWidth + " x " + panel.ActualHeight + ")");
                     if (!_saidOpen) { _saidOpen = true; p.Logger.LogInfo("Settings window opened (in " + panel.GetType().Name + ")."); }
                 }
-                catch (Exception e) { p.Logger.LogWarning("Smart Windows: settings window could not be opened: " + e.Message); Trace("SettingsWindow.Open: " + e); }
+                catch (Exception e) { p.Logger.LogWarning("Alternative Game Interface: settings window could not be opened: " + e.Message); Trace("SettingsWindow.Open: " + e); }
             }
 
             static DependencyObject SafeParent(DependencyObject e) { try { return VisualTreeHelper.GetParent(e); } catch { return null; } }

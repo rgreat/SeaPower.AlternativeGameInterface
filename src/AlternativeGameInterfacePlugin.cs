@@ -11,10 +11,10 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
-    /// Smart Windows - Sea Power window helper (SeapowerUI.Window, drawn with NoesisGUI):
+    /// Alternative Game Interface - Sea Power window helper (SeapowerUI.Window, drawn with NoesisGUI):
     ///  - remembers position and size of chosen windows and restores them when a window is opened again;
     ///  - lets the user drag windows partly outside the visible area (left, right, bottom);
     ///  - double-clicking a window's title bar maximizes it or restores it;
@@ -39,14 +39,15 @@ namespace SmartWindows
     /// installed only after the game's load screen has finished (SeaPower.LoadScreen.ExecuteLoadScreen completes).
     /// Saved layouts live in the plugin's .cfg file, section [Layouts].
     /// Windows to remember are added in the settings window (Remembered Windows).
-    /// Debug = true in the .cfg enables verbose logging and BepInEx/SmartWindows.trace.txt.
+    /// Debug = true in the .cfg enables verbose logging and BepInEx/AlternativeGameInterface.trace.txt.
     /// </summary>
-    [BepInPlugin(PluginGuid, "Smart Windows", PluginVersion)]
-    public partial class SmartWindowsPlugin : BaseUnityPlugin
+    [BepInPlugin(PluginGuid, "Alternative Game Interface", PluginVersion)]
+    public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
-        public const string PluginGuid = "com.rgreat.seapower.smartwindows";
-        public const string PluginVersion = "1.7.0"; // also <Version> in SmartWindows.csproj
+        public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
+        public const string PluginVersion = "1.7.0"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
+        const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
         struct Layout
         {
@@ -116,7 +117,7 @@ namespace SmartWindows
         /// <summary>Double-click on a window's title bar (the header Thumb): maximize / restore that window.</summary>
         sealed class HeaderHandler
         {
-            public SmartWindowsPlugin Plugin;
+            public AlternativeGameInterfacePlugin Plugin;
             public WeakReference Window;
             public void DoubleClick(object sender, object e) { if (Enabled && Plugin._dblClickMax.Value) Plugin.ToggleMaximized(Window.Target, e); }
         }
@@ -124,7 +125,7 @@ namespace SmartWindows
         /// <summary>Receives the Loaded event of a Damage Control tab (SeapowerUI.DamageControlView).</summary>
         sealed class DcLoadedHandler
         {
-            public SmartWindowsPlugin Plugin;
+            public AlternativeGameInterfacePlugin Plugin;
             public void Loaded(object sender, object e) { if (Enabled) Plugin.OnDamageControlLoaded(sender); }
             public void VisibleChanged(object sender, object e) { if (Enabled) Plugin.OnDamageControlShown(sender); }
         }
@@ -132,7 +133,7 @@ namespace SmartWindows
         /// <summary>Receives the Loaded event of every window (bound to Noesis' RoutedEventHandler by reflection).</summary>
         sealed class WindowLoadedHandler
         {
-            public SmartWindowsPlugin Plugin;
+            public AlternativeGameInterfacePlugin Plugin;
             public void Loaded(object sender, object e) { if (Enabled) Plugin.OnWindowLoaded(sender); }
             public void MouseDown(object sender, object e) { if (Enabled && Plugin._toFront.Value) Plugin.BringToFront(sender, "click"); }
         }
@@ -147,7 +148,7 @@ namespace SmartWindows
         /// <summary>Receives the splitter's drag events (bound to the Noesis delegate types by reflection).</summary>
         sealed class SplitHandler
         {
-            public SmartWindowsPlugin Plugin;
+            public AlternativeGameInterfacePlugin Plugin;
             public SplitState State;
             public void Delta(object sender, object e) { Plugin.SplitterDelta(State, e); }
             public void Completed(object sender, object e) { Plugin.SplitterCompleted(State); }
@@ -176,18 +177,21 @@ namespace SmartWindows
 
         // The mod used to be called "Window Memory" (config com.rgreat.seapower.windowmemory.cfg): carry the settings and
         // the saved layouts over once. Runs before the BaseUnityPlugin constructor loads the new config file.
-        static SmartWindowsPlugin()
+        static AlternativeGameInterfacePlugin()
         {
             try
             {
-                var oldCfg = Path.Combine(Paths.ConfigPath, OldGuid + ".cfg");
                 var newCfg = Path.Combine(Paths.ConfigPath, PluginGuid + ".cfg");
-                if (File.Exists(oldCfg) && !File.Exists(newCfg)) File.Copy(oldCfg, newCfg);
+                foreach (var g in new[] { SwGuid, OldGuid })
+                {
+                    var oldCfg = Path.Combine(Paths.ConfigPath, g + ".cfg");
+                    if (File.Exists(oldCfg) && !File.Exists(newCfg)) File.Copy(oldCfg, newCfg);
+                }
             }
             catch { }
         }
 
-        static SmartWindowsPlugin _inst;
+        static AlternativeGameInterfacePlugin _inst;
         static readonly ConditionalWeakTable<object, EarlyState> EarlyStates = new ConditionalWeakTable<object, EarlyState>();
         static readonly ConditionalWeakTable<object, TreeState> TreeStates = new ConditionalWeakTable<object, TreeState>();
         static readonly ConditionalWeakTable<object, SplitState> SplitStates = new ConditionalWeakTable<object, SplitState>(); // by window
@@ -197,7 +201,7 @@ namespace SmartWindows
         static bool Enabled;                       // ticked in the game's Mods menu (always true for a BepInEx/plugins copy)
 
         /// <summary>The plugin while it is enabled; null otherwise - every hook body goes through this.</summary>
-        static SmartWindowsPlugin Active { get { return Enabled ? _inst : null; } }
+        static AlternativeGameInterfacePlugin Active { get { return Enabled ? _inst : null; } }
         static bool _debug;
         static string _traceFile;
 
@@ -286,7 +290,7 @@ namespace SmartWindows
         {
             try
             {
-                foreach (AssemblyMetadataAttribute a in typeof(SmartWindowsPlugin).Assembly.GetCustomAttributes(typeof(AssemblyMetadataAttribute), false))
+                foreach (AssemblyMetadataAttribute a in typeof(AlternativeGameInterfacePlugin).Assembly.GetCustomAttributes(typeof(AssemblyMetadataAttribute), false))
                     if (a.Key == "Build") return a.Value;
             }
             catch { }
@@ -308,7 +312,7 @@ namespace SmartWindows
         // ------------------------------------------------------------------ setup
 
         /// <summary>
-        /// The settings file: Sea Power_Data/StreamingAssets/user/SmartWindows/SmartWindows.cfg, as the other mods of the project keep
+        /// The settings file: Sea Power_Data/StreamingAssets/user/AlternativeGameInterface/AlternativeGameInterface.cfg, as the other mods of the project keep
         /// theirs (BepInEx/config when that folder cannot be used). The BepInEx file of an earlier version is copied there once.
         /// </summary>
         new ConfigFile Config;
@@ -318,13 +322,15 @@ namespace SmartWindows
             Config = base.Config;
             try
             {
-                string dir = Path.Combine(Path.Combine(UnityEngine.Application.streamingAssetsPath, "user"), "SmartWindows");
+                string dir = Path.Combine(Path.Combine(UnityEngine.Application.streamingAssetsPath, "user"), "AlternativeGameInterface");
                 Directory.CreateDirectory(dir);
-                string path = Path.Combine(dir, "SmartWindows.cfg");
+                string path = Path.Combine(dir, "AlternativeGameInterface.cfg");
                 bool moved = false;
                 if (!File.Exists(path))
                 {
-                    string old = base.Config.ConfigFilePath;
+                    // the settings of "Smart Windows" (the previous name): user/SmartWindows/SmartWindows.cfg
+                    string sw = Path.Combine(Path.Combine(Path.Combine(UnityEngine.Application.streamingAssetsPath, "user"), "SmartWindows"), "SmartWindows.cfg");
+                    string old = File.Exists(sw) ? sw : base.Config.ConfigFilePath;
                     if (!string.IsNullOrEmpty(old) && File.Exists(old)) { File.Copy(old, path); moved = true; }
                 }
                 Config = new ConfigFile(path, true);
@@ -462,7 +468,7 @@ namespace SmartWindows
                 "Background pictures of the main menu and the loading screens: when mods bring their own (ui/backgrounds), only theirs " +
                 "are shown, not mixed with the game's. Off = as the game: one picked at random from the game's and every mod's together.");
             _debugEntry = Config.Bind("General", "Debug", false,
-                "Enables verbose logging and BepInEx/SmartWindows.trace.txt.");
+                "Enables verbose logging and BepInEx/AlternativeGameInterface.trace.txt.");
             _debug = _debugEntry.Value;
             _language = Config.Bind("General", "Language", "",
                 "Language of the mod's texts: a code of a game language (en, ru ...); empty = the game's own language. The texts are in the files lang/<code>.ini in the mod folder - edit them to translate.");
@@ -471,16 +477,16 @@ namespace SmartWindows
             Loc.Forced = () => _language == null ? "" : _language.Value;
             SettingsWindow.RegisterTexts(this);
 
-            _traceFile = Path.Combine(Paths.BepInExRootPath, "SmartWindows.trace.txt");
+            _traceFile = Path.Combine(Paths.BepInExRootPath, "AlternativeGameInterface.trace.txt");
             if (_debug) { try { File.WriteAllText(_traceFile, ""); } catch { } }
-            Trace("Smart Windows " + PluginVersion + " build " + BuildId);
+            Trace("Alternative Game Interface " + PluginVersion + " build " + BuildId);
 
             ReloadPatterns();      // WindowPatterns -> _patterns, one [Layouts] entry per pattern
             ReloadOpenPatterns();  // RememberOpenWindows -> _osPatterns, one [OpenWindows] entry per pattern
 
             DropRetiredEntries();
             Config.Save();
-            Logger.LogInfo("Smart Windows " + PluginVersion + " (build " + BuildId + ") loaded; hooks are installed when the load screen finishes" +
+            Logger.LogInfo("Alternative Game Interface " + PluginVersion + " (build " + BuildId + ") loaded; hooks are installed when the load screen finishes" +
                            (ModState.Controlled ? " (follows its tick in the game's Mods menu)." : "."));
         }
 
@@ -619,7 +625,7 @@ namespace SmartWindows
         {
             ModsChanged = false;
             bool? state = ModState.Read();
-            if (state == null) Logger.LogWarning("Could not read the game's mod list; Smart Windows stays on.");
+            if (state == null) Logger.LogWarning("Could not read the game's mod list; Alternative Game Interface stays on.");
             bool now = state != false;
             if (now == Enabled) return;
             Enabled = now;
@@ -629,7 +635,7 @@ namespace SmartWindows
 
         static HarmonyMethod Hm(string name)
         {
-            return new HarmonyMethod(typeof(SmartWindowsPlugin).GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic));
+            return new HarmonyMethod(typeof(AlternativeGameInterfacePlugin).GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic));
         }
 
         void TryHook()
@@ -1566,7 +1572,7 @@ namespace SmartWindows
                     float op = GetF(p, "Opacity", -1f);
                     Trace("filter panel probe: Opacity=" + op.ToString(CultureInfo.InvariantCulture));
                     if (st.Container != null) DumpChildren(st.Container);
-                    if (op > 0.01f) Logger.LogWarning("Smart Windows: could not hide the filter panel of the Unit Reference window (set Debug = true and look at SmartWindows.trace.txt).");
+                    if (op > 0.01f) Logger.LogWarning("Alternative Game Interface: could not hide the filter panel of the Unit Reference window (set Debug = true and look at AlternativeGameInterface.trace.txt).");
                 }
                 catch (Exception e) { Trace("RunProbes: " + e); }
             }
@@ -3283,7 +3289,7 @@ namespace SmartWindows
             return vm == null || Prop(vm, prop) == null ? null : new[] { vm, (object)prop };
         }
 
-        static bool? ReadSwitch(object[] sw, SmartWindowsPlugin p)
+        static bool? ReadSwitch(object[] sw, AlternativeGameInterfacePlugin p)
         {
             var v = p.Get(sw[0], (string)sw[1]);
             return v is bool ? (bool?)(bool)v : null;

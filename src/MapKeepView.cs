@@ -2,14 +2,14 @@ using System;
 using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// KeepMapView (1.7.0): the Tactical Display keeps its scale (ZoomLevel) and centre when the window is resized, so a bigger window shows more of the sea
     /// and a smaller one less. With the option on the zoom follows the size instead: the area that was visible stays visible (the zoom changes by
     /// log2 of the size ratio (the smaller of the width / height ratios when the window shrinks, the bigger when it grows; the centre is not touched), so the map keeps its proportions.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _keepMapView;
 

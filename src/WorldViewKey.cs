@@ -4,7 +4,7 @@ using System.Reflection;
 using BepInEx.Configuration;
 using UnityEngine;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// World View key (1.7.1), desktop mode: one key opens and closes the World View window (the same state as its X button and the "World View" item of
@@ -12,7 +12,7 @@ namespace SmartWindows
     /// the player has changed them) and the keys the game reads directly are checked, and a key that is already used is ignored (with a warning in the log).
     /// The key does nothing while the console, a menu, a text box or a rebinding has the keyboard, or while Shift / Ctrl / Alt is held.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<KeyCode> _wvKey;
         string _wvKeyBad;      // the conflict last reported (not repeated)
@@ -108,7 +108,7 @@ namespace SmartWindows
             if (conflict != null)
             {
                 string msg = "World View key " + _wvKey.Value + " is used by the game (" + conflict + "): ignored. Choose another key in the settings (Desktop mode).";
-                if (_wvKeyBad != msg) { _wvKeyBad = msg; Logger.LogWarning("Smart Windows: " + msg); }
+                if (_wvKeyBad != msg) { _wvKeyBad = msg; Logger.LogWarning("Alternative Game Interface: " + msg); }
                 return;
             }
             var cur = WorldViewOpenNow();

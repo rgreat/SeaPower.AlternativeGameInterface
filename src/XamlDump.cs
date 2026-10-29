@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using BepInEx;
 using BepInEx.Configuration;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// DumpXaml (1.7.0, for development): switching [Debug] DumpXaml on writes the XAML of every Noesis asset the game has loaded so far under
-    /// BepInEx/SmartWindows_xaml (the asset's own path; new files only) and switches it off again. Assets load when their UI is first shown,
+    /// BepInEx/AlternativeGameInterface_xaml (the asset's own path; new files only) and switches it off again. Assets load when their UI is first shown,
     /// so open the windows of interest (Task Force Builder, Status, ...) first, then switch it on (in the settings window or in the .cfg).
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _dumpXaml;
         static readonly HashSet<string> XamlExported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -20,7 +20,7 @@ namespace SmartWindows
         {
             try
             {
-                string dir = System.IO.Path.GetDirectoryName(typeof(SmartWindowsPlugin).Assembly.Location) ?? "";
+                string dir = System.IO.Path.GetDirectoryName(typeof(AlternativeGameInterfacePlugin).Assembly.Location) ?? "";
                 string path = dir.Replace('/', '\\').TrimEnd('\\') + "\\";
                 return path.IndexOf("\\workshop\\content\\", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("\\1286220\\", StringComparison.OrdinalIgnoreCase) >= 0;
             }
@@ -30,7 +30,7 @@ namespace SmartWindows
         void BindXamlDumpConfig()
         {
             _dumpXaml = Config.Bind("Debug", "DumpXaml", false,
-                "For development: switching it on writes the XAML of the game's UI assets loaded so far to BepInEx/SmartWindows_xaml, then it switches itself off (open the windows you need first).");
+                "For development: switching it on writes the XAML of the game's UI assets loaded so far to BepInEx/AlternativeGameInterface_xaml, then it switches itself off (open the windows you need first).");
         }
 
         void XamlDumpStep(float now)
@@ -40,7 +40,7 @@ namespace SmartWindows
             _dumpXaml.Value = false;
             try
             {
-                string dir = System.IO.Path.Combine(Paths.BepInExRootPath, "SmartWindows_xaml");
+                string dir = System.IO.Path.Combine(Paths.BepInExRootPath, "AlternativeGameInterface_xaml");
                 int n = 0;
                 foreach (var x in UnityEngine.Resources.FindObjectsOfTypeAll<NoesisXaml>())
                 {

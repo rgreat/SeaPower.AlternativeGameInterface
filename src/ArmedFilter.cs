@@ -7,7 +7,7 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using Noesis;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// Armed only (with ImprovedUnitReferenceUI): an "Armed only" check box on the search panel of the Unit Reference tree (next to the game's
@@ -16,7 +16,7 @@ namespace SmartWindows
     /// encyclopedia browser only) the same way they work: new FilteredMuseumEntries collections, the units' data untouched.
     /// The box's state is kept in [UnitReference] ArmedOnly.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _armOnly;
         MethodInfo _updateFiltered, _saveExpansion;

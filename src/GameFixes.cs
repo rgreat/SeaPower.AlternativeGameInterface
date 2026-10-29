@@ -4,7 +4,7 @@ using System.Reflection;
 using BepInEx.Configuration;
 using HarmonyLib;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// FixContactInfo (1.6.0): the "Information" window of a contact (right click on an unidentified contact) lists who detected it, by
@@ -13,7 +13,7 @@ namespace SmartWindows
     /// (the whole mission's clock). After a loaded save or a restarted session the two differ: every detection is "older than its MaxAge" at once
     /// and the sensor / age fields stay empty. A transpiler makes UpdateFrom read missionSessionTime instead (via ContactClock).
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _fixContact;
         static MethodInfo _elapsedGet;
@@ -40,7 +40,7 @@ namespace SmartWindows
             try
             {
                 // direct delegates: ContactClock runs for every contact on every update, reflection calls would be slow and allocate
-                var sf = new System.Reflection.Emit.DynamicMethod("SW_Session", typeof(float), Type.EmptyTypes, typeof(SmartWindowsPlugin), true);
+                var sf = new System.Reflection.Emit.DynamicMethod("SW_Session", typeof(float), Type.EmptyTypes, typeof(AlternativeGameInterfacePlugin), true);
                 var il = sf.GetILGenerator();
                 il.Emit(System.Reflection.Emit.OpCodes.Ldsfld, _sessionField);
                 il.Emit(System.Reflection.Emit.OpCodes.Ret);
@@ -50,7 +50,7 @@ namespace SmartWindows
             catch (Exception e) { Trace("FixContactInfo delegates: " + e.Message); _sessionFn = null; _elapsedFn = null; }
             try
             {
-                harmony.Patch(upd, transpiler: new HarmonyMethod(typeof(SmartWindowsPlugin).GetMethod("ContactClockTranspiler", BindingFlags.Static | BindingFlags.NonPublic)));
+                harmony.Patch(upd, transpiler: new HarmonyMethod(typeof(AlternativeGameInterfacePlugin).GetMethod("ContactClockTranspiler", BindingFlags.Static | BindingFlags.NonPublic)));
                 Trace("patched BaseVehicleViewModel.UpdateFrom (FixContactInfo)");
             }
             catch (Exception e) { Trace("FixContactInfo patch failed: " + e.Message); }
@@ -58,7 +58,7 @@ namespace SmartWindows
 
         static IEnumerable<CodeInstruction> ContactClockTranspiler(IEnumerable<CodeInstruction> instructions)
         {
-            var mine = typeof(SmartWindowsPlugin).GetMethod("ContactClock", BindingFlags.Static | BindingFlags.NonPublic);
+            var mine = typeof(AlternativeGameInterfacePlugin).GetMethod("ContactClock", BindingFlags.Static | BindingFlags.NonPublic);
             int n = 0;
             foreach (var ci in instructions)
             {

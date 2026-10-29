@@ -1,4 +1,4 @@
-# Smart Windows — заметки для продолжения работы (для Claude)
+# Alternative Game Interface — заметки для продолжения работы (для Claude)
 
 Мод для Sea Power: BepInEx 5 + Harmony, загружается через Anchor Chain (Workshop 3380210757).
 UI игры — NoesisGUI (XAML), окна — `SeapowerUI.Window`. Доступ к игре — через рефлексию (в csproj нет ссылки на
@@ -9,7 +9,7 @@ Seapower-Scripts), Harmony-хуки ставятся по именам мето�
 1. `apt-get update && apt-get install -y dotnet-sdk-8.0` (без `update` пакеты дают 404).
 2. Репозитории проекта Sea Power (все приватные, владелец rgreat; в облачной сессии Claude Code — `add_repo`, клон
    `/home/claude/<имя в нижнем регистре>`, вместе с бинарными файлами; в обычном чате GitHub отдаёт 404):
-   SeaPower.SmartWindows (этот мод), SeaPower.AlternativeDamageModel, SeaPower.AlternativeWeaponsControl (вкладка Weapons,
+   SeaPower.AlternativeGameInterface (этот мод), SeaPower.AlternativeDamageModel, SeaPower.AlternativeWeaponsControl (вкладка Weapons,
    выделена отсюда), SeaPower.GameFiles (только чтение: файлы игры).
    Ссылки для сборки (UnityEngine*.dll, Seapower-Scripts.dll, Noesis.NoesisGUI.dll): `SeaPower.GameFiles/Managed/`
    (актуальная сборка игры; на 14.10.2026 — та же, что 0.8.5 в `/home/claude/game`), кроме UnityEngine.InputLegacyModule.dll —
@@ -20,11 +20,11 @@ Seapower-Scripts), Harmony-хуки ставятся по именам мето�
    (`BepInEx/core/*.dll`); Anchor Chain: `https://github.com/SeaPower-Modders/AnchorChain/releases/download/V1.1.0/dev.zip`.
    GitHub API даёт rate limit — качать прямыми ссылками.
 4. `nuget.config` с пустым списком источников обязателен (nuget.org закрыт, restore иначе падает).
-5. `dotnet build -c Release -p:ManagedDir=... -p:BepInExCore=... -p:AnchorChainDll=...` → `Release/SmartWindows.dll`.
+5. `dotnet build -c Release -p:ManagedDir=... -p:BepInExCore=... -p:AnchorChainDll=...` → `Release/AlternativeGameInterface.dll`.
    Номер билда (UTC-время сборки `yyyyMMdd.HHmm`, свойство `BuildStamp` в csproj → AssemblyMetadata "Build") пишется в лог:
-   `Smart Windows <версия> (build ...) loaded` — по нему видно, какая dll реально запущена.
+   `Alternative Game Interface <версия> (build ...) loaded` — по нему видно, какая dll реально запущена.
    Сборка сама копирует dll в `Release/` (target StageRelease) — пробные сборки делать на копии репозитория.
-   Скрипт `/home/claude/tools/build.sh [repoDir] [zip]`: сборка с путями песочницы + упаковка `SmartWindows.zip`.
+   Скрипт `/home/claude/tools/build.sh [repoDir] [zip]`: сборка с путями песочницы + упаковка `AlternativeGameInterface.zip`.
    Предупреждение MSB3277 про System.IO.Compression безвредно.
 6. Анализ игры: `monodis` на сборке игры 0.8.x падает (ссылка на System.Threading.Channels 10.0). Работает ILSpy:
    `https://github.com/icsharpcode/ILSpy/releases/download/v9.1/ILSpy_binaries_9.1.0.7988-x64.zip` → консольная
@@ -36,8 +36,8 @@ Seapower-Scripts), Harmony-хуки ставятся по именам мето�
    сцены (`Singleton.TearingDown`) теперь возвращает null с предупреждением вместо создания объекта.
 
 ## Выдача результата (предпочтения пользователя)
-Каждая сборка — `SmartWindows.zip` БЕЗ корневой папки: `Release/` (SmartWindows.dll, _info.ini, thumbnail.jpg),
-`src/`, `SmartWindows.csproj`, `nuget.config`, `PUBLISHING.md`, `DEVNOTES.md`. README пользователь пишет сам.
+Каждая сборка — `AlternativeGameInterface.zip` БЕЗ корневой папки: `Release/` (AlternativeGameInterface.dll, _info.ini, thumbnail.jpg),
+`src/`, `AlternativeGameInterface.csproj`, `nuget.config`, `PUBLISHING.md`, `DEVNOTES.md`. README пользователь пишет сам.
 thumbnail.jpg берётся из клона репозитория.
 Общение — по-русски, коротко; в .cfg — один переключатель на функцию. В отчётах не повторять рутинное («собирается без
 ошибок», «ничего не коммитил», «не проверено в игре»). Править исходники и коммитить — только по просьбе пользователя
@@ -454,10 +454,10 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 * Открытие Unit Reference развёрнутым (последняя правка: `,max` снимается только сворачиванием пользователя).
 
 ## Версия
-* 13.10.2026: 1.3.0 проверена в игре и зафиксирована как стабильная (коммит «Smart Windows 1.3.0»).
-* 13.10.2026: 1.4.0 закоммичена («Smart Windows 1.4.0»): дерево Unit Reference, прокрутка, список loadout'ов, Armed only.
-* 13.10.2026: 1.5.0 закоммичена («Smart Windows 1.5.0»): вкладка Reference в Unit Status, «Show all settings».
-* 14.10.2026: 1.5.1 закоммичена («Smart Windows 1.5.1»): окна установок как Weapon Reference; вкладка Weapons вынесена в Alternative Weapons Control.
+* 13.10.2026: 1.3.0 проверена в игре и зафиксирована как стабильная (коммит «Alternative Game Interface 1.3.0»).
+* 13.10.2026: 1.4.0 закоммичена («Alternative Game Interface 1.4.0»): дерево Unit Reference, прокрутка, список loadout'ов, Armed only.
+* 13.10.2026: 1.5.0 закоммичена («Alternative Game Interface 1.5.0»): вкладка Reference в Unit Status, «Show all settings».
+* 14.10.2026: 1.5.1 закоммичена («Alternative Game Interface 1.5.1»): окна установок как Weapon Reference; вкладка Weapons вынесена в Alternative Weapons Control.
 * 28.10.2026: 1.7.0 — WindowedMapAndWorldView (рендер World View в текстуру окна), look-меню и уровни окон, ресайз докированных окон, перетаскиваемая панель времени, лента курса в World View, фото-режим, Track State, апгрейд кораблей в кампании.
 * Версия: константа `PluginVersion` (BepInPlugin, ACPlugin, лог) + `<Version>` в csproj — менять обе; и строку «Version N» в
   начале README.BBCode.txt / README.md (описание Steam). Список изменений к выкладке — одним списком, без разбивки по версиям.
@@ -469,8 +469,8 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 - CampaignLoadouts (`[Campaign] StrictLoadouts`, по умолчанию off): постфикс `LinearCampaignTaskForceLoadoutsViewModel.GetFamilyVersions` (версии корабля по общему `_encyclopediaTag`) оставляет только типы из `_missionDefaultRestriction` билдера (захват через постфикс `LoadCampaignTaskForceData`) и уже имеющиеся (`ReadCurrentTaskForceUnitKeys`, ключ `Type:Variant`), плюс сам корабль. Если ограничения миссии нет (AllowAll) — список игры. Это опция в настройках, а не в диалоге старта кампании. Не проверено в игре.
 - StrictLoadouts, дополнение: постфикс `MergeRelatedClassGroups` (вкладка Builder) убирает варианты, не разрешённые `_missionDefaultRestriction.Allows(type, variant)` и не `IsCurrentTaskForceUnit`; в Unrestricted/debug-режиме (`AllowAllRosterUnits`) не действует. Галка «Strict loadouts» добавляется на экран старта кампании (CampaignMenuView.Instance, рядом с чекбоксом `TaskForceLimitUnitDates`) — зеркало конфига.
 - UnitMenu: меню не открывается, если DataContext элемента — Contact*/Weapon* ViewModel (панель показывает контакт, а выделен свой юнит).
-- AlertsFix.cs (`[General] AlertsClickThrough`, по умолчанию on): сообщения игры справа внизу (`ItemsControl` над `MainGameViewModel.TopAlerts`) остаются в списке после затухания (`AlertTextOpacity` → 0), а hit-test Noesis игнорирует Opacity → гасшие Alert глотали клики (кнопки Fire в углу окон). Раз в 0,2 с для каждого Alert `IsHitTestVisible = AlertTextOpacity > 0.05`; сам список остаётся hit-testable. ItemsControl ищем по ссылке `ItemsSource == DataContext.TopAlerts` (скан раз в 3 с). Источник: заметка из AWC (SmartWindows_alerts_clickthrough.md); после выхода — убрать код и опцию из AWC.
-- Правки 1.6.0 (поздние): StrictLoadouts теперь per-campaign. Значение — ключ `SmartWindows_StrictLoadouts` в `LinearCampaign.PersistentData` (сохраняется с кампанией, по умолчанию False). Галка на экране старта (`_strictStaged`) пишется postfix'ом `LinearCampaignTaskForceDifficultyRules.SeedPersistentDataForNewCampaign`. Строка в окне настроек (вкладка Game Menus, группа Campaign (this game)) — прокси-ConfigEntry в несохраняемом ConfigFile; видна только если окно открыто с шестерёнки Task Force Builder (`Field.TfbOnly`, `SettingsWindow._tfb`), при открытии подгружает значение кампании, Apply пишет его обратно в PersistentData. Опции AlertsClickThrough в cfg больше нет (всегда включено). Группа «Kept by the mod» (Unit Reference) убрана из окна — значения остаются только в cfg. FullUnitName: игра ставит `UnitName` только в SwitchUnit, а Replace (энциклопедия) меняет юнит под тем же окном — postfix `ObjectInformationViewModel.ChangeVariant` (последний шаг Replace) вызывает `SyncFullNames` по списку живых UnitStatusViewModel (без таймеров).
+- AlertsFix.cs (`[General] AlertsClickThrough`, по умолчанию on): сообщения игры справа внизу (`ItemsControl` над `MainGameViewModel.TopAlerts`) остаются в списке после затухания (`AlertTextOpacity` → 0), а hit-test Noesis игнорирует Opacity → гасшие Alert глотали клики (кнопки Fire в углу окон). Раз в 0,2 с для каждого Alert `IsHitTestVisible = AlertTextOpacity > 0.05`; сам список остаётся hit-testable. ItemsControl ищем по ссылке `ItemsSource == DataContext.TopAlerts` (скан раз в 3 с). Источник: заметка из AWC (AlternativeGameInterface_alerts_clickthrough.md); после выхода — убрать код и опцию из AWC.
+- Правки 1.6.0 (поздние): StrictLoadouts теперь per-campaign. Значение — ключ `AlternativeGameInterface_StrictLoadouts` в `LinearCampaign.PersistentData` (сохраняется с кампанией, по умолчанию False). Галка на экране старта (`_strictStaged`) пишется postfix'ом `LinearCampaignTaskForceDifficultyRules.SeedPersistentDataForNewCampaign`. Строка в окне настроек (вкладка Game Menus, группа Campaign (this game)) — прокси-ConfigEntry в несохраняемом ConfigFile; видна только если окно открыто с шестерёнки Task Force Builder (`Field.TfbOnly`, `SettingsWindow._tfb`), при открытии подгружает значение кампании, Apply пишет его обратно в PersistentData. Опции AlertsClickThrough в cfg больше нет (всегда включено). Группа «Kept by the mod» (Unit Reference) убрана из окна — значения остаются только в cfg. FullUnitName: игра ставит `UnitName` только в SwitchUnit, а Replace (энциклопедия) меняет юнит под тем же окном — postfix `ObjectInformationViewModel.ChangeVariant` (последний шаг Replace) вызывает `SyncFullNames` по списку живых UnitStatusViewModel (без таймеров).
 
 ## Локализация (Loc.cs, Release/lang)
 - Ядро `Loc.cs` — из руководства (как в AWC): `Loc.T/F/Or/Register`, файлы `lang/<код>.ini` рядом с dll, язык игры или `[General] Language`. Тексты окна настроек не в таблице D, а регистрируются: `SettingsWindow.RegisterTexts` (вызывается в Awake после всех Bind) кладёт `tab.<вкладка>`, `grp.<группа>`, `lbl.<Секция>/<Ключ>`, `unit.…`, `help.…` (описание .cfg) для каждого поля окна. Описания скрытых записей (Category, TreeWidth …) не переводятся — их нет в окне.
@@ -480,7 +480,7 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 - Не проверено в игре: шрифты игры могут не содержать CJK/вьетнамские глифы.
 
 ## Файл настроек в user (1.6.0)
-- `SmartWindowsPlugin.Config` скрыт полем `new ConfigFile Config` (OpenSettingsFile в начале Awake): `StreamingAssets/user/SmartWindows/SmartWindows.cfg`, как AWC. Если файла нет, а BepInEx/config/<guid>.cfg есть — копия один раз (старый не трогаем). Ошибка папки — откат на BepInEx/config. Весь прежний код (`Config.Bind/Save`, `P.Config`) работает без правок, т.к. обращения идут через тип плагина.
+- `AlternativeGameInterfacePlugin.Config` скрыт полем `new ConfigFile Config` (OpenSettingsFile в начале Awake): `StreamingAssets/user/AlternativeGameInterface/AlternativeGameInterface.cfg`, как AWC. Если файла нет, а BepInEx/config/<guid>.cfg есть — копия один раз (старый не трогаем). Ошибка папки — откат на BepInEx/config. Весь прежний код (`Config.Bind/Save`, `P.Config`) работает без правок, т.к. обращения идут через тип плагина.
 - Умолчания взяты из cfg автора: WindowPatterns = `News,Tactical Display,World View,Unit Reference*,Unit Status*,Event Log,Formation Manager,Task Force Builder,Weapon Reference`, SectionsMinHeight = 278. Размеры/раскладки окон ([Layouts], TreeWidth), состояние панели поиска и язык в умолчания не вошли. Колонка «default» у SectionsMinHeight показывает 278 и, второй строкой, высоту игры.
 
 ## Производительность (1.6.0, аудит Update и хуков)
@@ -543,7 +543,7 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 * Рендер в текстуру: `LateUpdate` (после обновления Noesis) считает экранный прямоугольник элемента `Pip3DView` (`PointToScreen`), `MapRtStep` держит RenderTexture размером окна в пикселях (смена размера — после 0.15 с покоя). Основная камера (и камера частиц, если есть) получает `targetTexture`. Суперсэмплинг PiP (`CameraManager.PipSupersampleFactor`, private static) — камера рисует в большую текстуру (лимит 16 Мпикс, 8192), `MapRtResolve.OnPostRender` сжимает её вдвое за шаг в показываемую текстуру размером окна. Лимит «не больше экрана» нативного PiP не действует. MSAA — из QualitySettings.
 * Резкость: элемент стоит на дробной экранной позиции, поэтому `OnRender` ставит угол текстуры на целый пиксель (`PointToScreen` в момент отрисовки) и рисует её ровно в её пикселях — texel за pixel, без билинейного пересэмплинга. Для окна World View прозрачность принудительно 1 (opacity < 1 даёт offscreen-группу и пересэмплинг), масштаб и обводка в меню look скрыты.
 * Мышь: `RemapMouse` переводит экранную позицию в пиксели текстуры (низ-лево), `_wvPx` — неусечённый экранный прямоугольник элемента.
-* Фон: камера `SmartWindows_Backdrop` (depth -1000, слой 31, SpriteRenderer с `SmartWindows_Backdrop.jpg/.jpeg/.png` рядом с dll, cover-fit; нет файла — серый). Живёт всю миссию (`MainVm() != null && Map != null`), потому что камера мира рендерит в текстуру.
+* Фон: камера `AlternativeGameInterface_Backdrop` (depth -1000, слой 31, SpriteRenderer с `AlternativeGameInterface_Backdrop.jpg/.jpeg/.png` рядом с dll, cover-fit; нет файла — серый). Живёт всю миссию (`MainVm() != null && Map != null`), потому что камера мира рендерит в текстуру.
 * Фото-режим (Backspace = `HideHUD` → `SetHudVisible(false)`, также консоль и брифинг): `PhotoMode()` = HUD скрыт; камеры переключаются на `targetTexture = null` (3D на весь экран, без окна), `RemapMouse` и привязка мыши пропускаются; на выходе камеры снова в текстуру. Скриншот без UI (`TakeScreenShot(withUI:false)`) попадает в тот же кадр — `LateUpdate` идёт после `SetHudVisible`.
 * Открытие/закрытие по отдельности: `MapModeStep` для каждого экземпляра окна карты: IsFullscreen=false, `NotifyPipChanged`, а у пункта меню «World View» (MenuItem, IsCheckable, привязка IsEnabled с путём IsFullscreen) снимается привязка (`ClearBinding`) и ставится IsEnabled=true (поиск по Items меню, до 20 попыток). Закрытый World View: камеры на паузе, мышь не попадает в мир.
 * Лента курса (`CompassTape.cs`): Canvas 480×64 с OpacityMask из MainGameView переносится в `Grid` окна World View (родитель `Pip3DView`), DataContext = MainGameViewModel; цвет текстов/линий задаётся локально (белый/чёрный как в игре) по яркости картинки под лентой: копия полосы текстуры 32×4 → `AsyncGPUReadback` (RGBA32) → среднее, сглаживание 0.5, гистерезис 0.42 / 0.55, шаг 0.1 с. Критерий игры (`DarkTape`) — камера под водой; нам он не годится.
@@ -576,3 +576,6 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 
 - Damage Control: ancestors of the tab (up to the window) get ClipToBounds while SectionsMinHeight > 0, so the section lists no longer draw below the window edge (ClipTab; restored at 0).
 - Damage Control: row-2 MinHeight is capped to the room left in the window (DcRoom: window height - tab offset - frame bottom inset - 8 px - other rows), refitted on window size change (DcFitStep), so with a small window the section lists shrink instead of being cut off; SectionsMinHeight is the minimum only when the window has room.
+
+## Rename: Smart Windows -> Alternative Game Interface
+Everything is renamed: namespace/assembly/dll/zip/csproj `AlternativeGameInterface`, plugin class `AlternativeGameInterfacePlugin`, GUID `com.rgreat.seapower.alternativegameinterface`, Anchor Chain id `io.github.rgreat.seapower-alternative-game-interface`, settings `StreamingAssets/user/AlternativeGameInterface/AlternativeGameInterface.cfg`, trace `BepInEx/AlternativeGameInterface.trace.txt`. Migration (once, when the new files do not exist): the old BepInEx cfg (`...smartwindows.cfg`, then `...windowmemory.cfg`) and `user/SmartWindows/SmartWindows.cfg` are copied over. The campaign data key `SmartWindows_StrictLoadouts` is kept as is (saved campaigns). Repository: rgreat/SeaPower.AlternativeGameInterface.

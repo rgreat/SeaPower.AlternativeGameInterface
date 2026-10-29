@@ -5,14 +5,14 @@ using AnchorChain;
 using BepInEx.Bootstrap;
 using UnityEngine;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// Anchor Chain entry point: lets the mod be distributed as a Steam Workshop / StreamingAssets mod
     /// (a folder with _info.ini + this dll, enabled in the in-game Mods menu).
     /// The same dll also works as a plain BepInEx plugin (BepInEx/plugins) - in that case this class is not used.
     /// </summary>
-    [ACPlugin("io.github.rgreat.seapower-smart-windows", "Smart Windows", SmartWindowsPlugin.PluginVersion)]
+    [ACPlugin("io.github.rgreat.seapower-alternative-game-interface", "Alternative Game Interface", AlternativeGameInterfacePlugin.PluginVersion)]
     public class AnchorChainEntry : IAnchorChainMod
     {
         public void TriggerEntryPoint()
@@ -20,21 +20,21 @@ namespace SmartWindows
             var host = Chainloader.ManagerObject; // BepInEx's own GameObject that hosts all plugins
             if (host == null)
             {
-                Debug.LogWarning("[Smart Windows] BepInEx manager object not found; not started.");
+                Debug.LogWarning("[Alternative Game Interface] BepInEx manager object not found; not started.");
                 return;
             }
 
             // Already loaded as a BepInEx plugin (dll also lies in BepInEx/plugins)? Then do not start a second copy.
-            if (Chainloader.PluginInfos.ContainsKey(SmartWindowsPlugin.PluginGuid) || host.GetComponent<SmartWindowsPlugin>() != null)
+            if (Chainloader.PluginInfos.ContainsKey(AlternativeGameInterfacePlugin.PluginGuid) || host.GetComponent<AlternativeGameInterfacePlugin>() != null)
             {
-                Debug.LogWarning("[Smart Windows] already loaded (a copy is also in BepInEx/plugins); keep only one copy.");
+                Debug.LogWarning("[Alternative Game Interface] already loaded (a copy is also in BepInEx/plugins); keep only one copy.");
                 return;
             }
 
             // Started even when unticked in the game's Mods menu: the plugin follows that tick at run time
             // (it re-reads it whenever the game saves the mod list and after every load screen) and stays idle while it is off.
             ModState.Controlled = true;
-            host.AddComponent<SmartWindowsPlugin>(); // BaseUnityPlugin: BepInEx logger and config work as usual
+            host.AddComponent<AlternativeGameInterfacePlugin>(); // BaseUnityPlugin: BepInEx logger and config work as usual
         }
     }
 
@@ -114,7 +114,7 @@ namespace SmartWindows
             }
             catch (Exception e)
             {
-                Debug.LogWarning("[Smart Windows] reading the mod list failed: " + (e.InnerException ?? e).Message);
+                Debug.LogWarning("[Alternative Game Interface] reading the mod list failed: " + (e.InnerException ?? e).Message);
                 return null;
             }
         }

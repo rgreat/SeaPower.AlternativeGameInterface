@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using HarmonyLib;
 
-namespace SmartWindows
+namespace AlternativeGameInterface
 {
     /// <summary>
     /// UnitReferenceTab: a "Reference" tab (last) in the Unit Status window with the Unit Reference of the selected unit, as the
@@ -16,7 +16,7 @@ namespace SmartWindows
     /// parameters (not a weapon), content made when the tab is shown (EnsureContent) and dropped when the unit changes
     /// (DisposeOwnedContent); the inner tab (Overview, Weapons, ...) is kept from one unit to the next.
     /// </summary>
-    public partial class SmartWindowsPlugin
+    public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _statusRef;
         const int RefTabKind = 5;   // past the game's UnitStatusTab values (Engagement ... Seeker); 6 = Alternative Weapons Control's Weapons tab
