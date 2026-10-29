@@ -208,6 +208,7 @@ namespace SmartWindows
         ConfigEntry<float> _secMin;
         // DamageControlView set up: the minimums changed in it, { element / row definition, the game's value } - set again from these
         // when DamageControlMinHeightAdd is changed in the settings window
+        static readonly ConditionalWeakTable<object, List<object>> DcClipped = new ConditionalWeakTable<object, List<object>>();
         static readonly ConditionalWeakTable<object, List<object[]>> DcDone = new ConditionalWeakTable<object, List<object[]>>();
         readonly List<WeakReference> _dcViews = new List<WeakReference>();   // every Damage Control tab made
         DcLoadedHandler _dcLoadedHandler;
@@ -445,7 +446,7 @@ namespace SmartWindows
             _snapOn = Config.Bind("General", "SnapWindows", true,
                 "While a window is dragged or resized with the mouse, its edges snap to the edges of the other windows and of the screen " +
                 "when they come closer than SnapDistance (the visible edges, without the invisible resize zone around a window).");
-            BindDockReachConfig(); BindKeepMapViewConfig(); BindTimePanelConfig(); BindWindowSetsConfig(); BindWorldViewKeyConfig();
+            BindDockReachConfig(); BindKeepMapViewConfig(); BindEventLogConfig(); BindTimePanelConfig(); BindWindowSetsConfig(); BindWorldViewKeyConfig();
             _snapDist = Config.Bind("General", "SnapDistance", 10f,
                 "SnapWindows: how close an edge must come to snap, in pixels (1 - 50).");
             _borderOn = Config.Bind("WindowBorder", "Enabled", true,
@@ -720,6 +721,7 @@ namespace SmartWindows
                     HookCampaignDismiss(harmony, asm);
                     HookPipScene(harmony, asm);
                     HookMapFullscreen(harmony, asm);
+                    HookEventLog(harmony, asm);
                     HookStatusReference(harmony, asm);
                 }
 
@@ -1816,12 +1818,96 @@ namespace SmartWindows
             {
                 SetV(it[0], "MinHeight", (float)it[1]);
                 SetV(row2, "MinHeight", (float)it[3]);
+                ClipTab(view, false);
                 return;
             }
             float units = px / scale + (float)it[5];   // the row holds the panels and their margins
+            float room = DcRoom(view, it);
+            if (room >= 0f && units > room) units = room;
             SetV(it[0], "MinHeight", 0f);
             SetV(row2, "MinHeight", units);
+            ClipTab(view, true);
             Verbose("Damage Control tab: section panels at least " + Fmt(px) + " px (row 2 MinHeight " + Fmt(units) + " units)");
+        }
+
+        static readonly ConditionalWeakTable<object, float[]> DcWinSize = new ConditionalWeakTable<object, float[]>();
+
+        /// <summary>
+        /// Height (UI units) the section row can take in the window without pushing anything past its bottom edge: the window's height
+        /// less the tab's offset in it, the frame's bottom inset, a small gap and the other rows. -1 when it cannot be worked out.
+        /// </summary>
+        float DcRoom(object view, object[] it)
+        {
+            try
+            {
+                object win = view;
+                while (win != null && !(_winType != null && _winType.IsInstanceOfType(win))) win = VtParent(win);
+                if (win == null) return -1f;
+                var b = BodyInsets(win);   // also prepares TranslatePoint
+                if (_translatePoint == null) return -1f;
+                float wh = GetF(win, "ActualHeight", 0f);
+                var p = Invoke(_translatePoint, view, _pointCtor.Invoke(new object[] { 0f, 0f }), win);
+                if (wh < 1f || p == null || p == Failed) return -1f;
+                float scale = ScreenScale(view); if (scale <= 0f) scale = (float)it[4];
+                var rows = Get(it[0], "RowDefinitions");
+                float others = 0f;
+                for (int i = 0, c = Count(rows); i < c; i++) { if (i == 2) continue; others += GetF(Item(rows, i), "ActualHeight", 0f); }
+                float room = wh - GetF(p, "Y", 0f) - (b == null ? 0f : b[3]) - 8f / scale - others;
+                return room < 1f ? 1f : room;
+            }
+            catch { return -1f; }
+        }
+
+        /// <summary>The window of a Damage Control tab changed size: the section row's minimum is fitted to the room left (see DcRoom).</summary>
+        void DcFitStep(object w)
+        {
+            if (_dcViews.Count == 0 || _secMin.Value <= 0f) return;
+            try
+            {
+                float[] last;
+                float cw = GetF(w, "ActualWidth", 0f), ch = GetF(w, "ActualHeight", 0f);
+                if (!DcWinSize.TryGetValue(w, out last)) { last = new float[2]; DcWinSize.Add(w, last); }
+                if (last[0] == cw && last[1] == ch) return;
+                last[0] = cw; last[1] = ch;
+                foreach (var r in _dcViews)
+                {
+                    var v = r.Target; List<object[]> list;
+                    if (v == null || !DcDone.TryGetValue(v, out list) || !GetB(v, "IsVisible")) continue;
+                    object win = v;
+                    while (win != null && !(_winType != null && _winType.IsInstanceOfType(win))) win = VtParent(win);
+                    if (win == null || !win.Equals(w)) continue;
+                    foreach (var it in list) ApplySections(v, it);
+                }
+            }
+            catch (Exception e) { Trace("DcFitStep: " + e.Message); }
+        }
+
+        /// <summary>
+        /// A grid with a row MinHeight larger than its slot is arranged at its full size and draws past the slot, i.e. below the window.
+        /// The tab's ancestors (up to the window) are clipped to their own bounds, so what does not fit is cut at the window's edge
+        /// instead; the elements changed are remembered and put back when the option is 0.
+        /// </summary>
+        void ClipTab(object view, bool on)
+        {
+            try
+            {
+                List<object> done;
+                if (!on)
+                {
+                    if (DcClipped.TryGetValue(view, out done)) { foreach (var e in done) SetV(e, "ClipToBounds", false); DcClipped.Remove(view); }
+                    return;
+                }
+                if (DcClipped.TryGetValue(view, out done)) return;
+                done = new List<object>();
+                for (var e = VtParent(view); e != null && !(_winType != null && _winType.IsInstanceOfType(e)) && done.Count < 12; e = VtParent(e))
+                {
+                    if (GetB(e, "ClipToBounds")) continue;
+                    SetV(e, "ClipToBounds", true);
+                    done.Add(e);
+                }
+                DcClipped.Add(view, done);
+            }
+            catch (Exception ex) { Trace("ClipTab: " + ex.Message); }
         }
 
         /// <summary>
@@ -2856,7 +2942,7 @@ namespace SmartWindows
                 var t = _tracked[i];
                 var w = t.Ref.Target;
                 if (w == null) { _tracked.RemoveAt(i); continue; } // collected
-                try { Step(t, w, now); TrackOpenState(t, w, now); FitMaximized(w, now); PinStep(t, w, now); LookStep(w); MapModeStep(w, now); KeepMapViewStep(t, w, now); PickerStep(w, now); if (_statusRef.Value && t.WasActive) StatusRefStep(w); if (t.WasActive) TrackStateStep(w); if (t.WasActive) ResizeCursorStep(w, now); if (t.WasActive) DockReachStep(w, now); if (t.WasActive) UpgradeStep(w, now); if (t.WasActive) LoadoutOrderStep(w, now); }
+                try { Step(t, w, now); TrackOpenState(t, w, now); FitMaximized(w, now); PinStep(t, w, now); LookStep(w); MapModeStep(w, now); KeepMapViewStep(t, w, now); EventLogStep(w); DcFitStep(w); PickerStep(w, now); if (_statusRef.Value && t.WasActive) StatusRefStep(w); if (t.WasActive) TrackStateStep(w); if (t.WasActive) ResizeCursorStep(w, now); if (t.WasActive) DockReachStep(w, now); if (t.WasActive) UpgradeStep(w, now); if (t.WasActive) LoadoutOrderStep(w, now); }
                 catch (Exception e)
                 {
                     if (!t.Warned) { t.Warned = true; Logger.LogWarning("Window '" + t.Label + "': " + e.Message); Trace("Step error: " + e); }

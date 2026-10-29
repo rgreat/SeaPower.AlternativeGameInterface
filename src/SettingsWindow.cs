@@ -29,8 +29,8 @@ namespace SmartWindows
                 public bool TfbOnly;         // shown only when the window is opened from the campaign Task Force Builder
             }
 
-            const string TWindows = "Windows", TMap = "Desktop mode", TTact = "Tactical Display", TRemembered = "Remembered Windows", TFrame = "Frame", TMission = "In Mission", TFiles = "Game Menus", TDebug = "Debug", TCampaign = "Campaign", TStatus = "Unit Status", TRef = "Unit Reference";
-            static readonly string[] Tabs = { TWindows, TMap, TTact, TRemembered, TFrame, TMission, TFiles, TStatus, TRef, TCampaign, TDebug };
+            const string TWindows = "Windows", TMap = "Desktop mode", TTact = "Tactical Display", TLog = "Event Log", TRemembered = "Remembered Windows", TFrame = "Frame", TMission = "In Mission", TFiles = "Game Menus", TDebug = "Debug", TCampaign = "Campaign", TStatus = "Unit Status", TRef = "Unit Reference";
+            static readonly string[] Tabs = { TWindows, TMap, TTact, TLog, TRemembered, TFrame, TMission, TFiles, TStatus, TRef, TCampaign, TDebug };
             static readonly List<Field> Fields = new List<Field>();
 
             static void Add(string tab, string group, ConfigEntryBase e, char kind, string label, string unit, float step = 0f, float min = 0f, float max = 0f)
@@ -75,6 +75,8 @@ namespace SmartWindows
                 Add(TWindows, "Order and title bars", p._cascade, 'f', "Cascade shift", "px · 0 = off", 5f, 0f, 500f);
                 Add(TWindows, "Order and title bars", p._fixCursors, 'b', "Fix game resize cursors", "menus and campaign");
 
+                Add(TLog, "Links", p._logLinks, 'b', "All contacts in the log are links", "track numbers");
+                Add(TLog, "Links", p._logCenter, 'b', "Center map on clicked contact", "Tactical Display");
                 Add(TTact, "Map", p._keepMapView, 'b', "Keep map view on resize", "zoom follows the window size");
 
                 Add(TMap, "Desktop mode", p._windowedMap, 'b', "Enable desktop mode", "free move and size");
@@ -162,6 +164,7 @@ namespace SmartWindows
             static bool _unitRef;              // opened from a Unit Reference window: its tab is shown
             static bool _unitStatus;           // opened from a Unit Status window: its tab is shown
             static bool _tact;                 // opened from the Tactical Display window: its tab is shown
+            static bool _log;                  // opened from the Event Log window: its tab is shown
             static bool _tfb;                  // opened from the campaign Task Force Builder: its own options are shown
             static bool _saidOpen;
 
@@ -169,13 +172,13 @@ namespace SmartWindows
             static Button _showAllButton;
 
             static Field _mapField;
-            static bool TabShown(int i) { return _showAll || (Tabs[i] == TRef ? _unitRef : Tabs[i] == TStatus ? _unitStatus : Tabs[i] == TCampaign ? _tfb : Tabs[i] == TTact ? _tact : true); }
+            static bool TabShown(int i) { return _showAll || (Tabs[i] == TRef ? _unitRef : Tabs[i] == TStatus ? _unitStatus : Tabs[i] == TCampaign ? _tfb : Tabs[i] == TTact ? _tact : Tabs[i] == TLog ? _log : true); }
 
             /// <summary>The button toggles the hidden tabs; not shown when no tab is hidden.</summary>
             static void UpdateShowAll()
             {
                 if (_showAllButton == null) return;
-                bool hidden = !_unitRef || !_unitStatus || !_tfb || !_tact;
+                bool hidden = !_unitRef || !_unitStatus || !_tfb || !_tact || !_log;
                 _showAllButton.Visibility = hidden ? Visibility.Visible : Visibility.Collapsed;
                 _showAllButton.Content = Loc.T(_showAll ? "btn.showFewer" : "btn.showAll");
             }
@@ -196,15 +199,15 @@ namespace SmartWindows
             /// from it (not an items host), above everything. Open already: only the Unit Reference / Unit Status tabs follow where it was
             /// opened from.
             /// </summary>
-            public static void Open(SmartWindowsPlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false, bool tactical = false)
+            public static void Open(SmartWindowsPlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false, bool tactical = false, bool eventLog = false)
             {
                 if (p == null || anchor == null) return;
                 P = p;
                 try
                 {
                     Define(p);
-                    bool tabChange = _unitRef != unitReference || _unitStatus != unitStatus || _tfb != taskForce || _tact != tactical;
-                    _tact = tactical;
+                    bool tabChange = _unitRef != unitReference || _unitStatus != unitStatus || _tfb != taskForce || _tact != tactical || _log != eventLog;
+                    _tact = tactical; _log = eventLog;
                     _tfb = taskForce;
                     if (taskForce) p.LoadStrictToProxy();
                     _unitRef = unitReference;
@@ -214,6 +217,7 @@ namespace SmartWindows
                     else if (tabChange && unitStatus) _tab = Array.IndexOf(Tabs, TStatus);
                     else if (taskForce) _tab = Array.IndexOf(Tabs, TCampaign);
                     else if (tabChange && tactical) _tab = Array.IndexOf(Tabs, TTact);
+                    else if (tabChange && eventLog) _tab = Array.IndexOf(Tabs, TLog);
                     if (IsOpen)
                     {
                         UpdateShowAll();

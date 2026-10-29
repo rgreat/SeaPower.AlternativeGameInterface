@@ -47,6 +47,7 @@ The full name of the unit in the header.
 [*]Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); the ship's loadouts are sorted by date; the price of a hull swap is counted from the roster.
 [*]The News window of the main menu gets the mod's gear, frame and remembered position; the game's resize cursors work outside a mission.
 [*]Optional "Keep map view on resize" (the Tactical Display tab, shown when the settings are opened from the map window): when the Tactical Display window is resized, its zoom follows, so the area that was visible stays visible.
+[*]Event Log: every track number is a link, not only some of them (option); a click on a contact or unit link also centres the Tactical Display on it (option, the Event Log tab of the settings window).
 [/olist]
 
 [h1]Compatibility[/h1]
@@ -71,3 +72,5 @@ Move or resize them as usual; they come back where you left them.
 [*]Most features can be turned off or customized in the settings window (the gear in the title bar of a remembered window). They are stored in:
 Sea Power/Sea Power_Data/StreamingAssets/user/SmartWindows/SmartWindows.cfg
 [/list]
+
+P.S. Highly recommended to use with the [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3676689138]Camera Offset[/url] mod.

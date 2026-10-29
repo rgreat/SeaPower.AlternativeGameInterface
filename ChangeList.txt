@@ -4,6 +4,7 @@ Version 1.7.0
 - New option "Keep map view on resize": the Tactical Display zoom follows the window size, so the area that was visible stays visible.
 - Docked windows can be resized from every edge: at the screen edge the resize zone reaches a few pixels inside the window.
 - The time panel of the mission can be dragged (double-click puts it back); its place is kept per desktop.
+- Event Log: every track number is a link (the game links only some; option "All contacts in the log are links"). A click on a contact or unit link also centres the Tactical Display on it (option "Center map on clicked contact", the Event Log tab of the settings).
 - Unit Status: "Track State" tab for a selected contact of another side.
 - Campaign: "Upgrade ship..." button in the Task Force Builder; damaged ships can be dismissed (the repair cost is deducted); loadouts are sorted by date; the price of a hull swap is counted from the roster.
 - The News window of the main menu gets its gear, frame and remembered position; the game's resize cursors work outside a mission.

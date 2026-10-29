@@ -272,7 +272,7 @@ namespace SmartWindows
                     var ow = owner.Target;
                     Trace("settings gear clicked");
                     // the Unit Reference / Unit Status tabs are shown only when the window is opened from such a window
-                    SettingsWindow.Open(this, gear, ow != null && InfoViewModel(ow) != null, ow != null && IsUnitStatusWindow(ow), ow != null && IsTaskForceBuilderWindow(ow), ow != null && TypeName(Get(ow, "DataContext")) == "SceneMapViewModel");
+                    SettingsWindow.Open(this, gear, ow != null && InfoViewModel(ow) != null, ow != null && IsUnitStatusWindow(ow), ow != null && IsTaskForceBuilderWindow(ow), ow != null && TypeName(Get(ow, "DataContext")) == "SceneMapViewModel", ow != null && TypeName(Get(ow, "DataContext")) == "EventLogViewModel");
                 };
                 Panel.SetZIndex(gear, 100001);
                 var grid = panel as Grid;

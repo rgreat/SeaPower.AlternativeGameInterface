@@ -51,6 +51,7 @@ A Sea Power mod that makes the game's windows smarter.
 27. Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); the ship's loadouts are sorted by date; the price of a hull swap is counted from the roster.
 28. The News window of the main menu gets the mod's gear, frame and remembered position; the game's resize cursors work outside a mission.
 29. Optional "Keep map view on resize" (the Tactical Display tab, shown when the settings are opened from the map window): when the Tactical Display window is resized, its zoom follows, so the area that was visible stays visible.
+30. Event Log: every track number is a link, not only some of them (option); a click on a contact or unit link also centres the Tactical Display on it (option, the Event Log tab of the settings window).
 
 ## Compatibility
 
