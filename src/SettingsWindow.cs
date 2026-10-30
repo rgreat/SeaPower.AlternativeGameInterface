@@ -85,6 +85,7 @@ namespace AlternativeGameInterface
 
                 Add(TMission, "In Mission", p._timeDrag, 'b', "Draggable time panel", "double-click: back to the corner");
                 Add(TMission, "In Mission", p._unitMenu, 'b', "Menu on the unit panel's flag/name", "");
+                Add(TMission, "In Mission", p._binoDown, 'f', "Ship binoculars below the horizon", "degrees · 0 = game", 1f, 0f, 45f);
                 if (_contactFixApplies) Add(TMission, "In Mission", p._fixContact, 'b', "Fix contact Information ages", "");   // hidden when this game version has nothing to fix
 
                 Add(TFiles, "Scenarios", p._hideCustom, 'b', "Hide _Custom Mission", "");

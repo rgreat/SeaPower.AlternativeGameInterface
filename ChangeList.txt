@@ -5,3 +5,5 @@ Version 1.8.0
 - Menu backgrounds: the option "Backgrounds from mods only" became a choice "Background pictures": mods only / mixed / game only. The mod's own folder ui/backgrounds is ready for its pictures.
 - Unit Status, Damage Control: with a small window the section lists no longer run past the bottom edge of the window.
 - The gear and the arrow of the window look menu sit among the buttons of the title bar and no longer lie over buttons that other mods add there (for example Topography on the map).
+- Desktop mode, optical view: the binocular frame and interface fit the World View window (enlarged up to 30%), mouse camera control works over the picture, Backspace gives a full-screen binocular view, resizing a window over the World View no longer turns the camera.
+- Ship binoculars can be lowered below the horizon (option "Ship binoculars below the horizon", 10 degrees by default).

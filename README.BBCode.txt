@@ -50,6 +50,8 @@ The full name of the unit in the header.
 [*]Event Log: every track number is a link, not only some of them (option); a click on a contact or unit link also centres the Tactical Display on it (option, the Event Log tab of the settings window).
 [*]Settings entry "Game Interface" in the main menu (under Mod Manager) and in the pause menu (under Options): the settings window with every tab, without a game window behind it. With several of the author's mods installed it becomes "Alternative Mods" with a list.
 [*]The settings gear and the arrow of the window look menu sit among the buttons of the window's title bar, so they never lie over buttons that other mods add there.
+[*]Desktop mode, optical view: the binocular frame and its interface are fitted into the World View window (enlarged up to 30% to leave smaller black bars), the camera is controlled with the mouse over the picture, Backspace (hidden HUD) gives a full-screen binocular view, and a window over the World View (moving, resizing) no longer turns the camera at the same time.
+[*]Ship binoculars can be lowered below the horizon (option "Ship binoculars below the horizon", In Mission tab; 10 degrees by default, 0 = as in the game).
 [/olist]
 
 [h1]Compatibility[/h1]

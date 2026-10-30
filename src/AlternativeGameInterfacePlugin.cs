@@ -429,6 +429,7 @@ namespace AlternativeGameInterface
             BindGameFixConfig();
             BindCampaignLoadoutsConfig();
             BindDismissConfig();
+            BindBinocularConfig();
             BindUpgradeConfig();
             BindLoadoutsOrderConfig();
             BindLookConfig();
@@ -595,6 +596,14 @@ namespace AlternativeGameInterface
                 var lsHarmony = new Harmony(PluginGuid + ".loadscreen");
                 lsHarmony.Patch(moveNext, prefix: Hm("LoadScreenPrefix"), postfix: Hm("LoadScreenPostfix"));
                 Trace("patched " + moveNext.DeclaringType.Name + ".MoveNext");
+                // (before the load screen ends: the hub waits for its end itself) the settings of the author's mods in one place of the main menu and the pause menu (SettingsHub.cs, the same file in every mod)
+                try
+                {
+                    Rgreat.Hub.SettingsHub.Register("alternative-game-interface", () => Loc.T("menu.button"), PluginVersion, 10,
+                        anchor => OpenSettingsFromMenu(anchor as Noesis.UIElement), () => Enabled);
+                    Rgreat.Hub.SettingsHub.Install(lsHarmony, asm, Trace, () => Loc.Language);
+                }
+                catch (Exception e) { Logger.LogWarning("Settings entry in the menus: " + e.Message); Trace("SettingsHub: " + e); }
 
                 // the Mods menu saves its list here (Apply): lets the plugin follow its tick without a restart
                 var fm = asm.GetType("SeaPower.FileManager");
@@ -732,6 +741,7 @@ namespace AlternativeGameInterface
                     HookCampaignDismiss(harmony, asm);
                     HookPipScene(harmony, asm);
                     HookMapFullscreen(harmony, asm);
+                    HookBinocularFrame(harmony, asm);
                     HookEventLog(harmony, asm);
                     HookStatusReference(harmony, asm);
                 }
@@ -758,14 +768,6 @@ namespace AlternativeGameInterface
 
                 HookToolTips();
                 HookCapture();
-                // the settings of the author's mods in one place of the main menu and the pause menu (SettingsHub.cs, the same file in every mod)
-                try
-                {
-                    Rgreat.Hub.SettingsHub.Register("alternative-game-interface", () => Loc.T("menu.button"), PluginVersion, 10,
-                        anchor => OpenSettingsFromMenu(anchor as Noesis.UIElement), () => Enabled);
-                    Rgreat.Hub.SettingsHub.Install(harmony, asm, Trace, () => Loc.Language);
-                }
-                catch (Exception e) { Logger.LogWarning("Settings entry in the menus: " + e.Message); Trace("SettingsHub: " + e); }
                 Logger.LogInfo("Window hooks installed.");
             }
             catch (Exception e)

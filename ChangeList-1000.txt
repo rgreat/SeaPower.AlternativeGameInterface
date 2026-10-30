@@ -5,3 +5,6 @@ Version 1.8.0
 - Menu backgrounds: mods only / mixed / game only.
 - Damage Control sections stay inside a small window.
 - Gear and look arrow sit among the title bar buttons, no overlap with other mods' buttons.
+- Binocular frame fits the World View window.
+- Ship binoculars can look below the horizon (option).
+- Resizing a window over the World View no longer turns the camera.

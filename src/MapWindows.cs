@@ -353,7 +353,7 @@ namespace AlternativeGameInterface
         // Tactical Display and its maximized state are: both windows are opened and closed independently of each other.
         static void MapShowPipPostfix(object __instance, ref bool __result)
         {
-            if (__result || !MapOn()) return;
+            if (__result || !MapOn() || PhotoMode()) return;      // photo mode (HUD hidden): the game's own value - no window, the optical view fills the screen like in the game
             try
             {
                 var t = __instance.GetType();
@@ -533,6 +533,61 @@ namespace AlternativeGameInterface
             return null;
         }
 
+        static bool _inOver;
+        /// <summary>Mouse inside the World View picture but the game says "UI" (the optical view overlay lies over the picture and is not the Pip3DView):
+        /// when the hit element is inside the World View window, it is the 3D view: the game's update is repeated without the "over Noesis" flag.</summary>
+        /// <summary>What is under the mouse, and whether it is the 3D picture: inside the World View window and not under a control of a window (a resize thumb, the title bar thumb, a button:
+        /// those take the mouse themselves). The point is in screen pixels with the top left origin, like Visual.PointToScreen gives them (the game's own UpdateCursor multiplies the mouse
+        /// by UIScale * height / 1080, which is right only at 1080 lines: at 1440 lines its hit lies a third too far from the corner and the interface's "mouse over" flag is wrong).</summary>
+        static bool HitIsWorld(Noesis.Visual win, out Noesis.DependencyObject hit)
+        {
+            hit = null;
+            var mp = UnityEngine.Input.mousePosition;
+            var root = Noesis.VisualTreeHelper.GetRoot(win) as Noesis.Visual;
+            if (root == null) return false;
+            var pt = root.PointFromScreen(new Noesis.Point(mp.x, UnityEngine.Screen.height - mp.y));
+            hit = Noesis.VisualTreeHelper.HitTest(root, pt).VisualHit;
+            for (Noesis.DependencyObject d = hit; d != null; d = Noesis.VisualTreeHelper.GetParent(d))
+            {
+                if (ReferenceEquals(d, win)) return true;
+                for (var t = d.GetType(); t != null; t = t.BaseType) if (t.Name == "Thumb" || t.Name == "ButtonBase") return false;
+            }
+            return false;
+        }
+
+        static Noesis.Visual WorldWindow() { return _wvWin == null ? null : _wvWin.Target as Noesis.Visual; }
+
+        static UnityEngine.Vector3 _hitMp; static bool _hitKnown, _hitWorld;
+        /// <summary>The mouse is inside the picture's rectangle: is the 3D picture really what is under it (not a window over it)? Tested when the mouse moved or a button went down, not every frame.</summary>
+        static bool OverWorld(bool inside, bool force)
+        {
+            if (!inside) { _hitKnown = false; return false; }
+            var mp = UnityEngine.Input.mousePosition;
+            if (!force && _hitKnown && mp == _hitMp) return _hitWorld;
+            var ww = WorldWindow(); Noesis.DependencyObject hit = null;
+            _hitWorld = ww != null && (HitIsWorld(ww, out hit) || hit == null);      // no hit at all: the picture, as in the game's own test
+            _hitMp = mp; _hitKnown = true;
+            return _hitWorld;
+        }
+
+        /// <summary>The mouse is over the 3D picture but the game says "UI" (its own test is off at other resolutions than 1080, or the optical view overlay lies over the picture): the game's update is repeated without the "over Noesis" flag.</summary>
+        static void MapOverlayIsWorld(object mcs)
+        {
+            if (_inOver) return;
+            if (!"UI".Equals(_mcsState.GetValue(mcs).ToString())) return;
+            RepeatWorld(mcs);
+        }
+
+        static void RepeatWorld(object mcs)
+        {
+            var t = mcs.GetType();
+            // the first pass left "UI" as the current state; a button pressed now would take it as the state the press began in and the whole drag would go to the UI
+            _mcsState.SetValue(mcs, Enum.Parse(_mcsState.FieldType, "All"));
+            t.GetMethod("setMouseOverNoesis").Invoke(mcs, new object[] { false });
+            _inOver = true;
+            try { t.GetMethod("OnUpdate").Invoke(mcs, null); } finally { _inOver = false; }
+        }
+
         static void MapMouseStatePostfix(object __instance)
         {
             if (!MapOn() || PhotoMode()) return;     // photo mode: the whole screen is the 3D view
@@ -543,9 +598,11 @@ namespace AlternativeGameInterface
                 // no World View picture (closed): no mouse in the 3D world at all
                 bool alive = UnityEngine.Time.frameCount - _wvAlive <= 2 && _wvRectNow.width > 0f;
                 bool inside = alive && mp.x >= _wvRectNow.x * sw && mp.x <= (_wvRectNow.x + _wvRectNow.width) * sw && mp.y >= _wvRectNow.y * sh && mp.y <= (_wvRectNow.y + _wvRectNow.height) * sh;
-                if (UnityEngine.Input.GetMouseButtonDown(0) || UnityEngine.Input.GetMouseButtonDown(1) || UnityEngine.Input.GetMouseButtonDown(2)) _mapDownInside = inside;
+                bool down = UnityEngine.Input.GetMouseButtonDown(0) || UnityEngine.Input.GetMouseButtonDown(1) || UnityEngine.Input.GetMouseButtonDown(2);
+                bool over = OverWorld(inside, down);       // the picture, not a window over it or a thumb: resizing a window must not rotate the camera too
+                if (down) _mapDownInside = over;
                 bool held = UnityEngine.Input.GetMouseButton(0) || UnityEngine.Input.GetMouseButton(1) || UnityEngine.Input.GetMouseButton(2);
-                if (held ? _mapDownInside : inside) return;
+                if (held ? _mapDownInside : over) { MapOverlayIsWorld(__instance); return; }
                 _mcsState.SetValue(__instance, Enum.Parse(_mcsState.FieldType, "UI"));
                 var cmT = _cmCamera.DeclaringType;
                 var gt = cmT.Assembly.GetType("SeaPower.Singleton`1").MakeGenericType(cmT);
@@ -577,7 +634,10 @@ namespace AlternativeGameInterface
             {
                 if (!IsMapWindow(w)) { st.Set = st.MenuDone = true; return; }
                 var dc = Get(w, "DataContext");
-                if (dc == null || dc.GetType().Name != "SceneMapViewModel") { st.Set = st.MenuDone = true; _wvWin = new WeakReference(w); return; }   // the World View window
+                if (dc == null || dc.GetType().Name != "SceneMapViewModel") {
+                    st.Set = st.MenuDone = true; _wvWin = new WeakReference(w);
+                    return;
+                }   // the World View window
                 if (!st.Set)
                 {
                     _mapWin = new WeakReference(w);

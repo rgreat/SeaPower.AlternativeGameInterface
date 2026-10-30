@@ -35,7 +35,7 @@ namespace AlternativeGameInterface
             _pipSource = cm.GetMethod("IsPipSource", all);
             _pipImage = cm.GetMethod("GetPipImage", all);
             _pipDownsample = blit.GetMethod("Downsample", all);
-            if (_pipInstance == null || _pipInstanceExists == null || _pipActive == null || _pipSource == null || _pipImage == null || _pipDownsample == null) { Trace("CameraManager members not found: HidePipScene not available"); return; }
+            if (_pipInstance == null || _pipInstanceExists == null || _pipActive == null || _pipSource == null || _pipImage == null) { Trace("CameraManager members not found: HidePipScene not available"); return; }
             TryPatch(harmony, m, "PipSceneBlitPrefix", "PipSceneBlitPostfix", null);
             Trace("patched BlitToPipImage.OnRenderImage (HidePipScene)");
         }
@@ -71,7 +71,7 @@ namespace AlternativeGameInterface
                 object cm;
                 if (!PipSourceNow(__instance, out cm)) return true;
                 var img = _pipImage.Invoke(cm, null) as RenderTexture;
-                if (img != null) _pipDownsample.Invoke(null, new object[] { source, img });
+                if (img != null) { if (_pipDownsample != null) _pipDownsample.Invoke(null, new object[] { source, img }); else Graphics.Blit(source, img); }   // older builds have no Downsample: a plain blit
                 return false;
             }
             catch { return true; }
