@@ -45,7 +45,7 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
-        public const string PluginVersion = "1.7.0"; // also <Version> in AlternativeGameInterface.csproj
+        public const string PluginVersion = "1.8.0"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
         const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
@@ -464,9 +464,14 @@ namespace AlternativeGameInterface
                 "Colour of the frame: #RRGGBB or #AARRGGBB (AA = opacity, 00 transparent - FF solid).");
             _tipBorder = Config.Bind("WindowBorder", "ToolTips", true,
                 "Frame around the game's tooltips (pop-up hints) too, on all four sides, with the width and colour above.");
-            _modBackgrounds = Config.Bind("General", "ModBackgroundsOnly", true,
-                "Background pictures of the main menu and the loading screens: when mods bring their own (ui/backgrounds), only theirs " +
-                "are shown, not mixed with the game's. Off = as the game: one picked at random from the game's and every mod's together.");
+            // ModBackgroundsOnly (a bool in earlier versions): true = Mods, false = Mixed
+            string oldBg = null;
+            try { var orph = Orphans(Config); if (orph != null) orph.TryGetValue(new ConfigDefinition("General", "ModBackgroundsOnly"), out oldBg); } catch { }
+            string defBg = oldBg != null && oldBg.Trim().ToLowerInvariant() == "false" ? "Mixed" : "Mods";
+            _modBackgrounds = Config.Bind("General", "Backgrounds", defBg,
+                new ConfigDescription("Background pictures of the main menu and the loading screens. Mods = when mods bring their own (ui/backgrounds), only theirs are shown; " +
+                "Mixed = as the game: one picked at random from the game's and every mod's together; Game = only the game's own.",
+                new AcceptableValueList<string>("Mods", "Mixed", "Game")));
             _debugEntry = Config.Bind("General", "Debug", false,
                 "Enables verbose logging and BepInEx/AlternativeGameInterface.trace.txt.");
             _debug = _debugEntry.Value;
@@ -533,7 +538,7 @@ namespace AlternativeGameInterface
                                           new ConfigDefinition("UnitStatus", "DamageControlExtraShrink"),
                                           new ConfigDefinition("UnitStatus", "DamageControlMinHeightAdd"),
                                           // test builds: the Weapons tab moved to the Alternative Weapons Control mod
-                                          new ConfigDefinition("General", "TabSwitchesWindowSets"), new ConfigDefinition("General", "AddWindowKey"), new ConfigDefinition("InMission", "TimePanelPosition"), new ConfigDefinition("UnitStatus", "WeaponsTab"), new ConfigDefinition("UnitStatus", "ClickVolume"),
+                                          new ConfigDefinition("General", "ModBackgroundsOnly"), new ConfigDefinition("General", "TabSwitchesWindowSets"), new ConfigDefinition("General", "AddWindowKey"), new ConfigDefinition("InMission", "TimePanelPosition"), new ConfigDefinition("UnitStatus", "WeaponsTab"), new ConfigDefinition("UnitStatus", "ClickVolume"),
                                           new ConfigDefinition("UnitStatus", "GunOneDirector"), new ConfigDefinition("UnitStatus", "GunChannelLimit") })
                     orphans.Remove(d);
             }
@@ -753,6 +758,14 @@ namespace AlternativeGameInterface
 
                 HookToolTips();
                 HookCapture();
+                // the settings of the author's mods in one place of the main menu and the pause menu (SettingsHub.cs, the same file in every mod)
+                try
+                {
+                    Rgreat.Hub.SettingsHub.Register("alternative-game-interface", () => Loc.T("menu.button"), PluginVersion, 10,
+                        anchor => OpenSettingsFromMenu(anchor as Noesis.UIElement), () => Enabled);
+                    Rgreat.Hub.SettingsHub.Install(harmony, asm, Trace, () => Loc.Language);
+                }
+                catch (Exception e) { Logger.LogWarning("Settings entry in the menus: " + e.Message); Trace("SettingsHub: " + e); }
                 Logger.LogInfo("Window hooks installed.");
             }
             catch (Exception e)
@@ -761,6 +774,23 @@ namespace AlternativeGameInterface
                 Logger.LogError("Could not hook SeapowerUI.Window: " + e.Message);
                 Trace("TryHook exception: " + e);
             }
+        }
+
+        /// <summary>
+        /// The settings entry of the menus (SettingsHub): the settings window without a game window behind it - every tab, as with
+        /// "Show all settings". 'anchor' is the main menu view or the pause menu view; the window goes into the topmost Grid above
+        /// the view's content (a UserControl has no panel of its own to start from).
+        /// </summary>
+        void OpenSettingsFromMenu(Noesis.UIElement anchor)
+        {
+            try
+            {
+                if (anchor == null || !Enabled) return;
+                var cc = anchor as Noesis.ContentControl;
+                var start = (cc != null ? cc.Content as Noesis.UIElement : null) ?? anchor;
+                SettingsWindow.Open(this, start, false, false, false, false, false, true);
+            }
+            catch (Exception e) { Logger.LogWarning("Settings window from the menu: " + e.Message); Trace("OpenSettingsFromMenu: " + e); }
         }
 
         static void PatchPost(Harmony harmony, Type type, string method, string postfixName)

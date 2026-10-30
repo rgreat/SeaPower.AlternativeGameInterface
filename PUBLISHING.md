@@ -25,7 +25,7 @@ AlternativeGameInterface/                 <- проект (хранится у �
 │  ├─ ArmedFilter.cs                  <- галочка «Armed only» на панели поиска Unit Reference
 │  ├─ StatusReference.cs              <- вкладка Reference в окне Unit Status
 │  ├─ TooltipFrame.cs                 <- рамка вокруг всплывающих подсказок ([WindowBorder] ToolTips)
-│  ├─ Backgrounds.cs                  <- фоновые картинки модов вместо игровых ([General] ModBackgroundsOnly)
+│  ├─ Backgrounds.cs                  <- фоновые картинки модов вместо игровых ([General] Backgrounds)
 │  ├─ Pickers.cs                      <- _Custom Mission, папка редактора, синие ini, старые логи
 │  ├─ TreeSearch.cs / HoverHelp.cs    <- опции дерева Unit Reference 1.6.0, подсказки по ссылкам
 │  ├─ UnitMenu.cs / GameFixes.cs / CampaignLoadouts.cs    <- меню панели юнита, фикс окна Information, StrictLoadouts

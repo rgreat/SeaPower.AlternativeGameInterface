@@ -256,7 +256,7 @@ ClickVolume, GunOneDirector, GunChannelLimit тестовых сборок уд�
   считает окном Weapon Reference: `Candidates` → «Weapon Reference» (шаблон, раскладка как у окон боеприпасов),
   `InfoViewModel` → null (никаких Unit Reference-доработок, без вкладки Unit Reference в настройках).
 
-## Фоновые картинки модов ([General] ModBackgroundsOnly, 1.5.3, `src/Backgrounds.cs`)
+## Фоновые картинки ([General] Backgrounds = Mods|Mixed|Game, was bool ModBackgroundsOnly since 1.5.3, `src/Backgrounds.cs`)
 * Игра: картинки главного меню (`MenuSystemViewModel.Awake`) и экрана загрузки (`LoadScreen.Awake`) —
   `FileManager.GetAllFiles("ui/backgrounds", "*.png")`: файлы из ВСЕХ отмеченных папок (StreamingAssets/original, моды, user)
   одним списком, показывается случайная. В модах папка `ui\backgrounds\`.
@@ -292,7 +292,7 @@ LoadScreen `<ExecuteLoadScreen>.MoveNext` (конец загрузки), `FileMa
   Вкладки создаются свёрнутыми и строят содержимое при показе — правка на первом показе.
 
 ## Настройки (.cfg)
-[General] WindowPatterns, ModBackgroundsOnly (1.5.3), CascadeOffset, BringToFrontOnClick, AllowDragOutside, MinVisiblePixels, RememberOpenWindows,
+[General] WindowPatterns, Backgrounds (1.5.3, as ModBackgroundsOnly), CascadeOffset, BringToFrontOnClick, AllowDragOutside, MinVisiblePixels, RememberOpenWindows,
 RemoveSizeLimits, MaximizeOnDoubleClick, ImprovedUnitReferenceUI (бывш. ImprovedUI, миграция `BindRenamed`), SettingsButton,
 SnapWindows, SnapDistance (1.3.0), Debug. [UnitReference]: TreeWidth, TreeVisible, Country; RememberSearchPanel, Category,
 FilterByDate, SearchByNameOnly, SearchText (1.3.0); OptimizeTree, ScrollToSelected, ShowLoadoutList, ArmedOnly (1.4.0);
@@ -579,3 +579,16 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 
 ## Rename: Smart Windows -> Alternative Game Interface
 Everything is renamed: namespace/assembly/dll/zip/csproj `AlternativeGameInterface`, plugin class `AlternativeGameInterfacePlugin`, GUID `com.rgreat.seapower.alternativegameinterface`, Anchor Chain id `io.github.rgreat.seapower-alternative-game-interface`, settings `StreamingAssets/user/AlternativeGameInterface/AlternativeGameInterface.cfg`, trace `BepInEx/AlternativeGameInterface.trace.txt`. Migration (once, when the new files do not exist): the old BepInEx cfg (`...smartwindows.cfg`, then `...windowmemory.cfg`) and `user/SmartWindows/SmartWindows.cfg` are copied over. The campaign data key `SmartWindows_StrictLoadouts` is kept as is (saved campaigns). Repository: rgreat/SeaPower.AlternativeGameInterface.
+
+- Backgrounds: `[General] Backgrounds` = `Mods` (default, the old ModBackgroundsOnly=true) / `Mixed` (old false) / `Game` (only StreamingAssets/original pictures, when mods bring some). The old bool is read once from the orphaned entries. Settings kind `'m'` = drop-down over the entry's AcceptableValueList; value names are `val.<Section>/<Key>.<Value>` in lang files.
+- Release/ui/backgrounds/ ships empty (not tracked by git): the mod's own background pictures (*.png) go there; the folder is in the zip.
+
+- Title-bar buttons (SettingsUI.cs `ButtonsHost`): the game's Window template header is a Grid (title + HeaderThumb in column 0 '*', a ContentPresenter with the window's ButtonsTemplate in column 1 'Auto'); the template is usually a horizontal StackPanel (close button; the map: menu, maximize, close). Other mods insert their buttons there (SeaPowerTopo puts its bar before the Menu). The gear and the arrow are inserted as the first children of that StackPanel (layout, no overlap, the title shrinks); the overlay at the right of the Thumb is only the fallback when the buttons are built differently. The gear counts as present while it is inside the window (a rebuilt button panel takes it along, then it is made again).
+
+## Settings hub (rgreat mods, 1.8.0, `src/SettingsHub.cs`)
+One entry for the settings of all the author's mods in the main menu (under Mod Manager) and the pause menu (under Options); protocol v1, a registry in `AppDomain` data `rgreat.settings.v1` (BCL types only), so mods do not depend on each other. `src/SettingsHub.cs` is copied unchanged from the Alternative Special Effects repo (canonical copy there; never edit it here). Registration in `TryHook` (own try/catch), after the other hooks:
+```csharp
+SettingsHub.Register("alternative-game-interface", () => Loc.T("menu.button"), PluginVersion, 10, anchor => OpenSettingsFromMenu(anchor as Noesis.UIElement), () => Enabled);
+SettingsHub.Install(harmony, asm, Trace, () => Loc.Language);
+```
+`Enabled` = the Mods-menu tick. `menu.button` = "Game Interface" (ru "Игровой интерфейс", others English) in `Loc.cs` and every `Release/lang/*.ini`. `OpenSettingsFromMenu(anchor)` (the main menu / pause menu view): starts from the view's Content (a UserControl has no panel of its own) and calls `SettingsWindow.Open(..., all flags false, showAll: true)`: every tab, as after "Show all settings" (that button toggles back). The window then goes into the topmost Grid above the view's content, like for the News window's gear in the main menu. Nothing in the settings code needs a game window: the Strict loadouts row only writes into campaign data when there is a campaign (`CampaignData()` null otherwise), the window lists work on the tracked windows that exist. The gears of the windows are not touched.

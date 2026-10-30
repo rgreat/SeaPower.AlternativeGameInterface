@@ -193,7 +193,7 @@ namespace AlternativeGameInterface
                 object old;
                 if (Gears.TryGetValue(w, out old))
                 {
-                    if (VisualTreeHelper.GetParent((DependencyObject)old) != null) return; // still there
+                    if (InWindow((DependencyObject)old, w)) return; // still there (a button panel rebuilt by the game takes it along)
                     Gears.Remove(w);
                     RemoveLookButton(w);
                 }
@@ -247,22 +247,29 @@ namespace AlternativeGameInterface
 
                 const float size = 14f;
                 float pw = panel.ActualWidth;
+                var host = ButtonsHost(thumb);
+                // in the buttons column the title bar's own background is not behind the gear: it takes the header's brush itself
+                Brush bg = host != null ? HeaderBrush(thumb) : null;
                 var gear = new Border
                 {
-                    Width = size, Height = size, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
-                    Margin = new Thickness(0f, ty + (th - size) / 2f, Math.Max(0f, pw - right) + 6f, 0f),
-                    Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)), Opacity = 0.9f,
+                    Width = host != null ? size + 8f : size, Height = host != null ? float.NaN : size,
+                    HorizontalAlignment = host != null ? HorizontalAlignment.Left : HorizontalAlignment.Right,
+                    VerticalAlignment = host != null ? VerticalAlignment.Stretch : VerticalAlignment.Top,
+                    Padding = host != null ? new Thickness(2f, 0f, 6f, 0f) : new Thickness(0f),
+                    Margin = host != null ? new Thickness(0f) : new Thickness(0f, ty + (th - size) / 2f, Math.Max(0f, pw - right) + 6f, 0f),
+                    Background = bg ?? new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)),
                     Child = new Path
                     {
                         Data = new StreamGeometry("F0 M10.3,2 L13.7,2 L14.2,4.6 C14.8,4.8 15.4,5.1 15.9,5.5 L18.4,4.6 L20.1,7.5 L18.1,9.2 C18.2,9.8 18.2,10.4 18.1,11 " +
                                                   "L20.1,12.7 L18.4,15.6 L15.9,14.7 C15.4,15.1 14.8,15.4 14.2,15.6 L13.7,18.2 L10.3,18.2 L9.8,15.6 C9.2,15.4 8.6,15.1 8.1,14.7 " +
                                                   "L5.6,15.6 L3.9,12.7 L5.9,11 C5.8,10.4 5.8,9.8 5.9,9.2 L3.9,7.5 L5.6,4.6 L8.1,5.5 C8.6,5.1 9.2,4.8 9.8,4.6 Z " +
                                                   "M15.4,10.1 A3.4,3.4 0 1 1 8.6,10.1 A3.4,3.4 0 1 1 15.4,10.1 Z"),
-                        Fill = new SolidColorBrush(GearGrey), Stretch = Stretch.Uniform, Width = size, Height = size
+                        Fill = new SolidColorBrush(GearGrey), Stretch = Stretch.Uniform, Width = size, Height = size, Opacity = 0.9f,
+                        VerticalAlignment = VerticalAlignment.Center
                     }
                 };
-                gear.MouseEnter += (s, e) => gear.Opacity = 1f;
-                gear.MouseLeave += (s, e) => gear.Opacity = 0.9f;
+                gear.MouseEnter += (s, e) => gear.Child.Opacity = 1f;
+                gear.MouseLeave += (s, e) => gear.Child.Opacity = 0.9f;
                 try { gear.Cursor = Cursors.Hand; ToolTipService.SetToolTip(gear, Loc.T("tip.gear")); } catch { }
                 var owner = new WeakReference(w);
                 gear.PreviewMouseLeftButtonDown += (s, e) =>
@@ -274,20 +281,79 @@ namespace AlternativeGameInterface
                     // the Unit Reference / Unit Status tabs are shown only when the window is opened from such a window
                     SettingsWindow.Open(this, gear, ow != null && InfoViewModel(ow) != null, ow != null && IsUnitStatusWindow(ow), ow != null && IsTaskForceBuilderWindow(ow), ow != null && TypeName(Get(ow, "DataContext")) == "SceneMapViewModel", ow != null && TypeName(Get(ow, "DataContext")) == "EventLogViewModel");
                 };
-                Panel.SetZIndex(gear, 100001);
-                var grid = panel as Grid;
-                if (grid != null)
+                if (host != null) host.Children.Insert(0, gear);
+                else
                 {
-                    Grid.SetRowSpan(gear, Math.Max(1, grid.RowDefinitions.Count));
-                    Grid.SetColumnSpan(gear, Math.Max(1, grid.ColumnDefinitions.Count));
+                    Panel.SetZIndex(gear, 100001);
+                    var grid = panel as Grid;
+                    if (grid != null)
+                    {
+                        Grid.SetRowSpan(gear, Math.Max(1, grid.RowDefinitions.Count));
+                        Grid.SetColumnSpan(gear, Math.Max(1, grid.ColumnDefinitions.Count));
+                    }
+                    panel.Children.Add(gear);
                 }
-                panel.Children.Add(gear);
                 Gears.Add(w, gear);
-                AddLookButton(w, panel, ty + (th - size) / 2f, Math.Max(0f, pw - right) + 6f, size);
+                AddLookButton(w, panel, ty + (th - size) / 2f, Math.Max(0f, pw - right) + 6f, size, host, bg);
                 Trace("gear added to '" + TextOf(Get(w, "Header")) + "': header " + Fmt(tw) + "x" + Fmt(th) + " at " + Fmt(tx) + "," + Fmt(ty) +
-                      " in " + Describe(panel) + " " + Fmt(pw) + " wide; right edge " + Fmt(right) + (found.Length > 0 ? "; buttons" + found : "; no header buttons found"));
+                      " in " + Describe(panel) + " " + Fmt(pw) + " wide; " + (host != null ? "in the buttons panel (" + host.Children.Count + " children)" : "overlay") + "; right edge " + Fmt(right) + (found.Length > 0 ? "; buttons" + found : "; no header buttons found"));
             }
             catch (Exception ex) { Trace("EnsureGear: " + ex); }
+        }
+
+        // ------------------------------------------------------------------ where the gear goes
+
+        /// <summary>
+        /// The title bar of the game's Window template is a Grid (title + HeaderThumb in column 0 '*', the buttons in column 1 'Auto'): column 1
+        /// is a ContentPresenter that holds the window's ButtonsTemplate - usually a horizontal StackPanel (the close button; the map has
+        /// a menu and a maximize button too). Other mods put their own buttons into that StackPanel (Topography: before the menu). The
+        /// gear and the arrow go there too, as its first children: the column grows, the title shrinks, nobody lies over anybody.
+        /// Null when the window's buttons are built otherwise (then the gear is an overlay).
+        /// </summary>
+        static StackPanel ButtonsHost(FrameworkElement thumb)
+        {
+            try
+            {
+                var grid = VisualTreeHelper.GetParent(thumb) as Grid;
+                if (grid == null) return null;
+                for (int i = 0, n = VisualTreeHelper.GetChildrenCount(grid); i < n; i++)
+                {
+                    var cp = VisualTreeHelper.GetChild(grid, i) as ContentPresenter;
+                    if (cp == null || Grid.GetColumn(cp) != 1) continue;
+                    DependencyObject e = cp;
+                    for (int depth = 0; depth < 4 && e != null; depth++)
+                    {
+                        if (VisualTreeHelper.GetChildrenCount(e) != 1) { e = null; break; }
+                        e = VisualTreeHelper.GetChild(e, 0);
+                        var sp = e as StackPanel;
+                        if (sp != null && sp.Orientation == Orientation.Horizontal) return sp;
+                    }
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        /// <summary>The title bar's background brush: the Border in column 0 of the header grid that holds the title.</summary>
+        static Brush HeaderBrush(FrameworkElement thumb)
+        {
+            try
+            {
+                var grid = VisualTreeHelper.GetParent(thumb) as Grid;
+                for (int i = 0, n = grid == null ? 0 : VisualTreeHelper.GetChildrenCount(grid); i < n; i++)
+                {
+                    var b = VisualTreeHelper.GetChild(grid, i) as Border;
+                    if (b != null && Grid.GetColumn(b) == 0 && b.Background != null) return b.Background;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        static bool InWindow(DependencyObject e, object w)
+        {
+            for (var p = e; p != null; p = VisualTreeHelper.GetParent(p)) if (ReferenceEquals(p, w)) return true;
+            return false;
         }
 
         static readonly ConditionalWeakTable<object, object> GearNotes = new ConditionalWeakTable<object, object>();

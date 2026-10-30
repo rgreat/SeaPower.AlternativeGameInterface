@@ -82,6 +82,7 @@ namespace AlternativeGameInterface
             D("hov.openHelp", "A window whose open / closed state is restored at the next mission (same naming rules as the remembered windows).");
             D("tip.gear", "Alternative Game Interface settings");
             D("tip.look", "Window opacity and scale");
+            D("menu.button", "Game Interface");
             D("tab.track", "Track State");
             D("up.button", "Upgrade ship...");
             D("up.title", "Upgrade ship");

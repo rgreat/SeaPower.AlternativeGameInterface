@@ -6,7 +6,7 @@ using Noesis;
 namespace AlternativeGameInterface
 {
     /// <summary>
-    /// Desktops (1.7.1), desktop mode (WindowedMapAndWorldView) only: the game's "Toggle fullscreen minimap" key (Tab by default) switches between
+    /// Desktops (1.7.0), desktop mode (WindowedMapAndWorldView) only: the game's "Toggle fullscreen minimap" key (Tab by default) switches between
     /// 2 - 5 desktops (DesktopCount, 2 by default): sets of window settings - position and size, open / closed, opacity / scale / outline and level
     /// of the remembered windows, and whether the World View is open. The live settings ([Layouts], [OpenWindows], WindowLooks, WindowLevels) are
     /// always those of the active desktop, so everything else works as before; the others are kept in [WindowSets] Set1 .. Set5 as text. A switch

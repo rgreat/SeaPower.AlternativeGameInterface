@@ -1,14 +1,7 @@
-Version 1.7.0
-- New desktop mode ("Enable desktop mode"): Tactical Display and World View become ordinary free windows (move, size, snap, any order and level). The 3D picture is rendered by the game's main camera into a texture of the World View window's own size, pixel for pixel (the game's PiP supersampling option is honoured), so it lies in the window like any other content. Each window is opened and closed on its own (the X of World View, the "World View" item in the Tactical Display's menu, the HUD button / key of the map). Behind the windows: a topographic backdrop picture (AlternativeGameInterface_Backdrop.jpg next to the dll, replace it with any picture). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting), each with its own position and size, open / closed, opacity, scale and level of the windows and World View open / closed; the active desktop is remembered; the "Desktops" page of the "Desktop mode" settings tab shows and edits what is saved for each window. A key (Insert by default; never one the game uses) opens and closes the World View. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape moves into the World View window and is white or black by the brightness of the picture behind it.
-- Window look menu (the arrow next to the gear): opacity, scale and level (bottom / default / top) of a window. The Tactical Display and the World View start at the bottom level.
-- New option "Keep map view on resize": the Tactical Display zoom follows the window size, so the area that was visible stays visible.
-- Docked windows can be resized from every edge: at the screen edge the resize zone reaches a few pixels inside the window.
-- The time panel of the mission can be dragged (double-click puts it back); its place is kept per desktop.
-- Event Log: every track number is a link (the game links only some; option "All contacts in the log are links"). A click on a contact or unit link also centres the Tactical Display on it (option "Center map on clicked contact", the Event Log tab of the settings).
-- Unit Status: "Track State" tab for a selected contact of another side.
-- Campaign: "Upgrade ship..." button in the Task Force Builder; damaged ships can be dismissed (the repair cost is deducted); loadouts are sorted by date; the price of a hull swap is counted from the roster.
-- The News window of the main menu gets its gear, frame and remembered position; the game's resize cursors work outside a mission.
-- "Backgrounds from mods only" works with Sea Power 0.8.7; Strict loadouts no longer offers ships whose loadout the campaign has not opened yet.
-- Fewer per-frame allocations and lookups in the World View code; the World View texture is freed when a mission ends; the resize zones of docked windows go back to normal when the option is switched off.
-- The AddWindowKey (F12) option is removed: windows to remember are added in the settings window.
-- Supports Sea Power 0.8.6 - 0.8.7.
+Version 1.8.0
+- The mod is now called Alternative Game Interface (the Workshop item is the same; settings and saved windows are carried over).
+- New entry "Game Interface" in the main menu (under Mod Manager) and in the pause menu (under Options): the settings window without opening a game window first. With several of the author's mods installed the entry becomes "Alternative Mods" with a list.
+- Event Log: every track number is a link (the game links only some; option "All contacts in the log are links"). A click on a contact or unit link also centres the Tactical Display on it (option "Center map on clicked contact"). New "Event Log" tab in the settings window.
+- Menu backgrounds: the option "Backgrounds from mods only" became a choice "Background pictures": mods only / mixed / game only. The mod's own folder ui/backgrounds is ready for its pictures.
+- Unit Status, Damage Control: with a small window the section lists no longer run past the bottom edge of the window.
+- The gear and the arrow of the window look menu sit among the buttons of the title bar and no longer lie over buttons that other mods add there (for example Topography on the map).

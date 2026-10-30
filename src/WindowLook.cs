@@ -502,7 +502,7 @@ namespace AlternativeGameInterface
         }
 
         /// <summary>Called after the gear was put in the panel: the arrow button just left of it ('right' = the gear's right margin).</summary>
-        void AddLookButton(object w, Panel panel, float top, float right, float size)
+        void AddLookButton(object w, Panel panel, float top, float right, float size, Panel host = null, Brush bg = null)
         {
             var st = Looks.GetOrCreateValue(w);
             RemoveLookButton(w);
@@ -510,17 +510,19 @@ namespace AlternativeGameInterface
             float bw = 10f;
             var arrow = new Border
             {
-                Width = bw, Height = size, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0f, top, right + size + 2f, 0f),
-                Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)), Opacity = 0.9f,
+                Width = bw, Height = host != null ? float.NaN : size,
+                HorizontalAlignment = host != null ? HorizontalAlignment.Left : HorizontalAlignment.Right,
+                VerticalAlignment = host != null ? VerticalAlignment.Stretch : VerticalAlignment.Top,
+                Margin = host != null ? new Thickness(0f) : new Thickness(0f, top, right + size + 2f, 0f),
+                Background = bg ?? new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)),
                 Child = new Path
                 {
                     Data = new StreamGeometry("F0 M0,0 L8,0 L4,5 Z"), Fill = new SolidColorBrush(GearGrey),
-                    Width = 8f, Height = 5f, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
+                    Width = 8f, Height = 5f, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Opacity = 0.9f
                 }
             };
-            arrow.MouseEnter += (s, e) => arrow.Opacity = 1f;
-            arrow.MouseLeave += (s, e) => arrow.Opacity = 0.9f;
+            arrow.MouseEnter += (s, e) => arrow.Child.Opacity = 1f;
+            arrow.MouseLeave += (s, e) => arrow.Child.Opacity = 0.9f;
             try { arrow.Cursor = Cursors.Hand; ToolTipService.SetToolTip(arrow, Loc.T("tip.look")); } catch { }
             var owner = new WeakReference(w);
             float menuTop = top + size + 3f, menuRight = right + size + 2f;
@@ -537,14 +539,18 @@ namespace AlternativeGameInterface
                 var menu = BuildLookMenu(ow, pn, ls, arrow);
                 ls.Menu = new WeakReference(menu);
             };
-            Panel.SetZIndex(arrow, 100001);
-            var grid = panel as Grid;
-            if (grid != null)
+            if (host != null) host.Children.Insert(0, arrow);   // before the gear
+            else
             {
-                Grid.SetRowSpan(arrow, Math.Max(1, grid.RowDefinitions.Count));
-                Grid.SetColumnSpan(arrow, Math.Max(1, grid.ColumnDefinitions.Count));
+                Panel.SetZIndex(arrow, 100001);
+                var grid = panel as Grid;
+                if (grid != null)
+                {
+                    Grid.SetRowSpan(arrow, Math.Max(1, grid.RowDefinitions.Count));
+                    Grid.SetColumnSpan(arrow, Math.Max(1, grid.ColumnDefinitions.Count));
+                }
+                panel.Children.Add(arrow);
             }
-            panel.Children.Add(arrow);
             st.Button = new WeakReference(arrow);
         }
 

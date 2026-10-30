@@ -10,7 +10,7 @@ using Noesis;
 namespace AlternativeGameInterface
 {
     /// <summary>
-    /// CenterMapOnLogClick (1.7.0): a click on a contact / unit link in the Event Log (the Hyperlink of an Alert: SelectRaisingObject / SelectAboutObject, which
+    /// CenterMapOnLogClick (1.8.0): a click on a contact / unit link in the Event Log (the Hyperlink of an Alert: SelectRaisingObject / SelectAboutObject, which
     /// the game answers by switching the 3D camera to that object) also centres the Tactical Display on it. The place is the one the player's side has for the
     /// object (its map track); an object that is not the player's and has no track is not shown (its real place is not given away).
     /// The Click event of the Hyperlinks bubbles up to the Event Log window: one handler on the window, no searching.

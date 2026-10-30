@@ -1,8 +1,8 @@
 # Alternative Game Interface
 
-A Sea Power mod that makes the game's windows smarter.
+A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows").
 
-**Version 1.7.0**
+**Version 1.8.0**
 
 ## Features
 
@@ -16,7 +16,7 @@ A Sea Power mod that makes the game's windows smarter.
 8. Remembers which mission windows were open or closed and restores that at the next mission start.
 9. Thin frame around draggable windows and the game's tooltips for better edge visibility. Customizable.
 10. In-game settings window (the gear button in the title bar of a remembered window): tabs, groups, hints, language selector.
-11. Background pictures of mods (main menu, loading screens) replace the game's instead of being mixed with them. Optional.
+11. Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's.
 12. Hides "_Custom Mission" in the SCENARIOS list of the main menu.
 13. Mission editor: the file picker for opening a mission starts in the folder of the last opened mission; *.ini files are light blue in its file pickers.
 14. Optional: deletes the game's old log files at start (off by default).
@@ -52,10 +52,12 @@ A Sea Power mod that makes the game's windows smarter.
 28. The News window of the main menu gets the mod's gear, frame and remembered position; the game's resize cursors work outside a mission.
 29. Optional "Keep map view on resize" (the Tactical Display tab, shown when the settings are opened from the map window): when the Tactical Display window is resized, its zoom follows, so the area that was visible stays visible.
 30. Event Log: every track number is a link, not only some of them (option); a click on a contact or unit link also centres the Tactical Display on it (option, the Event Log tab of the settings window).
+31. Settings entry "Game Interface" in the main menu (under Mod Manager) and in the pause menu (under Options): opens the settings window with every tab, without a game window behind it. With several of the author's mods installed it becomes "Alternative Mods" with a list.
+32. The settings gear and the arrow of the window look menu sit among the buttons of the window's title bar, so they never lie over buttons that other mods add there.
 
 ## Compatibility
 
-- Supports Sea Power versions 0.8.6 – 0.8.7.
+- Supports Sea Power version 0.8.7 (Release and Stable Beta).
 - Requires Anchor Chain.
 - Can be switched on/off in the game's Mods menu.
 

@@ -8,7 +8,7 @@ using HarmonyLib;
 namespace AlternativeGameInterface
 {
     /// <summary>
-    /// [General] ModBackgroundsOnly: background pictures of mods replace the game's own.
+    /// [General] Backgrounds (Mods / Mixed / Game): which background pictures the menu and the loading screens use; Mods: the mods' pictures replace the game's own.
     /// The game takes its main-menu and loading-screen pictures from every ticked folder at once:
     /// FileManager.GetAllFiles("ui/backgrounds", "*.png") (MenuSystemViewModel.Awake, LoadScreen.Awake) joins the files of
     /// StreamingAssets/original and of every ticked mod (and user), and a random one is shown. With the option, a postfix drops
@@ -18,7 +18,7 @@ namespace AlternativeGameInterface
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
-        ConfigEntry<bool> _modBackgrounds;
+        ConfigEntry<string> _modBackgrounds;   // Mods / Mixed / Game
         static string _originalDir;
 
         void HookBackgrounds(Harmony harmony, Assembly asm)
@@ -35,13 +35,13 @@ namespace AlternativeGameInterface
                     if (ps.Length < 2 || ps[0].ParameterType != typeof(string) || ps[1].ParameterType != typeof(string)) continue;
                     if (m == null || ps.Length < m.GetParameters().Length) m = c;
                 }
-            if (m == null) { Trace("FileManager.GetAllFiles not found: ModBackgroundsOnly does nothing"); return; }
+            if (m == null) { Trace("FileManager.GetAllFiles not found: Backgrounds does nothing"); return; }
             harmony.Patch(m, postfix: Hm("AllFilesPostfix"));
-            Trace("patched FileManager.GetAllFiles (ModBackgroundsOnly)");
+            Trace("patched FileManager.GetAllFiles (Backgrounds)");
             var ls = asm.GetType("SeaPower.LoadScreen");
             var cb = ls == null ? null : ls.GetMethod("ChangeBackground", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             _lsImages = ls == null ? null : ls.GetField("imagePaths", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (cb != null && _lsImages != null) { harmony.Patch(cb, prefix: Hm("LoadBackgroundPrefix")); Trace("patched LoadScreen.ChangeBackground (ModBackgroundsOnly)"); }
+            if (cb != null && _lsImages != null) { harmony.Patch(cb, prefix: Hm("LoadBackgroundPrefix")); Trace("patched LoadScreen.ChangeBackground (Backgrounds)"); }
             else Trace("LoadScreen.ChangeBackground / imagePaths not found: loading screens keep the game's pictures too");
             _fileManagerType = fm;
             _lsType = ls; _lsChange = cb;
@@ -82,7 +82,17 @@ namespace AlternativeGameInterface
         }
         static Type _fileManagerType;
 
-        static bool BackgroundsOn { get { var a = Active; return (object)a != null && a._modBackgrounds != null && a._modBackgrounds.Value; } }
+        /// <summary>0: mixed (as the game), 1: the mods' pictures only, 2: the game's own only.</summary>
+        static int BackgroundMode
+        {
+            get
+            {
+                var a = Active; if ((object)a == null || a._modBackgrounds == null) return 0;
+                var v = a._modBackgrounds.Value;
+                return v == "Mods" ? 1 : v == "Game" ? 2 : 0;
+            }
+        }
+        static bool BackgroundsOn { get { return BackgroundMode != 0; } }
 
         static void AllFilesPostfix(object __instance, string path, List<string> __result)
         {
@@ -107,15 +117,16 @@ namespace AlternativeGameInterface
             catch (Exception e) { Trace("backgrounds (loading screen): " + e.Message); }
         }
 
-        /// <summary>The game's own pictures out of the list, when mods have some (the list is changed in place).</summary>
+        /// <summary>Mods mode: the game's own pictures out of the list; Game mode: the mods' pictures out - when the other side has some (changed in place).</summary>
         static void DropGamePictures(List<string> list, string where)
         {
             if (list == null || list.Count == 0 || _originalDir == null) return;
+            bool gameOnly = BackgroundMode == 2;
             var own = new List<string>();
             foreach (var f in list) if (Norm(f).StartsWith(_originalDir, StringComparison.OrdinalIgnoreCase)) own.Add(f);
-            if (own.Count == 0 || own.Count == list.Count) return;   // no mod pictures (or only mod ones): as the game
-            foreach (var f in own) list.Remove(f);
-            Trace("backgrounds (" + where + "): " + list.Count + " from mods, " + own.Count + " of the game left out");
+            if (own.Count == 0 || own.Count == list.Count) return;   // only one side has pictures: as the game
+            if (gameOnly) list.RemoveAll(f => !own.Contains(f)); else foreach (var f in own) list.Remove(f);
+            Trace("backgrounds (" + where + "): " + (gameOnly ? own.Count + " of the game, the mods' left out" : list.Count + " from mods, " + own.Count + " of the game left out"));
         }
 
         /// <summary>StreamingAssets/original: FileManager.specialDirectories[1] (the FileManager given, or its singleton).</summary>

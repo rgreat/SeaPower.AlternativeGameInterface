@@ -88,7 +88,7 @@ namespace AlternativeGameInterface
                 if (_contactFixApplies) Add(TMission, "In Mission", p._fixContact, 'b', "Fix contact Information ages", "");   // hidden when this game version has nothing to fix
 
                 Add(TFiles, "Scenarios", p._hideCustom, 'b', "Hide _Custom Mission", "");
-                Add(TFiles, "Backgrounds", p._modBackgrounds, 'b', "Backgrounds from mods only", "");
+                Add(TFiles, "Backgrounds", p._modBackgrounds, 'm', "Background pictures", "");
                 Add(TFiles, "Mission editor", p._rememberFolder, 'b', "Remember last folder", "");
                 Add(TFiles, "Mission editor", p._blueIni, 'b', "Highlight ini files", "");
                 Add(TCampaign, "This campaign", p._strictLoadouts, 'b', "Strict campaign loadouts", "");
@@ -197,9 +197,9 @@ namespace AlternativeGameInterface
             /// <summary>
             /// Opens the window in the middle of the screen of 'anchor' (the gear clicked): in the topmost Grid / Canvas on the way up
             /// from it (not an items host), above everything. Open already: only the Unit Reference / Unit Status tabs follow where it was
-            /// opened from.
+            /// opened from. showAll: every tab (the menus' entry, no window to follow).
             /// </summary>
-            public static void Open(AlternativeGameInterfacePlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false, bool tactical = false, bool eventLog = false)
+            public static void Open(AlternativeGameInterfacePlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false, bool tactical = false, bool eventLog = false, bool showAll = false)
             {
                 if (p == null || anchor == null) return;
                 P = p;
@@ -220,6 +220,7 @@ namespace AlternativeGameInterface
                     else if (tabChange && eventLog) _tab = Array.IndexOf(Tabs, TLog);
                     if (IsOpen)
                     {
+                        if (showAll && !_showAll) { _showAll = true; tabChange = true; }
                         UpdateShowAll();
                         if (tabChange || taskForce) ShowTab(_tab);
                         return;
@@ -229,6 +230,7 @@ namespace AlternativeGameInterface
                     ClearDesktops();
                     _resets.Clear();
                     _osStates.Clear();
+                    if (showAll) _showAll = true;   // opened from a menu: no window behind it, so every tab
                     DependencyObject top = anchor; Panel panel = null;
                     for (DependencyObject d = anchor; d != null; d = SafeParent(d))
                     {
@@ -628,6 +630,7 @@ namespace AlternativeGameInterface
             {
                 if (v is bool) return Loc.T((bool)v ? "val.on" : "val.off");
                 if (v is float) return ((float)v).ToString("0.##", CultureInfo.InvariantCulture);
+                if (f.Kind == 'm') return Loc.Or("val." + KeyOf(f) + "." + v, Convert.ToString(v, CultureInfo.InvariantCulture));
                 return Convert.ToString(v, CultureInfo.InvariantCulture) ?? "";
             }
 
@@ -793,7 +796,7 @@ namespace AlternativeGameInterface
                 var outer = new Border { Child = g, Padding = new Thickness(12f, 4f, 6f, 4f), Background = Clear };
                 var mark = Label(g, f);
                 Action refresh;
-                FrameworkElement editor = f.Kind == 'b' ? BoolEditor(f, mark, out refresh) : f.Kind == 'f' ? NumberEditor(f, mark, out refresh) : f.Kind == 'l' ? LanguageEditor(f, mark, out refresh) : TextEditor(f, mark, out refresh);
+                FrameworkElement editor = f.Kind == 'b' ? BoolEditor(f, mark, out refresh) : f.Kind == 'f' ? NumberEditor(f, mark, out refresh) : f.Kind == 'l' ? LanguageEditor(f, mark, out refresh) : f.Kind == 'm' ? ChoiceEditor(f, mark, out refresh) : TextEditor(f, mark, out refresh);
                 Grid.SetColumn(editor, 1);
                 g.Children.Add(editor);
 
@@ -880,6 +883,27 @@ namespace AlternativeGameInterface
                 var cb = new ComboBox { Width = 160f, MinHeight = 22f, VerticalContentAlignment = VerticalAlignment.Center };
                 cb.Items.Add(Loc.T("val.gameLang"));
                 foreach (var l in Loc.GameLanguages()) { codes.Add(l.Key); cb.Items.Add(l.Value); }
+                Func<int> index = () => { int k = codes.IndexOf((Convert.ToString(Get(f), CultureInfo.InvariantCulture) ?? "").Trim()); return k < 0 ? 0 : k; };
+                bool busy = false;
+                cb.SelectedIndex = index();
+                cb.SelectionChanged += (o, e) =>
+                {
+                    if (busy || cb.SelectedIndex < 0) return;
+                    Set(f, codes[cb.SelectedIndex]); mark();
+                };
+                sp.Children.Add(cb);
+                refresh = () => { busy = true; cb.SelectedIndex = index(); busy = false; };
+                return sp;
+            }
+
+            /// <summary>One of the entry's acceptable values (a drop-down); the names are translated (val.Section/Key.Value).</summary>
+            static FrameworkElement ChoiceEditor(Field f, Action mark, out Action refresh)
+            {
+                var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                var list = f.Entry.Description == null ? null : f.Entry.Description.AcceptableValues as AcceptableValueList<string>;
+                var codes = list == null ? new List<string>() : new List<string>(list.AcceptableValues);
+                var cb = new ComboBox { Width = 180f, MinHeight = 22f, VerticalContentAlignment = VerticalAlignment.Center };
+                foreach (var c in codes) cb.Items.Add(Show(f, c));
                 Func<int> index = () => { int k = codes.IndexOf((Convert.ToString(Get(f), CultureInfo.InvariantCulture) ?? "").Trim()); return k < 0 ? 0 : k; };
                 bool busy = false;
                 cb.SelectedIndex = index();
