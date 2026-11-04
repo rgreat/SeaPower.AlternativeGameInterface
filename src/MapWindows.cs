@@ -54,9 +54,10 @@ namespace AlternativeGameInterface
 
         static PropertyInfo _hudProp; static bool _photoApplied;
         /// <summary>The HUD is hidden (Backspace: the game's photo mode; also the console, the briefing): the 3D view is shown on the whole screen.</summary>
-        static bool PhotoMode()
+        static bool PhotoMode() { return MapOn() && HudHidden(); }
+
+        static bool HudHidden()
         {
-            if (!MapOn()) return false;
             try
             {
                 var vm = MainVm();
@@ -588,9 +589,39 @@ namespace AlternativeGameInterface
             try { t.GetMethod("OnUpdate").Invoke(mcs, null); } finally { _inOver = false; }
         }
 
+        /// <summary>Ordinary mode (the 3D view fills the screen): the game's own "mouse over the interface" test is off at any height but 1080 lines (see HitIsWorld),
+        /// so a window of ours (or the game's) dragged over the picture rotated the camera too. The test is repeated in screen pixels: over an interface element = UI state,
+        /// over the picture = the game's update without the "over Noesis" flag. A press keeps the side it began on until the button is released.</summary>
+        static bool _fixDownNoes;
+        static void GameMouseFix(object mcs)
+        {
+            var a = Active; if ((object)a == null || HudHidden() || MainVm() == null) return;
+            var view = a.MainGameViewInstance() as Noesis.Visual;
+            var root = view == null ? null : Noesis.VisualTreeHelper.GetRoot(view) as Noesis.Visual;
+            if (root == null) return;
+            var mp = UnityEngine.Input.mousePosition;
+            bool down = UnityEngine.Input.GetMouseButtonDown(0) || UnityEngine.Input.GetMouseButtonDown(1) || UnityEngine.Input.GetMouseButtonDown(2);
+            bool held = UnityEngine.Input.GetMouseButton(0) || UnityEngine.Input.GetMouseButton(1) || UnityEngine.Input.GetMouseButton(2);
+            bool noes = _fixDownNoes;
+            if (!held || down)
+            {
+                var hit = Noesis.VisualTreeHelper.HitTest(root, root.PointFromScreen(new Noesis.Point(mp.x, UnityEngine.Screen.height - mp.y))).VisualHit;
+                noes = hit != null;
+                for (Noesis.DependencyObject d = hit; d != null && noes; d = Noesis.VisualTreeHelper.GetParent(d)) if (d.GetType().Name == "Pip3DView") noes = false;
+                _fixDownNoes = noes;
+            }
+            if (!noes) { MapOverlayIsWorld(mcs); return; }
+            _mcsState.SetValue(mcs, Enum.Parse(_mcsState.FieldType, "UI"));
+            var cmT = _cmCamera.DeclaringType;
+            var gt = cmT.Assembly.GetType("SeaPower.Singleton`1").MakeGenericType(cmT);
+            var cm = gt.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic).GetValue(null, null);
+            if (cm != null) cmT.GetMethod("setMouseInteractionFlag").Invoke(cm, new object[] { false });
+        }
+
         static void MapMouseStatePostfix(object __instance)
         {
-            if (!MapOn() || PhotoMode()) return;     // photo mode: the whole screen is the 3D view
+            if (!MapOn()) { try { GameMouseFix(__instance); } catch { } return; }
+            if (PhotoMode()) return;     // photo mode: the whole screen is the 3D view
             try
             {
                 var mp = UnityEngine.Input.mousePosition;

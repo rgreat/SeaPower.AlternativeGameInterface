@@ -86,6 +86,8 @@ namespace AlternativeGameInterface
                 Add(TMission, "In Mission", p._timeDrag, 'b', "Draggable time panel", "double-click: back to the corner");
                 Add(TMission, "In Mission", p._unitMenu, 'b', "Menu on the unit panel's flag/name", "");
                 Add(TMission, "In Mission", p._binoDown, 'f', "Ship binoculars below the horizon", "degrees · 0 = game", 1f, 0f, 45f);
+                Add(TMission, "In Mission", p._binoNormal, 'b', "Normal view in binoculars at max zoom", "");
+                Add(TMission, "In Mission", p._binoNormalDay, 'b', "Normal view only by day", "");
                 if (_contactFixApplies) Add(TMission, "In Mission", p._fixContact, 'b', "Fix contact Information ages", "");   // hidden when this game version has nothing to fix
 
                 Add(TFiles, "Scenarios", p._hideCustom, 'b', "Hide _Custom Mission", "");
@@ -116,6 +118,7 @@ namespace AlternativeGameInterface
 
                 Add(TRef, "Window and tree", p._improvedUI, 'b', "Layout Improvements", "");
                 Add(TRef, "Window and tree", p._loadoutList, 'b', "Loadout list for all units", "");
+                Add(TRef, "Window and tree", p._propulsion, 'b', "Propulsion in ship data", "");
                 Add(TRef, "Window and tree", p._treeOpt, 'b', "Optimize the tree", "");
                 Add(TRef, "Window and tree", p._treeScroll, 'b', "Scroll to the selected unit", "");
                 Add(TRef, "Window and tree", p._earliest, 'b', "Class click: earliest variant", "");

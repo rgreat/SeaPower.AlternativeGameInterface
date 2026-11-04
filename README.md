@@ -2,23 +2,23 @@
 
 A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows").
 
-**Version 1.8.0**
+**Version 1.8.1**
 
 ## Features
 
 1. Remembers the position and size of chosen windows and restores them when a window is opened again.
 2. Double-click a window's title bar to maximize it, double-click again to restore it. A window closed maximized opens maximized next time.
 3. Clicking a window brings it to the front of the other windows. Mission briefings and scripted messages of the game always stay on top; a maximized Tactical Display or World View always stays at the back.
-4. Windows snap to the screen edges and to each other while you move or resize them.
-5. Several windows of one kind (e.g. Weapon Reference) open slightly shifted, so they don't cover each other.
+4. Windows snap to the screen edges and to each other.
+5. Several windows of one kind (e.g. Weapon Reference) open slightly shifted.
 6. Lets you drag any window partly outside the visible screen area.
 7. Remembered windows have no minimum size of their own.
-8. Remembers which mission windows were open or closed and restores that at the next mission start.
+8. Remembers which mission windows were open and restores that at the next mission start.
 9. Thin frame around draggable windows and the game's tooltips for better edge visibility. Customizable.
-10. In-game settings window (the gear button in the title bar of a remembered window): tabs, groups, hints, language selector.
+10. In-game settings window (the gear button in the title bar of a remembered window; on the World View it also offers the Alternative Special Effects settings): tabs, groups, hints, language selector.
 11. Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's.
 12. Hides "_Custom Mission" in the SCENARIOS list of the main menu.
-13. Mission editor: the file picker for opening a mission starts in the folder of the last opened mission; *.ini files are light blue in its file pickers.
+13. Mission editor: the open-mission picker starts in the last mission's folder; *.ini files are light blue.
 14. Optional: deletes the game's old log files at start (off by default).
 15. Enhances the UI of the Unit Reference (encyclopedia) window:
    - Adds a movable splitter between the unit tree and the unit data; the tree width is remembered.
@@ -26,7 +26,7 @@ A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows")
    - The Show/Hide unit tree button also hides the search panel and adjusts the window width.
    - A tidier unit tree: classes sorted by service date, a unit's loadout variants (Early, Late, ASW...) gathered under its class.
    - The tree scrolls to the selected unit.
-   - The mouse wheel scrolls the tree only while the cursor is over it.
+   - The wheel scrolls the tree only over the tree.
    - A click on a class selects its earliest variant (optional).
    - The unit the window was opened for stays in the tree, even if the filters would hide it.
    - The country list shows only countries that have units for the current search.
@@ -34,28 +34,30 @@ A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows")
    - Tooltips with a short help on the highlighted links to weapons, sensors and systems.
    - Loadout selector for ships, submarines and land units too, not only aircraft.
    - "Armed only" check box: hides unarmed units (rafts, targets, tankers, civilian ships...).
+   - Propulsion of ships and submarines (engine type and power) next to Max Speed.
 16. Unit Status window:
    - Reference tab: the Unit Reference of the selected unit right in the Unit Status window.
    - Damage Control tab: adjustable minimum height, so the Auto DC status panel at the bottom stays visible.
    - The full name of the unit in the header.
 17. Right click on the flag or name in the unit panel opens the unit's context menu.
 18. Fixed: empty sensor / age fields in the contact Information window.
-19. Campaign, "Strict loadouts" (optional): a check box on the campaign start screen. The Task Force Builder then offers ship versions only for ships available in the mission or already owned. Stored per campaign; the settings window opened from the Task Force Builder starts on the Campaign tab.
+19. Campaign, "Strict loadouts" (optional): a check box on the campaign start screen; the Task Force Builder then offers ship versions only for ships available in the mission or already owned.
 20. Game messages in the bottom right corner no longer block clicks on buttons under them.
-21. Localization: all texts of the mod's settings window and hints in the 9 languages of the game (en, ru, cn, de, es, fr, ko, ja, vn); the language of the game or [General] Language in the .cfg. The texts are in the lang folder of the mod and can be edited.
-22. Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, order and level like the others). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the position and size, open / closed, opacity, scale and level of the windows and whether the World View is open; the active desktop is remembered. The desktops start as built-in arrangements of the mod (1: World View on top, 2: Tactical Display on top - on an ultrawide screen three columns of 30 / 40 / 30 % of the width with the main view in the middle, 3: map on the whole screen, 4: 3D view on the whole screen, 5: both side by side); the "Desktops" page of the "Desktop mode" tab in the settings window shows what is saved for each window of each desktop - edit it or bring it back to the built-in arrangement. A key (Insert by default; never one the game uses) opens and closes the World View. The World View picture is rendered into a texture of the window's own size, pixel for pixel; both windows open and close independently of each other. A topographic backdrop (AlternativeGameInterface_Backdrop.jpg next to the dll - replace it with any picture) is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
+21. Localization: all texts of the mod's settings window and hints in the 9 languages of the game (en, ru, cn, de, es, fr, ko, ja, vn); the language of the game or [General] Language in the .cfg.
+22. Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the place, size, look and open state of the windows; the active desktop is remembered. They start as built-in arrangements; the "Desktops" page of the settings window shows what each desktop keeps for each window - edit it or reset it. A key (Insert by default) opens and closes the World View. Both windows open and close independently. A backdrop picture (AlternativeGameInterface_Backdrop.jpg next to the dll, replaceable) is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
 23. A small arrow next to the gear of a window opens its look menu: opacity, scale and level (bottom / default / top). The Tactical Display and the World View start at the bottom level.
 24. Windows docked to a screen edge can still be resized from that edge.
 25. The mission's time panel can be dragged; double-click puts it back. Its place is kept per desktop; in desktop mode it starts a little lower and to the left.
 26. Unit Status: a "Track State" tab for a selected contact of another side (the contact's Information).
-27. Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); the ship's loadouts are sorted by date; the price of a hull swap is counted from the roster.
+27. Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); loadouts are sorted by date; a hull swap is priced from the roster.
 28. The News window of the main menu gets the mod's gear, frame and remembered position; the game's resize cursors work outside a mission.
-29. Optional "Keep map view on resize" (the Tactical Display tab, shown when the settings are opened from the map window): when the Tactical Display window is resized, its zoom follows, so the area that was visible stays visible.
-30. Event Log: every track number is a link, not only some of them (option); a click on a contact or unit link also centres the Tactical Display on it (option, the Event Log tab of the settings window).
-31. Settings entry "Game Interface" in the main menu (under Mod Manager) and in the pause menu (under Options): opens the settings window with every tab, without a game window behind it. With several of the author's mods installed it becomes "Alternative Mods" with a list.
-32. The settings gear and the arrow of the window look menu sit among the buttons of the window's title bar, so they never lie over buttons that other mods add there.
-33. Desktop mode, optical view: the binocular frame and its interface are fitted into the World View window (enlarged up to 30% to leave smaller black bars), the camera is controlled with the mouse over the picture, Backspace (hidden HUD) gives a full-screen binocular view, and a window over the World View (moving, resizing) no longer turns the camera at the same time.
-34. Ship binoculars can be lowered below the horizon (option "Ship binoculars below the horizon", In Mission tab; 10 degrees by default, 0 = as in the game).
+29. Optional "Keep map view on resize": the Tactical Display's zoom follows its window size, so the visible area stays visible.
+30. Event Log: every track number is a link (option); a click on a contact or unit link also centres the Tactical Display on it (option).
+31. Settings entry "Game Interface" in the main menu (under Mod Manager) and the pause menu (under Options). With several of the author's mods installed it becomes "Alternative Mods".
+32. The settings gear and the look arrow sit among the title bar buttons and never lie over buttons other mods add.
+33. Binoculars: at max zoom they start with the normal view instead of the night / thermal filter (by day, optional). Desktop mode: the frame and interface fit the World View window (up to 30% larger); Backspace gives a full-screen view.
+34. Ship binoculars can look below the horizon (In Mission tab, 10 degrees by default).
+35. Moving or resizing any window over the 3D view no longer turns the camera; windows of other mods drawn with Unity IMGUI (Camera Offset) can be grabbed over the game's windows.
 
 ## Compatibility
 
@@ -65,9 +67,10 @@ A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows")
 
 ## Install
 
-1. Install the Anchor Chain preloader as described in the [documentation](https://seapower-modders.github.io/AnchorChain/install-anchor-chain.html).
+1. Install the **Anchor Chain** preloader as described in the [documentation](https://seapower-modders.github.io/AnchorChain/install-anchor-chain.html).
 2. Subscribe to this mod.
-3. Restart the game.
+3. Start **Sea Power**.
+4. Enable the mod in the game's **Mod Manager** and press the **Apply** button.
 
 ## Usage
 

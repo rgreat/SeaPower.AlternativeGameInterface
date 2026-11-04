@@ -45,7 +45,7 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
-        public const string PluginVersion = "1.8.0"; // also <Version> in AlternativeGameInterface.csproj
+        public const string PluginVersion = "1.8.1"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
         const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
@@ -430,6 +430,8 @@ namespace AlternativeGameInterface
             BindCampaignLoadoutsConfig();
             BindDismissConfig();
             BindBinocularConfig();
+            BindPropulsionConfig();
+            BindBinocularViewConfig();
             BindUpgradeConfig();
             BindLoadoutsOrderConfig();
             BindLookConfig();
@@ -733,6 +735,7 @@ namespace AlternativeGameInterface
                     HookCountry(harmony, asm);
                     HookLoadoutList(harmony, asm);
                     HookArmedFilter(harmony, asm);
+                    HookPropulsion(harmony, asm);
                     HookTreeSearch(harmony, asm);
                     HookPickers(harmony, asm);
                     HookGameFixes(harmony, asm);
@@ -742,6 +745,8 @@ namespace AlternativeGameInterface
                     HookPipScene(harmony, asm);
                     HookMapFullscreen(harmony, asm);
                     HookBinocularFrame(harmony, asm);
+                    HookImguiOrder(harmony, asm);
+                    HookBinocularView(harmony, asm);
                     HookEventLog(harmony, asm);
                     HookStatusReference(harmony, asm);
                 }
@@ -1267,19 +1272,24 @@ namespace AlternativeGameInterface
         /// Recognised by the whole header text, or by their own view model - one the window (or its content) sets itself, not one
         /// inherited from the parent: a window opened inside the map would inherit SceneMapViewModel and must not count.
         /// </summary>
-        bool IsMapWindow(object w)
+        bool IsMapWindow(object w) { return IsWindowOf(w, MapHeaders, MapViewModels); }
+
+        /// <summary>The World View window (the 3D picture) only.</summary>
+        bool IsWorldViewWindow(object w) { return IsWindowOf(w, new[] { "WorldView" }, new[] { "WorldViewWindowViewModel" }); }
+
+        bool IsWindowOf(object w, string[] headers, string[] viewModels)
         {
             var h = Get(w, "Header") as string;
             var c = Get(w, "Content");
             var ch = c == null ? null : Get(c, "Header") as string;
             foreach (var t in new[] { h, ch })
-                if (t != null && Array.Exists(MapHeaders, m => Squash(t).Equals(m, StringComparison.OrdinalIgnoreCase))) return true;
+                if (t != null && Array.Exists(headers, m => Squash(t).Equals(m, StringComparison.OrdinalIgnoreCase))) return true;
 
             var parentDc = Get(VtParent(w), "DataContext");
             var wdc = Get(w, "DataContext");
-            if (wdc != null && !ReferenceEquals(wdc, parentDc) && Array.IndexOf(MapViewModels, TypeName(wdc)) >= 0) return true;
+            if (wdc != null && !ReferenceEquals(wdc, parentDc) && Array.IndexOf(viewModels, TypeName(wdc)) >= 0) return true;
             var cdc = c == null ? null : Get(c, "DataContext");
-            if (cdc != null && !ReferenceEquals(cdc, wdc) && !ReferenceEquals(cdc, parentDc) && Array.IndexOf(MapViewModels, TypeName(cdc)) >= 0) return true;
+            if (cdc != null && !ReferenceEquals(cdc, wdc) && !ReferenceEquals(cdc, parentDc) && Array.IndexOf(viewModels, TypeName(cdc)) >= 0) return true;
             return false;
         }
 

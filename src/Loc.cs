@@ -83,6 +83,15 @@ namespace AlternativeGameInterface
             D("tip.gear", "Alternative Game Interface settings");
             D("tip.look", "Window opacity and scale");
             D("menu.button", "Game Interface");
+            D("ref.propulsion", "Propulsion");
+            D("ref.pp.nuclear", "Nuclear");
+            D("ref.pp.steam", "Steam");
+            D("ref.pp.gasturbine", "Gas turbine");
+            D("ref.pp.diesel", "Diesel");
+            D("ref.pp.electric", "Electric");
+            D("ref.pp.aip", "AIP");
+            D("ref.hp", "hp");
+            D("ref.propulsion.tip", "Propulsion: type and power of the engines (main and auxiliary power plant)");
             D("tab.track", "Track State");
             D("up.button", "Upgrade ship...");
             D("up.title", "Upgrade ship");

@@ -1,10 +1,6 @@
-Version 1.8.0
-- Now called Alternative Game Interface (same Workshop item; settings carried over).
-- Settings entry "Game Interface" in the main and pause menus.
-- Event Log: all tracks are links; a click centres the map.
-- Menu backgrounds: mods only / mixed / game only.
-- Damage Control sections stay inside a small window.
-- Gear and look arrow sit among the title bar buttons, no overlap with other mods' buttons.
-- Binocular frame fits the World View window.
-- Ship binoculars can look below the horizon (option).
-- Resizing a window over the World View no longer turns the camera.
+Version 1.8.1
+- Binoculars at max zoom start with the normal view, no night / thermal filter (moved from Alternative Special Effects; by day only, optional).
+- Unit Reference: engine type and power of ships and submarines, next to Max Speed (option).
+- World View gear also opens the Alternative Special Effects settings.
+- Camera Offset (and other IMGUI) windows can be grabbed over the game's windows.
+- Moving or resizing any window over the 3D view no longer turns the camera (screen heights other than 1080).

@@ -279,7 +279,12 @@ namespace AlternativeGameInterface
                     var ow = owner.Target;
                     Trace("settings gear clicked");
                     // the Unit Reference / Unit Status tabs are shown only when the window is opened from such a window
-                    SettingsWindow.Open(this, gear, ow != null && InfoViewModel(ow) != null, ow != null && IsUnitStatusWindow(ow), ow != null && IsTaskForceBuilderWindow(ow), ow != null && TypeName(Get(ow, "DataContext")) == "SceneMapViewModel", ow != null && TypeName(Get(ow, "DataContext")) == "EventLogViewModel");
+                    Action openOwn = () => SettingsWindow.Open(this, gear, ow != null && InfoViewModel(ow) != null, ow != null && IsUnitStatusWindow(ow), ow != null && IsTaskForceBuilderWindow(ow), ow != null && TypeName(Get(ow, "DataContext")) == "SceneMapViewModel", ow != null && TypeName(Get(ow, "DataContext")) == "EventLogViewModel");
+                    // the 3D window: the settings of which mod? (the other mods' 3D effects are set in theirs)
+                    bool wv = ow != null && IsWorldViewWindow(ow);
+                    Trace("settings gear: World View window " + wv);
+                    if (wv && ChooseSettings(gear, openOwn)) return;
+                    openOwn();
                 };
                 if (host != null) host.Children.Insert(0, gear);
                 else

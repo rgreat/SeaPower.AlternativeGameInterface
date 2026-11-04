@@ -1,3 +1,10 @@
+Version 1.8.1
+- Binoculars at the maximum magnification start with the normal view instead of the night / thermal filter (by day only, optional); moved here from Alternative Special Effects.
+- Unit Reference: a Propulsion cell (engine type and power) for ships and submarines, after Max Speed.
+- The gear of the World View window offers the settings of this mod and of Alternative Special Effects.
+- Windows of other mods drawn with Unity IMGUI (Camera Offset) can be grabbed and dragged over the game's windows.
+- Moving or resizing any window over the 3D view no longer turns the camera (the game's own check is wrong at screen heights other than 1080).
+
 Version 1.8.0
 - The mod is now called Alternative Game Interface (the Workshop item is the same; settings and saved windows are carried over).
 - New entry "Game Interface" in the main menu (under Mod Manager) and in the pause menu (under Options): the settings window without opening a game window first. With several of the author's mods installed the entry becomes "Alternative Mods" with a list.
