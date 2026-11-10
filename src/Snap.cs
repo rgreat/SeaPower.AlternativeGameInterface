@@ -121,8 +121,9 @@ namespace AlternativeGameInterface
             var sp = new SnapSpace();
             sp.L = x0 - s0.X / kx;
             sp.T = y0 - s0.Y / ky;
-            sp.R = x0 + (UnityEngine.Screen.width - s0.X) / kx;
-            sp.B = y0 + (BottomLimit() - s0.Y) / ky;
+            float dsw, dsh; DisplaySize(mp, out dsw, out dsh);
+            sp.R = x0 + (dsw - s0.X) / kx;
+            sp.B = y0 + (BottomLimit(mp) - s0.Y) / ky;
             if (_debug && UnityEngine.Time.unscaledTime > _snapTraceAt)
             {
                 _snapTraceAt = UnityEngine.Time.unscaledTime + 1f;
@@ -148,7 +149,7 @@ namespace AlternativeGameInterface
                 Point a, b;
                 try { a = op.PointToScreen(new Point(ins[0], ins[1])); b = op.PointToScreen(new Point(op.ActualWidth - ins[2], op.ActualHeight - ins[3])); }
                 catch { continue; }
-                if (b.X <= 0f || b.Y <= 0f || a.X >= UnityEngine.Screen.width || a.Y >= UnityEngine.Screen.height) continue; // off the screen
+                if (b.X <= 0f || b.Y <= 0f || a.X >= dsw || a.Y >= dsh) continue; // off the screen
                 sp.Rects.Add(new[] { x0 + (a.X - s0.X) / kx, y0 + (a.Y - s0.Y) / ky, x0 + (b.X - s0.X) / kx, y0 + (b.Y - s0.Y) / ky });
             }
             return sp;
@@ -165,9 +166,10 @@ namespace AlternativeGameInterface
         /// at least half the screen wide that reaches the bottom of the screen. If none is found but the button sits in the bottom
         /// fifth of the screen, the button's top. Otherwise (no mission HUD) the screen's bottom.
         /// </summary>
-        float BottomLimit()
+        float BottomLimit(object on = null)
         {
-            float sh = UnityEngine.Screen.height, sw = UnityEngine.Screen.width;
+            float sh, sw; DisplaySize(on, out sw, out sh);
+            if (DisplayOf(on) > 0) return sh;      // the HUD's bottom bar is on the main display only
             var view = MainGameViewInstance();
             float now = UnityEngine.Time.unscaledTime;
             if (_bottomLimit >= 0f && now < _bottomUntil && ReferenceEquals(view, _bottomView)) return _bottomLimit;
@@ -330,6 +332,14 @@ namespace AlternativeGameInterface
             float minW = Math.Max(20f, GetF(w, "MinWidth", 0f)), minH = Math.Max(20f, GetF(w, "MinHeight", 0f));
             float l = start[0] + delta.Left, t = Math.Max(0f, start[1] + delta.Top);
             float r = start[0] + start[2] + delta.Right, b = start[1] + start[3] + delta.Bottom;
+            // an edge never goes farther beyond the screen than it already was (the mouse may leave the screen / the display while resizing)
+            float hw, hh;
+            if (HostSize(w, out hw, out hh) && hw > 0f && hh > 0f)
+            {
+                l = Math.Max(l, Math.Min(start[0], 0f));
+                r = Math.Min(r, Math.Max(start[0] + start[2], hw));
+                b = Math.Min(b, Math.Max(start[1] + start[3], hh));
+            }
             if (r - l < minW) { if (delta.Left != 0f) l = r - minW; else r = l + minW; }
             if (b - t < minH) { if (delta.Top != 0f) t = Math.Max(0f, b - minH); if (b - t < minH) b = t + minH; }
             SetF(w, "X", l);

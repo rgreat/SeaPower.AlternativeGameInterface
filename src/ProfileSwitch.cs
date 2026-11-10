@@ -48,7 +48,7 @@ namespace AlternativeGameInterface
         {
             public readonly Dictionary<string, Layout> L = new Dictionary<string, Layout>(StringComparer.Ordinal);
             public readonly Dictionary<string, string> O = new Dictionary<string, string>(StringComparer.Ordinal);
-            public string K, V, W;                                           // looks, levels, World View open / closed (null: not kept)
+            public string K, V, W, N;                                           // looks, levels, World View open / closed (null: not kept)
             public readonly HashSet<string> Removed = new HashSet<string>(StringComparer.Ordinal);    // saved layouts forgotten by a reset
 
             public static DeskData Parse(string text)
@@ -75,6 +75,7 @@ namespace AlternativeGameInterface
                         case 'K': d.K = rest; break;
                         case 'V': d.V = rest; break;
                         case 'W': d.W = rest; break;
+                        case 'N': d.N = rest; break;
                     }
                 }
                 return d;
@@ -89,6 +90,7 @@ namespace AlternativeGameInterface
                 if (K != null) add("K|" + K);
                 if (V != null) add("V|" + V);
                 if (W != null) add("W|" + W);
+                if (N != null) add("N|" + N);
                 return sb.ToString();
             }
         }
@@ -191,7 +193,7 @@ namespace AlternativeGameInterface
                 rec.Add(L("Unit Status*", 0.62f, 0.58f, 0.38f, 0.42f));
                 rec.Add("O|Tactical Display|open"); rec.Add("O|Unit Status*|closed"); rec.Add(lists); rec.Add("W|open");
             }
-            rec.Add("K|"); rec.Add("V|");
+            rec.Add("K|"); rec.Add("V|"); rec.Add("N|");
             return string.Join(SetSep, rec.ToArray());
         }
 
@@ -225,6 +227,7 @@ namespace AlternativeGameInterface
             d.K = _looks.Value ?? "";
             LevelMap();
             d.V = _levels == null ? "" : (_levels.Value ?? "");
+            d.N = _winMonitors == null ? "" : (_winMonitors.Value ?? "");
             var w = WorldViewOpenNow();
             if (w.HasValue) d.W = w.Value ? "open" : "closed";
             return d.ToText();
@@ -252,6 +255,7 @@ namespace AlternativeGameInterface
             // 1. levels (the old ones are needed to see which windows change)
             var oldLevels = new Dictionary<string, int>(LevelMap(), StringComparer.OrdinalIgnoreCase);
             if (d.V != null) { _levels.Value = d.V; _levelMap = null; }
+            if (d.N != null) { _winMonitors.Value = d.N; _monMap = null; }
 
             // 2. looks
             if (d.K != null) { _looks.Value = d.K; _lookMap = null; }
@@ -268,6 +272,11 @@ namespace AlternativeGameInterface
                 if (w == null || t.Key == null || !t.Settled || !t.WasActive) continue;
                 try
                 {
+                    if (d.N != null && Monitors.Count > 0)
+                    {
+                        int want = WantedDisplay(w);
+                        if (want != DisplayOf(w)) { QueueMove(w, want); continue; }      // the new element on the other monitor takes the layout itself
+                    }
                     if (!IsCascaded(w) && d.L.ContainsKey(t.Key))
                     {
                         ApplyLayout(t.Key, w);

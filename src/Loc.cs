@@ -121,12 +121,13 @@ namespace AlternativeGameInterface
             D("up.itemDecom", "decommissioned for {0} pts, crew {1} > {2}");
             D("look.opacity", "Opacity");
             D("look.scale", "Scale");
-            D("look.outline", "Text outline");
+            D("look.outline", "Text contrast");
             D("look.level", "Level");
+            D("look.monitor", "Monitor");
             D("look.level.bottom", "Bottom");
             D("look.level.default", "Default");
             D("look.level.top", "Top");
-            D("look.outline.tip", "Shadow around the texts (white for dark text, black for light text) when the window opacity is below 100%");
+            D("look.outline.tip", "Grey texts become pure white or black and get a halo - easier to read when the window opacity is below 100%; always on below 50%");
             // Check boxes the mod adds to the game's windows
             D("ui.armedOnly", "Armed only");
             D("tip.armedOnly", "Hide units without weapons");

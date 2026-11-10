@@ -76,12 +76,13 @@ namespace AlternativeGameInterface
                 Add(TWindows, "Order and title bars", p._fixCursors, 'b', "Fix game resize cursors", "menus and campaign");
 
                 Add(TLog, "Links", p._logLinks, 'b', "All contacts in the log are links", "track numbers");
-                Add(TLog, "Links", p._logCenter, 'b', "Center map on clicked contact", "Tactical Display");
+                Add(TLog, "Links", p._logCenter, 'b', "Center map on repeated click", "Tactical Display");
                 Add(TTact, "Map", p._keepMapView, 'b', "Keep map view on resize", "zoom follows the window size");
 
                 Add(TMap, "Desktop mode", p._windowedMap, 'b', "Enable desktop mode", "free move and size");
                 Add(TMap, "Desktop mode", p._deskCount, 'f', "Number of desktops", "2 - 5", 1f, 2f, 5f);
                 Add(TMap, "Desktop mode", p._wvKey, 'k', "World View on / off key", "Insert by default");
+                Add(TMap, "Desktop mode", p._useMonitors, 'b', "Other monitors for windows", "Monitor in the window's menu");
 
                 Add(TMission, "In Mission", p._timeDrag, 'b', "Draggable time panel", "double-click: back to the corner");
                 Add(TMission, "In Mission", p._unitMenu, 'b', "Menu on the unit panel's flag/name", "");
@@ -91,7 +92,10 @@ namespace AlternativeGameInterface
                 if (_contactFixApplies) Add(TMission, "In Mission", p._fixContact, 'b', "Fix contact Information ages", "");   // hidden when this game version has nothing to fix
 
                 Add(TFiles, "Scenarios", p._hideCustom, 'b', "Hide _Custom Mission", "");
+                Add(TFiles, "Backgrounds", p._realPhotos, 'b', "Real photos as backgrounds", "");
                 Add(TFiles, "Backgrounds", p._modBackgrounds, 'm', "Background pictures", "");
+                Add(TFiles, "Backgrounds", p._menuBg, 'm', "Main menu background", "");
+                Add(TFiles, "Backgrounds", p._slideSec, 'f', "Slideshow interval", "sec", 5f, 5f, 3600f);
                 Add(TFiles, "Mission editor", p._rememberFolder, 'b', "Remember last folder", "");
                 Add(TFiles, "Mission editor", p._blueIni, 'b', "Highlight ini files", "");
                 Add(TCampaign, "This campaign", p._strictLoadouts, 'b', "Strict campaign loadouts", "");
@@ -112,7 +116,9 @@ namespace AlternativeGameInterface
                 Add(TFrame, "Frame around draggable windows", p._tipBorder, 'b', "Tooltips too", "all four sides");
 
                 Add(TStatus, "Damage Control tab", p._secMin, 'f', "Sections min height", "px · 0 = game", 10f, 0f, 3000f);
+                Add(TStatus, "Damage Control tab", p._dcWheel, 'b', "Wheel scrolls the section lists", "");
                 Add(TStatus, "Reference tab", p._statusRef, 'b', "Reference tab", "");
+                Add(TStatus, "Tabs", p._rememberTab, 'b', "Remember tab per unit", "");
                 Add(TStatus, "Track State", p._trackState, 'b', "Track State of a selected contact", "");
                 Add(TStatus, "Unit name", p._fullName, 'b', "Full unit name in the header", "");
 

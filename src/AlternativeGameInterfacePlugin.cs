@@ -45,7 +45,7 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
-        public const string PluginVersion = "1.8.1"; // also <Version> in AlternativeGameInterface.csproj
+        public const string PluginVersion = "1.9.0"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
         const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
@@ -431,6 +431,8 @@ namespace AlternativeGameInterface
             BindDismissConfig();
             BindBinocularConfig();
             BindPropulsionConfig();
+            BindDamageScrollConfig();
+            BindMonitorConfig();
             BindBinocularViewConfig();
             BindUpgradeConfig();
             BindLoadoutsOrderConfig();
@@ -444,6 +446,7 @@ namespace AlternativeGameInterface
             _statusRef = Config.Bind("UnitStatus", "UnitReferenceTab", true,
                 "Unit Status window: a \"Reference\" tab (last) with the Unit Reference of the selected unit - its ship / variant and loadout - " +
                 "without the unit tree and the search panel.");
+            BindTabMemoryConfig();
             _searchCategory = Config.Bind("UnitReference", "Category", "",
                 "Category of the unit tree, by its name. Written by the plugin (RememberSearchPanel); empty = the game's choice.");
             _searchByDate = Config.Bind("UnitReference", "FilterByDate", false,
@@ -475,6 +478,14 @@ namespace AlternativeGameInterface
                 new ConfigDescription("Background pictures of the main menu and the loading screens. Mods = when mods bring their own (ui/backgrounds), only theirs are shown; " +
                 "Mixed = as the game: one picked at random from the game's and every mod's together; Game = only the game's own.",
                 new AcceptableValueList<string>("Mods", "Mixed", "Game")));
+            _menuBg = Config.Bind("General", "MenuBackground", "Slideshow",
+                new ConfigDescription("Background of the main menu. Video = the game's own looped video; Slideshow = the background pictures (see Backgrounds), changing every SlideshowSeconds; " +
+                "the video is not loaded then, which saves resources.",
+                new AcceptableValueList<string>("Video", "Slideshow")));
+            _slideSec = Config.Bind("General", "SlideshowSeconds", 15f,
+                new ConfigDescription("Slideshow of the main menu: seconds a picture stays.", new AcceptableValueRange<float>(5f, 3600f)));
+            _realPhotos = Config.Bind("General", "RealPhotos", true,
+                "This mod's own pictures (real photos, ui/backgrounds) among the menu and loading-screen backgrounds. Off: they are not shown; when no other mod brings pictures, the game's own are shown whatever Backgrounds says.");
             _debugEntry = Config.Bind("General", "Debug", false,
                 "Enables verbose logging and BepInEx/AlternativeGameInterface.trace.txt.");
             _debug = _debugEntry.Value;
@@ -496,6 +507,8 @@ namespace AlternativeGameInterface
             Config.Save();
             Logger.LogInfo("Alternative Game Interface " + PluginVersion + " (build " + BuildId + ") loaded; hooks are installed when the load screen finishes" +
                            (ModState.Controlled ? " (follows its tick in the game's Mods menu)." : "."));
+            // the background pictures are read while the game starts (the menu, the first loading screen): the hooks go in now, not on the first frame
+            try { RefreshEnabled(); if (GameAssembly() != null) TryInstallLoadScreenHook(); } catch (Exception e) { Trace("early hooks: " + e.Message); }
         }
 
         static Dictionary<ConfigDefinition, string> Orphans(ConfigFile cfg)
@@ -643,6 +656,7 @@ namespace AlternativeGameInterface
             bool? state = ModState.Read();
             if (state == null) Logger.LogWarning("Could not read the game's mod list; Alternative Game Interface stays on.");
             bool now = state != false;
+            Trace("mods menu: tick read " + (state == null ? "null" : state.ToString()) + ", was " + Enabled + ", id '" + ModState.ModId + "', load screens " + LoadScreenCount + ", hooked " + _hooked + ", hook failed " + _hookFailed);
             if (now == Enabled) return;
             Enabled = now;
             if (ModState.Controlled)
@@ -744,6 +758,7 @@ namespace AlternativeGameInterface
                     HookCampaignDismiss(harmony, asm);
                     HookPipScene(harmony, asm);
                     HookMapFullscreen(harmony, asm);
+                    HookMonitors(harmony, asm);
                     HookBinocularFrame(harmony, asm);
                     HookImguiOrder(harmony, asm);
                     HookBinocularView(harmony, asm);
@@ -902,8 +917,10 @@ namespace AlternativeGameInterface
         }
 
         // runs after the game's own (clamping) drag handling: redo the move with our looser limits
+        public static int _dragFrame; public static WeakReference _dragWin;      // the window being dragged by its title bar (for dragging across displays)
         static void DragPostfix(object __instance, object e, float[] __state)
         {
+            _dragFrame = UnityEngine.Time.frameCount; _dragWin = new WeakReference(__instance);
             if ((object)Active != null && __state != null && (Active._dragOutside.Value || Active._snapOn.Value)) Active.AfterDrag(__instance, e, __state);
         }
 
@@ -1099,6 +1116,7 @@ namespace AlternativeGameInterface
             Layout s;
             if (!_saved.TryGetValue(key, out s)) return false;
             if (GetB(w, "Maximized")) return false;
+            if (InTransfer(w)) return false; // dragged here from another display: placed by the transfer
 
             float off = TreeOffset(w); // the saved layout is with the tree shown: if it is hidden now, apply the narrow form
             if (off > 0f)
@@ -1779,7 +1797,7 @@ namespace AlternativeGameInterface
         void OnDamageControlLoaded(object view)
         {
             // the tabs are created collapsed and their content is built only when shown: usually OnDamageControlShown does it
-            if (view != null && GetB(view, "IsVisible")) SetupSections(view);
+            if (view != null && GetB(view, "IsVisible")) { SetupSections(view); SetupDamageWheel(view); }
         }
 
         /// <summary>The game's minimum of the section panels, in screen pixels, as last measured (0: not measured yet).</summary>
@@ -1998,6 +2016,7 @@ namespace AlternativeGameInterface
                     if (w0 != null) Invoke(_updateLayout, w0); // lay it out first: the template is applied, the rows are measured
                     SetupSections(view);
                 }
+                SetupDamageWheel(view);
             }
             catch (Exception e) { Trace("OnDamageControlShown: " + e); }
         }
@@ -2361,6 +2380,7 @@ namespace AlternativeGameInterface
             if (_borderOn.Value) AddBorder(w);
             if (_toFront.Value) BringToFront(w, "opened");
             HookHeader(w); // the double-click checks MaximizeOnDoubleClick itself
+            try { MonitorCheck(w); } catch (Exception e) { TraceOnce("monitor check", e); }
             if (_dblClickMax.Value) OpenMaximized(w, "on Loaded"); // windows not recognisable yet before OnInitialized (content set later)
             EnsureGear(w);
             if (_removeLimitsAll.Value)
@@ -2971,7 +2991,9 @@ namespace AlternativeGameInterface
 
             CleanLogsOnce();
             RerollFirstBackground();
+            MenuBackgroundStep();
 
+            if (!_hooked && !LoadScreenDone && _traceOnce.Add("agi-wait-ls" + LoadScreenCount)) Trace("on, waiting for a finished load screen (finished so far " + LoadScreenCount + ")");
             if (!_hooked && LoadScreenDone) TryHook();
             if (!_hooked || _hookFailed) return;
 
@@ -2981,6 +3003,7 @@ namespace AlternativeGameInterface
 
             float now = Time.unscaledTime;
             BackdropStep();
+            try { MonitorsStep(now); } catch (Exception e) { TraceOnce("MonitorsStep", e); }
             TimePanelStep(now);
             CompassTapeStep(now);
             WindowSetsStep();
@@ -3264,7 +3287,16 @@ namespace AlternativeGameInterface
                     if (open == want) continue;
 
                     // the game's own switch first (HUD button / view-model flag): it also creates windows that do not exist yet
-                    bool ok = SetOpenViaGame(key, want, true);
+                    // the Tactical Display is closed the way its own X button closes it (Window.CloseWindowNow: OnClosed, the window manager, the host's
+                    // close command; the host's command then turns MapVisible off through the HUD button's broker). Setting MapVisible alone left
+                    // the objects of the drawing tool on the screen after a desktop switch.
+                    bool ok = false;
+                    if (!want && win != null && sw != null && (string)sw[1] == "MapVisible")
+                    {
+                        ok = CloseWindowLikeGame(win) && ReadSwitch(sw, this) == false;
+                        if (!ok) Trace("open/close '" + key + "': CloseWindowNow did not close it, using the game's switch");
+                    }
+                    if (!ok) ok = SetOpenViaGame(key, want, true);
                     if (!ok && win != null) ok = SetOpen(win, want);
                     if (ok) { if (_osTraced.Add("ok " + key)) Verbose("'" + key + "' " + (want ? "opened" : "closed") + " as last time"); }
                     else if (want && sw != null && !OsSoft)
@@ -3281,12 +3313,31 @@ namespace AlternativeGameInterface
             }
         }
 
+        /// <summary>The window's own close (what its X button runs): Window.CloseWindowNow.</summary>
+        bool CloseWindowLikeGame(object win)
+        {
+            try
+            {
+                var m = win.GetType().GetMethod("CloseWindowNow", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
+                if (m == null) return false;
+                m.Invoke(win, null);
+                return true;
+            }
+            catch (Exception ex) { Trace("CloseWindowNow: " + (ex.InnerException ?? ex).Message); return false; }
+        }
+
+        static FieldInfo _mgvInstance; static bool _mgvLooked;
         object MainGameViewInstance()
         {
-            var asm = GameAssembly();
-            var t = asm == null ? null : asm.GetType("SeapowerUI.MainGameView");
-            var f = t == null ? null : t.GetField("Instance", BindingFlags.Public | BindingFlags.Static);
-            return f == null ? null : f.GetValue(null);
+            if (!_mgvLooked)   // looked up once (this is asked several times in every frame of a mission)
+            {
+                var asm = GameAssembly();
+                if (asm == null) return null;
+                _mgvLooked = true;
+                var t = asm.GetType("SeapowerUI.MainGameView");
+                _mgvInstance = t == null ? null : t.GetField("Instance", BindingFlags.Public | BindingFlags.Static);
+            }
+            return _mgvInstance == null ? null : _mgvInstance.GetValue(null);
         }
 
         /// <summary>

@@ -66,7 +66,8 @@ namespace AlternativeGameInterface
                     var ins = VisibleInsets(w);
                     var a = root.PointToScreen(new Point(ins[0], ins[1]));
                     var b = root.PointToScreen(new Point(root.ActualWidth - ins[2], root.ActualHeight - ins[3]));
-                    float sw = UnityEngine.Screen.width, bl = BottomLimit(), tol = 2f;
+                    float sw, sh0; DisplaySize(root, out sw, out sh0);
+                    float bl = BottomLimit(root), tol = 2f;
                     if (b.X > 0f && a.X < sw && b.Y > 0f && a.Y < bl)
                     {
                         if (a.X <= tol) mask |= 2;

@@ -13,7 +13,9 @@ namespace AlternativeGameInterface
     {
         ConfigEntry<bool> _keepMapView;
 
-        sealed class KeepViewState { public object Map; public float W, H; public float Next; public bool Done; }
+        // per view model (SceneMapViewModel), not per window: the zoom belongs to the view model and outlives the window, so the size the zoom was
+        // last right for is remembered across a close and a new opening of the window (a desktop without the map, then back)
+        sealed class KeepViewState { public object Map; public WeakReference Win; public float W, H; public float Next; public bool Done; }
         static readonly ConditionalWeakTable<object, KeepViewState> KeepView = new ConditionalWeakTable<object, KeepViewState>();
 
         void BindKeepMapViewConfig()
@@ -26,15 +28,17 @@ namespace AlternativeGameInterface
         void KeepMapViewStep(Tracked t, object w, float now)
         {
             if (_keepMapView == null || !_keepMapView.Value || !t.Settled) return;
-            var st = KeepView.GetOrCreateValue(w);
+            if (!GetB(w, "IsVisible")) return;                                                          // a closed window of the view model (not in the tree any more) must not be measured
+            var vm = Get(w, "DataContext");
+            if (vm == null || vm.GetType().Name != "SceneMapViewModel") return;                          // only the Tactical Display
+            var st = KeepView.GetOrCreateValue(vm);
             if (st.Done || now < st.Next) return;
             st.Next = now + 0.05f;
             try
             {
+                if (st.Win == null || !ReferenceEquals(st.Win.Target, w)) { st.Win = new WeakReference(w); st.Map = null; }   // a new window of the same view model: W, H stay
                 if (st.Map == null)
                 {
-                    var dc = Get(w, "DataContext");
-                    if (dc == null || dc.GetType().Name != "SceneMapViewModel") { st.Done = true; return; }     // only the Tactical Display
                     st.Map = FindMapBase(w, 0);
                     if (st.Map == null) { st.Next = now + 0.5f; return; }
                 }

@@ -2,7 +2,7 @@
 
 A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows").
 
-**Version 1.8.1**
+**Version 1.9.0**
 
 ## Features
 
@@ -16,7 +16,7 @@ A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows")
 8. Remembers which mission windows were open and restores that at the next mission start.
 9. Thin frame around draggable windows and the game's tooltips for better edge visibility. Customizable.
 10. In-game settings window (the gear button in the title bar of a remembered window; on the World View it also offers the Alternative Special Effects settings): tabs, groups, hints, language selector.
-11. Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's.
+11. Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's. Real photos can be turned off. Main menu: a slideshow (default) or the game's video.
 12. Hides "_Custom Mission" in the SCENARIOS list of the main menu.
 13. Mission editor: the open-mission picker starts in the last mission's folder; *.ini files are light blue.
 14. Optional: deletes the game's old log files at start (off by default).
@@ -36,8 +36,8 @@ A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows")
    - "Armed only" check box: hides unarmed units (rafts, targets, tankers, civilian ships...).
    - Propulsion of ships and submarines (engine type and power) next to Max Speed.
 16. Unit Status window:
-   - Reference tab: the Unit Reference of the selected unit right in the Unit Status window.
-   - Damage Control tab: adjustable minimum height, so the Auto DC status panel at the bottom stays visible.
+   - Reference tab: the Unit Reference of the selected unit right in the Unit Status window (also of a contact of a known type).
+   - Damage Control tab: adjustable minimum height, so the Auto DC status panel at the bottom stays visible; the damage lists scroll with the wheel.
    - The full name of the unit in the header.
 17. Right click on the flag or name in the unit panel opens the unit's context menu.
 18. Fixed: empty sensor / age fields in the contact Information window.
@@ -52,12 +52,13 @@ A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows")
 27. Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); loadouts are sorted by date; a hull swap is priced from the roster.
 28. The News window of the main menu gets the mod's gear, frame and remembered position; the game's resize cursors work outside a mission.
 29. Optional "Keep map view on resize": the Tactical Display's zoom follows its window size, so the visible area stays visible.
-30. Event Log: every track number is a link (option); a click on a contact or unit link also centres the Tactical Display on it (option).
+30. Event Log: every track number is a link (option); a repeated click on the same contact or unit link centres the Tactical Display on it (option).
 31. Settings entry "Game Interface" in the main menu (under Mod Manager) and the pause menu (under Options). With several of the author's mods installed it becomes "Alternative Mods".
 32. The settings gear and the look arrow sit among the title bar buttons and never lie over buttons other mods add.
 33. Binoculars: at max zoom they start with the normal view instead of the night / thermal filter (by day, optional). Desktop mode: the frame and interface fit the World View window (up to 30% larger); Backspace gives a full-screen view.
 34. Ship binoculars can look below the horizon (In Mission tab, 10 degrees by default).
 35. Moving or resizing any window over the 3D view no longer turns the camera; windows of other mods drawn with Unity IMGUI (Camera Offset) can be grabbed over the game's windows.
+36. Desktop mode: the other monitors work like the main one for windows (Monitor in the window's menu); the game's second-monitor map and World View monitor are then not used.
 
 ## Compatibility
 

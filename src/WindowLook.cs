@@ -38,7 +38,7 @@ namespace AlternativeGameInterface
         void BindLookConfig()
         {
             _looks = Config.Bind("General", "WindowLooks", "",
-                "Opacity and scale of the remembered windows, written by the plugin: pattern|opacity|scale|outline;...");
+                "Opacity, scale and text contrast (+ / -) of the remembered windows, written by the plugin: pattern|opacity|scale|contrast;...");
         }
 
         Dictionary<string, float[]> LookMap()
@@ -49,10 +49,18 @@ namespace AlternativeGameInterface
             {
                 var p = rec.Split('|');
                 float o, s, ol = 0f;
-                if ((p.Length == 3 || (p.Length == 4 && float.TryParse(p[3], NumberStyles.Float, CultureInfo.InvariantCulture, out ol))) && !string.IsNullOrWhiteSpace(p[0]) &&
+                if ((p.Length == 3 || p.Length == 4) && !string.IsNullOrWhiteSpace(p[0]) &&
                     float.TryParse(p[1], NumberStyles.Float, CultureInfo.InvariantCulture, out o) &&
                     float.TryParse(p[2], NumberStyles.Float, CultureInfo.InvariantCulture, out s))
+                {
+                    // the text contrast: '+' / '-' = the choice made (by itself at 50 % or by the user); '1' / '0' / none = a record of an older version, where the contrast
+                    // was on below 50 % opacity whatever the flag said
+                    string f = p.Length == 4 ? p[3].Trim() : "0";
+                    if (f == "+") ol = 1f;
+                    else if (f == "-") ol = 0f;
+                    else { float legacy; float.TryParse(f, NumberStyles.Float, CultureInfo.InvariantCulture, out legacy); ol = legacy > 0.5f || o < 0.5f ? 1f : 0f; }
                     _lookMap[p[0].Trim()] = new[] { Clamp(o, 0f, 1f), Clamp(s, 0.5f, 2f), ol > 0.5f ? 1f : 0f };
+                }
             }
             return _lookMap;
         }
@@ -107,7 +115,7 @@ namespace AlternativeGameInterface
                 if (sb.Length > 0) sb.Append(';');
                 sb.Append(kv.Key).Append('|').Append(kv.Value[0].ToString("0.##", CultureInfo.InvariantCulture))
                   .Append('|').Append(kv.Value[1].ToString("0.##", CultureInfo.InvariantCulture))
-                  .Append('|').Append(kv.Value[2] > 0.5f ? '1' : '0');
+                  .Append('|').Append(kv.Value[2] > 0.5f ? '+' : '-');
             }
             _looks.Value = sb.ToString();
         }
@@ -168,7 +176,7 @@ namespace AlternativeGameInterface
             catch { _lkK = 0f; _lkPanel = null; }
             DimWalk(panel, render ? look[0] : lf, lf, render, false, menu, ref budget);   // under the 3D view too: what really lies under the window shows through
             int tb = 6000;
-            OutlineWalk(panel, look[2] > 0.5f && look[0] < 0.999f, menu, ref tb);
+            OutlineWalk(panel, look[2] > 0.5f, menu, ref tb);
             var cp = FindContentPresenter(w, panel);
             if (cp != null)
             {
@@ -179,7 +187,7 @@ namespace AlternativeGameInterface
         }
 
         // black halo of the texts (our own effect: recognised by its blur radius, the game's own effects stay)
-        const float OutlineBlur = 1.2f;
+        const float OutlineBlur = 2f;
 
         static bool IsOurHalo(Effect ef)
         {
@@ -196,6 +204,20 @@ namespace AlternativeGameInterface
             return 0.299f * r + 0.587f * g + 0.114f * bl < 0.5f;
         }
 
+        // text contrast: grey texts go to pure white / black, every text gets a halo of the opposite colour (coloured texts keep their colour)
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TextBlock, Brush> _origFg = new System.Runtime.CompilerServices.ConditionalWeakTable<TextBlock, Brush>();
+
+        static bool IsGrey(Brush b, out bool dark)
+        {
+            dark = false;
+            var sc = b as SolidColorBrush;
+            if (sc == null) return false;
+            float r = Convert.ToSingle(sc.Color.R), g = Convert.ToSingle(sc.Color.G), bl = Convert.ToSingle(sc.Color.B);
+            if (Math.Max(r, Math.Max(g, bl)) > 1.0001f) { r /= 255f; g /= 255f; bl /= 255f; }
+            dark = 0.299f * r + 0.587f * g + 0.114f * bl < 0.5f;
+            return Math.Max(r, Math.Max(g, bl)) - Math.Min(r, Math.Min(g, bl)) < 0.12f;
+        }
+
         void OutlineWalk(DependencyObject e, bool on, object skip, ref int budget)
         {
             if (ReferenceEquals(e, skip) || --budget < 0) return;
@@ -210,9 +232,25 @@ namespace AlternativeGameInterface
                         var cur = t.Effect;
                         // dark text: a white halo, light text: a black one
                         if (cur == null || (IsOurHalo(cur) && (Convert.ToSingle(((DropShadowEffect)cur).Color.R) > 127f) != darkText))
-                            t.Effect = new DropShadowEffect { Color = darkText ? Color.FromRgb(255, 255, 255) : Color.FromRgb(0, 0, 0), BlurRadius = OutlineBlur, ShadowDepth = 1f, Direction = 315f, Opacity = 1f };
+                            t.Effect = new DropShadowEffect { Color = darkText ? Color.FromRgb(255, 255, 255) : Color.FromRgb(0, 0, 0), BlurRadius = OutlineBlur, ShadowDepth = 0f, Direction = 315f, Opacity = 1f };
+                        bool dk; Brush o;
+                        if (IsGrey(t.Foreground, out dk) && !_origFg.TryGetValue(t, out o))
+                        {
+                            var sc = (SolidColorBrush)t.Foreground;
+                            bool pure = (dk && sc.Color.R == 0 && sc.Color.G == 0 && sc.Color.B == 0) || (!dk && sc.Color.R == 255 && sc.Color.G == 255 && sc.Color.B == 255);
+                            if (!pure)
+                            {
+                                _origFg.Add(t, t.Foreground);
+                                t.Foreground = new SolidColorBrush(dk ? Color.FromRgb(0, 0, 0) : Color.FromRgb(255, 255, 255));
+                            }
+                        }
                     }
-                    else if (IsOurHalo(t.Effect)) t.Effect = null;
+                    else
+                    {
+                        if (IsOurHalo(t.Effect)) t.Effect = null;
+                        Brush o;
+                        if (_origFg.TryGetValue(t, out o)) { t.Foreground = o; _origFg.Remove(t); }
+                    }
                 }
                 catch { }
             }
@@ -270,6 +308,18 @@ namespace AlternativeGameInterface
         static bool _lookTrace;   // set while the menu applies a choice: the factor is traced (the once-a-second refresh is silent)
         const string DimTag = "SWdim|";
         static float _bigArea = float.MaxValue;   // area (px^2) from which an Image / Shape counts as a background layer: 15 % of the window
+
+        /// <summary>A background the game's style changes with the state (selected / hover / pressed / checked / disabled): the Border of a list, tree,
+        /// tab, menu or button item's template. A brush set the ordinary way is a local value, which wins over the style's triggers (the unit type tab that was
+        /// red when the look was applied stayed red). Such a background gets the dimmed copy through SetCurrentValue: the style stays the value's source,
+        /// the next trigger puts the game's brush back, and the item's state events dim that one again (HookState).</summary>
+        static bool StateDriven(DependencyObject e)
+        {
+            if (!(e is Border) && !(e is Panel)) return false;   // only backgrounds: a text, an icon or any other element of the item keeps its own Opacity
+            var fe = e as FrameworkElement;
+            var tp = fe == null ? null : fe.TemplatedParent;
+            return tp is ListBoxItem || tp is TreeViewItem || tp is TabItem || tp is ComboBoxItem || tp is MenuItem || tp is ButtonBase;
+        }
 
         static bool Layered(DependencyObject e, out Brush brush)
         {
@@ -396,7 +446,7 @@ namespace AlternativeGameInterface
             bool layer = Layered(e, out brush);
             if (PictureTypes.Contains(e.GetType().Name)) SetBackground(e, pictureFactor);
             else if (render && holds) { if (layer) SetBackground(e, keepBacking ? 1f : 0f); }
-            else if (layer || factor >= 0.999f) SetBackground(e, layer && _titleFactor > factor && IsTitleStrip(e) ? _titleFactor : factor);
+            else if (layer || factor >= 0.999f || StateDriven(e)) SetBackground(e, layer && _titleFactor > factor && IsTitleStrip(e) ? _titleFactor : factor);   // state-driven: hooked even while its brush is empty (an item selected later)
             return holds;
         }
 
@@ -449,6 +499,82 @@ namespace AlternativeGameInterface
             }
         }
 
+        sealed class StateHook { public float Factor = 1f; }
+        static readonly ConditionalWeakTable<object, StateHook> _stateHooks = new ConditionalWeakTable<object, StateHook>();
+        static readonly List<WeakReference> _redimQueue = new List<WeakReference>();
+
+        /// <summary>The state events of an item whose template background is dimmed: each one dims the brush the style has just put (at once and, for the
+        /// triggers that follow the event, once more at the next window step). The factor is the window's last one; 1 = the game's brush is left alone.</summary>
+        static void HookState(FrameworkElement tp, float factor)
+        {
+            if (tp == null) return;
+            StateHook h;
+            if (_stateHooks.TryGetValue(tp, out h)) { h.Factor = factor; return; }
+            if (factor >= 0.999f) return;                      // never dimmed: nothing to keep up
+            h = new StateHook { Factor = factor };
+            _stateHooks.Add(tp, h);
+            try
+            {
+                RoutedEventHandler re = (s, a) => StateChanged(tp);
+                tp.MouseEnter += (s, a) => StateChanged(tp);
+                tp.MouseLeave += (s, a) => StateChanged(tp);
+                tp.IsEnabledChanged += (s, a) => StateChanged(tp);
+                tp.AddHandler(UIElement.GotKeyboardFocusEvent, (KeyboardFocusChangedEventHandler)((s, a) => StateChanged(tp)));
+                tp.AddHandler(UIElement.LostKeyboardFocusEvent, (KeyboardFocusChangedEventHandler)((s, a) => StateChanged(tp)));
+                var lbi = tp as ListBoxItem; if (lbi != null) { lbi.Selected += re; lbi.Unselected += re; }
+                var tvi = tp as TreeViewItem; if (tvi != null) { tvi.Selected += re; tvi.Unselected += re; }
+                if (tp is TabItem) { tp.AddHandler(Selector.SelectedEvent, re); tp.AddHandler(Selector.UnselectedEvent, re); }
+                var tb = tp as ToggleButton; if (tb != null) { tb.Checked += re; tb.Unchecked += re; tb.Indeterminate += re; }
+                if (tp is ButtonBase || tp is MenuItem)
+                {
+                    tp.PreviewMouseLeftButtonDown += (s, a) => StateChanged(tp);
+                    tp.PreviewMouseLeftButtonUp += (s, a) => StateChanged(tp);
+                    tp.LostMouseCapture += (s, a) => StateChanged(tp);
+                }
+            }
+            catch (Exception ex) { Trace("look: state events of " + tp.GetType().Name + ": " + ex.Message); }
+        }
+
+        static void StateChanged(FrameworkElement tp)
+        {
+            Redim(tp);
+            _redimQueue.Add(new WeakReference(tp));
+        }
+
+        /// <summary>The template backgrounds of one item get the item's factor again (the style may just have put its own brush).</summary>
+        static void Redim(FrameworkElement tp)
+        {
+            StateHook h;
+            if (tp == null || !_stateHooks.TryGetValue(tp, out h)) return;
+            int budget = 200;
+            RedimWalk(tp, tp, h.Factor, ref budget);
+        }
+
+        static void RedimWalk(DependencyObject e, FrameworkElement tp, float factor, ref int budget)
+        {
+            if (--budget < 0) return;
+            var fe = e as FrameworkElement;
+            if (fe != null && ReferenceEquals(fe.TemplatedParent, tp) && (e is Border || e is Panel))
+            {
+                Brush br;
+                if (Layered(e, out br) || (fe.Tag as string ?? "").StartsWith(DimTag)) SetBackground(e, factor);
+            }
+            for (int k = VisualTreeHelper.GetChildrenCount(e) - 1; k >= 0; k--)
+            {
+                var c = VisualTreeHelper.GetChild(e, k);
+                if (c != null && !(c is ListBoxItem) && !(c is TreeViewItem) && !(c is TabItem)) RedimWalk(c, tp, factor, ref budget);   // not into nested items: they have their own
+            }
+        }
+
+        /// <summary>The items whose state changed since the last step: once more, after the triggers that follow the events.</summary>
+        static void FlushRedim()
+        {
+            if (_redimQueue.Count == 0) return;
+            var list = _redimQueue.ToArray();
+            _redimQueue.Clear();
+            foreach (var w in list) { try { Redim(w.Target as FrameworkElement); } catch { } }
+        }
+
         /// <summary>Puts the factor on the element's background: a copy of the game's brush (the game's own one is shared by every window)
         /// whose Opacity is the original's times the factor. The original Opacity and the factor are kept in the element's Tag (the elements
         /// are re-found by the tree, so nothing else can be kept for them); an element whose Tag is the game's own is left alone.</summary>
@@ -459,6 +585,8 @@ namespace AlternativeGameInterface
             var b = e as Border;
             var p = e as Panel;
             if (IsPicture(e) || (b == null && p == null)) { SetElementOpacity(fe, factor); return; }
+            bool state = StateDriven(e);
+            if (state) HookState(fe.TemplatedParent, factor);
             Brush cur = b != null ? b.Background : p != null ? p.Background : null;
             if (cur == null) { if (fe.Tag is string && ((string)fe.Tag).StartsWith(DimTag)) fe.Tag = null; return; }
             string tag = fe.Tag as string;
@@ -475,13 +603,25 @@ namespace AlternativeGameInterface
             else if (fe.Tag != null) return;   // the game's own Tag
             if (!ours) { if (factor >= 0.999f) return; origOp = cur.Opacity; cur = (Brush)cur.Clone(); }
             cur.Opacity = origOp * factor;
-            if (b != null) b.Background = cur; else p.Background = cur;
+            if (state)
+            {
+                var dp = b != null ? Border.BackgroundProperty : Panel.BackgroundProperty;
+                if (factor >= 0.999f)
+                {
+                    fe.InvalidateProperty(dp);                       // back to what the style gives
+                    var now = b != null ? b.Background : p.Background;
+                    if (!ReferenceEquals(now, cur)) { fe.Tag = null; return; }
+                }
+                fe.SetCurrentValue(dp, cur);
+            }
+            else if (b != null) b.Background = cur; else p.Background = cur;
             fe.Tag = factor >= 0.999f ? null : DimTag + origOp.ToString("0.####", CultureInfo.InvariantCulture) + "|" + factor.ToString("0.####", CultureInfo.InvariantCulture);
         }
 
         /// <summary>Every tracked window with a remembered look: once a second, content built later (tabs, lists) is dimmed / scaled too.</summary>
         void LookStep(object w)
         {
+            FlushRedim();
             LookState st;
             if (!Looks.TryGetValue(w, out st) || !st.Applied) return;
             bool flip = IsBottomWindow(w) != st.Bottom;   // maximized / restored: the look goes off / comes back
@@ -576,7 +716,14 @@ namespace AlternativeGameInterface
                 var map = LookMap();
                 float[] v;
                 if (!map.TryGetValue(key, out v)) { v = new[] { 1f, 1f, 0f }; map[key] = v; }
-                if (isOpacity) v[0] = value; else if (value < 0f) v[2] = v[2] > 0.5f ? 0f : 1f; else v[1] = value;
+                if (isOpacity)
+                {
+                    // crossing 50 % switches the text contrast on / off by itself; after that it is the user's choice (remembered like the rest)
+                    bool wasLow = v[0] < 0.5f, nowLow = value < 0.5f;
+                    v[0] = value;
+                    if (wasLow != nowLow) v[2] = nowLow ? 1f : 0f;
+                }
+                else if (value < 0f) v[2] = v[2] > 0.5f ? 0f : 1f; else v[1] = value;
                 SaveLooks();
                 _lookTrace = _debug;
                 ApplyLook(ow, panel);
@@ -594,26 +741,21 @@ namespace AlternativeGameInterface
                 cols.Children.Add(new Border { Width = 6f });
                 cols.Children.Add(LookColumn("", ScaleHigh, look[1], false, pick));
             }
-            // text outline: greyed out (and not clickable) at 100 % opacity
-            bool dis = look[0] >= 0.999f;
+            // text contrast: set by itself when the opacity crosses 50 %, always free to change
             var outl = new Border
             {
                 Margin = new Thickness(0f, 6f, 0f, 0f), Padding = new Thickness(4f, 3f, 4f, 3f),
-                Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)), Opacity = dis ? 0.4f : 1f,
+                Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)),
                 Child = new TextBlock
                 {
                     Text = (look[2] > 0.5f ? "☑ " : "☐ ") + Loc.T("look.outline"), FontSize = 12f,
-                    Foreground = new SolidColorBrush(dis ? Color.FromRgb(150, 156, 162) : Color.FromRgb(230, 232, 235))
+                    Foreground = new SolidColorBrush(Color.FromRgb(230, 232, 235))
                 }
             };
             try { ToolTipService.SetToolTip(outl, Loc.T("look.outline.tip")); } catch { }
-            if (!dis)
-            {
-                outl.MouseEnter += (s, e) => outl.Background = new SolidColorBrush(Color.FromRgb(62, 69, 79));
-                outl.MouseLeave += (s, e) => outl.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
-                outl.PreviewMouseLeftButtonDown += (s, e) => { e.Handled = true; pick(false, -1f); };
-            }
-            else outl.PreviewMouseLeftButtonDown += (s, e) => e.Handled = true;
+            outl.MouseEnter += (s, e) => outl.Background = new SolidColorBrush(Color.FromRgb(62, 69, 79));
+            outl.MouseLeave += (s, e) => outl.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
+            outl.PreviewMouseLeftButtonDown += (s, e) => { e.Handled = true; pick(false, -1f); };
             // level: below the others / as the game has it / above the others
             var lvRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0f, 6f, 0f, 0f) };
             lvRow.Children.Add(new TextBlock { Text = Loc.T("look.level"), FontSize = 11f, Foreground = new SolidColorBrush(Color.FromRgb(150, 156, 162)), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4f, 0f, 6f, 0f) });
@@ -641,6 +783,7 @@ namespace AlternativeGameInterface
             var wrap = new StackPanel { Orientation = Orientation.Vertical };
             if (!wvMap) { wrap.Children.Add(cols); wrap.Children.Add(outl); }
             wrap.Children.Add(lvRow);
+            if (MonitorChoosable(w)) wrap.Children.Add(MonitorRow(w, () => { CloseLookMenu(popup); ls.Menu = null; }));
             // the menu is a popup: it is not limited by the window; its right edge is under the arrow's right edge
             back.Child = wrap;
             back.SizeChanged += (s, e) => { try { popup.HorizontalOffset = (float)((FrameworkElement)target).ActualWidth - (float)back.ActualWidth; } catch { } };

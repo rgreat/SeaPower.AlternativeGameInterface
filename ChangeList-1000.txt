@@ -1,6 +1,10 @@
-Version 1.8.1
-- Binoculars at max zoom start with the normal view, no night / thermal filter (moved from Alternative Special Effects; by day only, optional).
-- Unit Reference: engine type and power of ships and submarines, next to Max Speed (option).
-- World View gear also opens the Alternative Special Effects settings.
-- Camera Offset (and other IMGUI) windows can be grabbed over the game's windows.
-- Moving or resizing any window over the 3D view no longer turns the camera (screen heights other than 1080).
+Version 1.9.0
+- Keep map view on resize: the scale stays right after the Tactical Display is reopened at another size.
+- Unit Status: the Reference tab was empty in the newer game build (the Supplies tab has the same number).
+- Unit Status: Reference tab also for contacts and weapons.
+- Desktop mode: option "Other monitors for windows" - windows can be put on other monitors (Monitor in the window's menu).
+- Main menu background: slideshow (default) or game video.
+- Menu backgrounds apply at game start.
+- Unit Status: the tab is kept per unit.
+- Window menu: "Text outline" became "Text contrast" (switches on by itself below 50% opacity, changeable).
+- Event Log: a repeated click on the same link centres the map.

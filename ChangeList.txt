@@ -1,3 +1,21 @@
+Version 1.9.0
+- Keep map view on resize: the map scale stays right when the Tactical Display is closed (a desktop without the map) and opened again at another size.
+- Unit Status: the Reference tab was empty in the newer game build (its new Supplies tab has the same tab number); the Reference tab has a number of its own now.
+- Unit Status: remembers the tab for each unit (contact) and opens it again when the unit is selected again, if available (option).
+- Unit Status: the Reference tab is shown for missiles and torpedoes too (their weapon page).
+- Unit Status: the Reference tab is also available for a contact of another side once its type is determined (the Unit Reference of that type; the Track State tab stays, before the Reference tab, which is always the last).
+- Menu and loading backgrounds: the replacement is installed at game start (the game's pictures were visible for 1-2 s). New option "Real photos as backgrounds" (this mod's own pictures, default on); when off and no other mod brings pictures, the game's own are shown whatever "Background pictures" says.
+- Desktop mode, new option "Other monitors for windows" (on by default): every other monitor works like the main one for windows (Monitor in the window's menu, remembered per desktop). The game's own second-monitor map and World View monitor are then not used. The backdrop picture is on them too; the Tactical Display and World View can be placed there as well.
+- Main menu background: new option, a slideshow of the background pictures (default, 15 s a picture; the video is not loaded then) or the game's video.
+- Event Log: the first click on a contact link only selects it, a repeated click on the same link also centres the Tactical Display on it.
+- Window menu: "Text outline" is replaced by "Text contrast" - grey texts become pure white or black with a halo, readable at high transparency; switches on by itself when the opacity goes below 50% (off above it), you can change it.
+- Desktop mode with the game's own World View monitor: the 3D view is no longer paused, the mouse works on that monitor.
+- Desktop mode, other monitors: a lighter camera on them (no G-buffer or depth texture of the game's rendering path).
+
+Version 1.8.2
+- Unit Status, Damage Control: the damage lists of the sections (flooding, fires, damaged systems) scroll with the mouse wheel (option).
+- Window opacity: the selection / hover colours of list, tree, tab and button items follow their state again and stay dimmed (the unit type tab of the Unit Reference that was selected before stayed red).
+
 Version 1.8.1
 - Binoculars at the maximum magnification start with the normal view instead of the night / thermal filter (by day only, optional); moved here from Alternative Special Effects.
 - Unit Reference: a Propulsion cell (engine type and power) for ships and submarines, after Max Speed.

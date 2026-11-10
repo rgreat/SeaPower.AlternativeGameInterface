@@ -19,7 +19,9 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _statusRef;
-        const int RefTabKind = 5;   // past the game's UnitStatusTab values (Engagement ... Seeker); 6 = Alternative Weapons Control's Weapons tab
+        // a Kind far past the game's UnitStatusTab values: the game's EnsureContent builds the content of a tab by its Kind, and a newer game build
+        // took 5 for its Supplies tab (our tab then showed the Supplies view model and no Reference); 6 = Alternative Weapons Control's Weapons tab
+        const int RefTabKind = 105;
 
         Type _ustType, _ustKind, _oivmType, _oivType, _weaponBaseType;
         FieldInfo _ustUnit;
@@ -30,6 +32,7 @@ namespace AlternativeGameInterface
             public object Tab;           // UnitStatusTabViewModel
             public object Vm, View;      // ObjectInformationViewModel / ObjectInformationView shown
             public int InnerTab = -1;    // SelectedTabIndex kept between units
+            public string ShownIni;      // the ini the content is made for (a unit's own or a contact's class)
         }
         static readonly ConditionalWeakTable<object, RefTab> RefTabs = new ConditionalWeakTable<object, RefTab>();
         readonly List<WeakReference> _refViews = new List<WeakReference>();   // views made, for the Replace button (RefTab objects)
@@ -63,7 +66,8 @@ namespace AlternativeGameInterface
                 return;
             }
             foreach (var c in ctor) harmony.Patch(c, postfix: Hm("StatusCreatedPostfix"));
-            harmony.Patch(sw, postfix: Hm("StatusSwitchPostfix"));
+            harmony.Patch(sw, prefix: Hm("StatusSwitchPrefix"), postfix: Hm("StatusSwitchPostfix"));
+            HookTabMemory(harmony, usvm);
             harmony.Patch(ens, postfix: Hm("StatusEnsurePostfix"));
             harmony.Patch(disp, prefix: Hm("StatusDisposePrefix"));
             var cv = _oivmType.GetMethod("ChangeVariant", inst);
@@ -107,13 +111,14 @@ namespace AlternativeGameInterface
             try { a.AddTrackTab(__instance); } catch (Exception e) { Trace("Track State tab: " + e); }
         }
 
-        static void StatusSwitchPostfix(object __instance)
+        static void StatusSwitchPostfix(object __instance, object __state)
         {
             var a = Active;
             if ((object)a == null) return;
-            try { a.UpdateRefTab(__instance); } catch (Exception e) { Trace("Reference tab: " + e); }
             try { a.TrackSwitch(__instance); } catch (Exception e) { Trace("Track State tab: " + e); }
+            try { a.UpdateRefTab(__instance); } catch (Exception e) { Trace("Reference tab: " + e); }   // after Track State: a contact's type
             try { a.FullUnitName(__instance); } catch (Exception e) { Trace("full unit name: " + e.Message); }
+            try { a.TabRestore(__instance, __state); } catch (Exception e) { Trace("remember tab: " + e.Message); }
         }
 
         /// <summary>FullUnitName: the unit's full name (DisplayNameFull) in the Unit Status header instead of the short one.</summary>
@@ -161,17 +166,95 @@ namespace AlternativeGameInterface
         bool RefAvailableFor(object unit)
         {
             if (!_statusRef.Value || unit == null) return false;
-            if (_weaponBaseType != null && _weaponBaseType.IsInstanceOfType(unit)) return false;
             var obp = unit.GetType().GetField("_obp", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             return obp != null && obp.GetValue(unit) != null;
+        }
+
+        static FieldInfo _vehClass;
+
+        /// <summary>The unit type of a contact (Vehicle) once it is determined: Vehicle.Class, the ini name the game itself shows the type of the
+        /// contact by (set when one class is left among the candidates, or when the identification is forced). Null while unknown.</summary>
+        static string ContactClassIni(object vehicle)
+        {
+            if (vehicle == null) return null;
+            try
+            {
+                var f = _vehClass ?? (_vehClass = vehicle.GetType().GetField("Class", BindingFlags.Instance | BindingFlags.Public));
+                var boxed = f == null ? null : f.GetValue(vehicle);   // Nullable<SourcedProperty<string>>: null while there is no value
+                if (boxed == null) return null;
+                var vf = boxed.GetType().GetField("Value", BindingFlags.Instance | BindingFlags.Public);
+                return vf == null ? null : vf.GetValue(boxed) as string;
+            }
+            catch { return null; }
+        }
+
+        /// <summary>What the Reference tab shows for the window's status: the unit's own ini, variant and loadout; for a contact of another side
+        /// (Track State's vehicle) the type the game has determined (the variant and loadout of the real object are not given away).
+        /// False: no Reference for it (option off, a weapon, an unknown type).</summary>
+        bool RefTarget(object status, out string ini, out int variant, out string loadout)
+        {
+            ini = null; variant = 0; loadout = null;
+            if (!_statusRef.Value) return false;
+            var unit = StatusUnit(status);
+            if (unit != null)
+            {
+                if (!RefAvailableFor(unit)) return false;
+                var iniM = unit.GetType().GetMethod("getObjectIniName", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
+                ini = iniM == null ? null : iniM.Invoke(unit, null) as string;
+                try { if (_refVariantIndex != null) variant = (int)_refVariantIndex.Invoke(null, new[] { unit }); } catch { }
+                try { if (_refLoadout != null) loadout = _refLoadout.Invoke(null, new[] { unit }) as string; } catch { }
+                return !string.IsNullOrEmpty(ini);
+            }
+            TrackTab tt;
+            if (!TrackTabs.TryGetValue(status, out tt) || tt.Vehicle == null) return false;
+            ini = ContactClassIni(tt.Vehicle);
+            return !string.IsNullOrEmpty(ini);
+        }
+
+        // The type of a contact becomes known while it is selected: the contact's own Updated event (not a poll) tells when it changes.
+        void WatchContact(object status, TrackTab tt)
+        {
+            if (ReferenceEquals(tt.UpdFor, tt.Vehicle)) return;
+            UnwatchContact(tt);
+            var v = tt.Vehicle;
+            if (v == null) return;
+            try
+            {
+                var ev = v.GetType().GetEvent("Updated", BindingFlags.Instance | BindingFlags.Public);
+                if (ev == null) return;
+                tt.LastIni = ContactClassIni(v);
+                var wr = new WeakReference(status);
+                EventHandler<EventArgs> h = (snd, args) => { var st = wr.Target; if (st != null) ContactUpdated(st, tt); };
+                ev.AddEventHandler(v, h);
+                tt.Upd = h; tt.UpdFor = v;
+            }
+            catch (Exception e) { Trace("Reference tab: watching the contact: " + e.Message); }
+        }
+
+        void UnwatchContact(TrackTab tt)
+        {
+            if (tt.Upd == null) return;
+            try { tt.UpdFor.GetType().GetEvent("Updated", BindingFlags.Instance | BindingFlags.Public).RemoveEventHandler(tt.UpdFor, tt.Upd); } catch { }
+            tt.Upd = null; tt.UpdFor = null; tt.LastIni = null;
+        }
+
+        void ContactUpdated(object status, TrackTab tt)
+        {
+            var ini = ContactClassIni(tt.Vehicle);
+            if (string.Equals(ini, tt.LastIni, StringComparison.Ordinal)) return;
+            tt.LastIni = ini;
+            try { UpdateRefTab(status); } catch (Exception e) { Trace("Reference tab: " + e); }
         }
 
         void UpdateRefTab(object status)
         {
             RefTab rt;
             if (!RefTabs.TryGetValue(status, out rt)) return;
-            bool avail = RefAvailableFor(StatusUnit(status));
+            string ini, loadout; int variant;
+            bool avail = RefTarget(status, out ini, out variant, out loadout);
             SetV(rt.Tab, "IsAvailable", avail);
+            // the content was made for another unit / type (a contact selected after another one, its type determined meanwhile): made again
+            if (rt.Vm != null && (!avail || !string.Equals(rt.ShownIni, ini, StringComparison.Ordinal))) DropRefContent(status);
             if (!avail && GetB(rt.Tab, "IsSelected") && _ustSelectFirst != null)
             {
                 SetV(rt.Tab, "IsSelected", false);
@@ -183,22 +266,23 @@ namespace AlternativeGameInterface
         {
             RefTab rt;
             if (!RefTabs.TryGetValue(status, out rt) || !ReferenceEquals(rt.Tab, tab)) return;
-            if (!GetB(tab, "IsAvailable") || GetB(tab, "HasContentError") || Get(tab, "Content") != null) return;
-            var unit = StatusUnit(status);
-            if (!RefAvailableFor(unit)) return;
+            if (!GetB(tab, "IsAvailable") || GetB(tab, "HasContentError") || Get(tab, "Content") != null)
+            {
+                if (GetB(tab, "IsSelected")) RefWhy(status, "not made: available " + GetB(tab, "IsAvailable") + ", content error " + GetB(tab, "HasContentError") + ", content " + (Get(tab, "Content") == null ? "none" : Get(tab, "Content").GetType().Name));
+                return;
+            }
+            string ini, loadout; int variant;
+            if (!RefTarget(status, out ini, out variant, out loadout)) { RefWhy(status, "not made: no target (" + (StatusUnit(status) == null ? "no unit, contact type unknown or none" : StatusUnit(status).GetType().Name) + ")"); return; }
             try
             {
-                var iniM = unit.GetType().GetMethod("getObjectIniName", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
-                var ini = iniM == null ? null : iniM.Invoke(unit, null) as string;
-                if (string.IsNullOrEmpty(ini)) return;
-                int variant = 0;
-                string loadout = null;
-                try { if (_refVariantIndex != null) variant = (int)_refVariantIndex.Invoke(null, new[] { unit }); } catch { }
-                try { if (_refLoadout != null) loadout = _refLoadout.Invoke(null, new[] { unit }) as string; } catch { }
                 var mgv = GameAssembly().GetType("SeapowerUI.MainGameView");
                 var ctx = mgv == null ? null : mgv.GetField("Instance", BindingFlags.Static | BindingFlags.Public).GetValue(null);
                 // (context, initialIniRef, initialVariantIndex, showTree, initialLoadoutVariant)
-                var vm = Activator.CreateInstance(_oivmType, ctx, ini, variant, false, loadout);
+                object vm;
+                var wEntry = WeaponEntryOf(ini);
+                // a missile / torpedo / gun round has no unit entry (ResolveUnitEntry finds only units): its page is a weapon entry, as the game opens it for a weapon
+                if (wEntry != null) vm = Activator.CreateInstance(_oivmType.Assembly.GetType("SeapowerUI.ViewModels.ObjectWeaponInformationViewModel"), ctx, wEntry);
+                else vm = Activator.CreateInstance(_oivmType, ctx, ini, variant, false, loadout);
                 if (rt.InnerTab > 0)
                 {
                     SetV(vm, "SelectedTabIndex", rt.InnerTab);
@@ -208,6 +292,7 @@ namespace AlternativeGameInterface
                 SetV(view, "DataContext", vm);
                 rt.Vm = vm;
                 rt.View = view;
+                rt.ShownIni = ini;
                 SetV(tab, "Content", view);
                 lock (_refViews) { _refViews.RemoveAll(w => !w.IsAlive); _refViews.Add(new WeakReference(rt)); }
                 Verbose("Reference tab: " + ini + " #" + variant + (string.IsNullOrEmpty(loadout) ? "" : " [" + loadout + "]"));
@@ -219,6 +304,32 @@ namespace AlternativeGameInterface
                 SetV(tab, "Content", null);
                 SetV(tab, "ContentError", "The unit reference could not be opened for the selected unit.");
             }
+        }
+
+        /// <summary>The encyclopedia's weapon entry (MuseumWeaponEntry) with this ini, when the ini is not a unit's.</summary>
+        object WeaponEntryOf(string ini)
+        {
+            try
+            {
+                var asm = _oivmType.Assembly;
+                var edm = asm.GetType("SeaPower.EncyclopedicDataManager");
+                var inst = asm.GetType("SeaPower.Singleton`1").MakeGenericType(edm).GetProperty("Instance", BindingFlags.Static | BindingFlags.Public).GetValue(null, null);
+                if (inst == null) return null;
+                var unitEntry = _oivmType.GetMethod("ResolveUnitEntry", BindingFlags.Static | BindingFlags.Public).Invoke(null, new object[] { ini, 0, null });
+                if (unitEntry != null) return null;
+                var list = edm.GetProperty("WeaponMuseumEntries").GetValue(inst, null) as IEnumerable;
+                if (list == null) return null;
+                foreach (var e in list) if (string.Equals(Get(e, "IniRef") as string, ini, StringComparison.OrdinalIgnoreCase)) return e;
+            }
+            catch (Exception e) { Trace("Reference tab: weapon entry: " + e.Message); }
+            return null;
+        }
+
+        static readonly HashSet<string> RefWhySeen = new HashSet<string>();
+        /// <summary>The reason the selected Reference tab got no content: once per reason (the tab is checked on every refresh).</summary>
+        static void RefWhy(object status, string why)
+        {
+            if (RefWhySeen.Add(why)) Trace("Reference tab: " + why);
         }
 
         void DropRefContent(object status)
@@ -263,12 +374,13 @@ namespace AlternativeGameInterface
             if (status == null || !RefTabs.TryGetValue(status, out rt)) return;
             bool selected = GetB(rt.Tab, "IsSelected") && GetB(rt.Tab, "IsAvailable");
             var view = rt.View as Noesis.UIElement;
+            if (GetB(rt.Tab, "IsSelected") && view == null) RefWhy(status, "selected, but no view made (available " + GetB(rt.Tab, "IsAvailable") + ")");
 
             if (rh.Host == null || Noesis.VisualTreeHelper.GetParent(rh.Host) == null)
             {
                 if (!selected || view == null) return;
                 var vp = Noesis.VisualTreeHelper.GetParent(view);
-                if (vp != null) return;   // the game shows it
+                if (vp != null) { RefWhy(status, "the view already has a parent (" + vp.GetType().Name + "): no host added"); return; }   // the game shows it
                 rh.Host = MakeRefHost(usv, status);
                 if (rh.Host == null) { rh.Failed = true; return; }
             }

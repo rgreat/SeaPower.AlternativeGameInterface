@@ -18,15 +18,17 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<bool> _logCenter, _logLinks;
+        WeakReference _lastLogObj;
         static readonly ConditionalWeakTable<object, object> LogHooked = new ConditionalWeakTable<object, object>();
+        static readonly ConditionalWeakTable<object, object> LogOther = new ConditionalWeakTable<object, object>();   // windows that are not the Event Log
 
         void BindEventLogConfig()
         {
             _logLinks = Config.Bind("EventLog", "AllTracksAreLinks", true,
                 "Every track number in the Event Log is a link, as the ones the game makes itself (New contact, Track classified, Track faded and the like are plain text in the game): " +
-                "a click selects the object, with CenterMapOnClick the map is centred on it. Only tracks of the player's own list are linked.");
+                "a click selects the object, with CenterMapOnClick a repeated click centres the map on it. Only tracks of the player's own list are linked.");
             _logCenter = Config.Bind("EventLog", "CenterMapOnClick", true,
-                "A click on a contact or unit link in the Event Log also centres the Tactical Display map on it (the game itself switches the 3D camera to it).");
+                "A repeated click on the same contact or unit link in the Event Log centres the Tactical Display map on it (the first click only selects it, as in the game).");
         }
 
         // ---------------------------------------------------------------- every track number is a link
@@ -170,9 +172,14 @@ namespace AlternativeGameInterface
         void EventLogStep(object w)
         {
             object done;
-            if (LogHooked.TryGetValue(w, out done)) return;
+            if (LogHooked.TryGetValue(w, out done) || LogOther.TryGetValue(w, out done)) return;
             var el = w as UIElement;
-            if (el == null || !IsEventLogWindow(w)) return;
+            if (el == null) return;
+            if (!IsEventLogWindow(w))
+            {
+                if (Get(w, "DataContext") != null) LogOther.Add(w, w);   // it is another window: not asked again (a window without its view model yet is)
+                return;
+            }
             LogHooked.Add(w, this);
             el.AddHandler(Hyperlink.ClickEvent, new RoutedEventHandler(OnLogLinkClick));
             Trace("event log: clicks on links centre the map");
@@ -184,15 +191,18 @@ namespace AlternativeGameInterface
             try
             {
                 var link = e.Source as Hyperlink;
-                if (link == null) return;
+                if (link == null) { Trace("event log click: source is " + (e.Source == null ? "null" : e.Source.GetType().Name)); return; }
                 var alert = Get(link, "DataContext");
-                if (alert == null || alert.GetType().Name != "Alert") return;
+                if (alert == null || alert.GetType().Name != "Alert") { Trace("event log click: data context is " + (alert == null ? "null" : alert.GetType().Name)); return; }
                 var cmd = link.Command;
                 object obj = null;
                 if (cmd != null && ReferenceEquals(cmd, Get(alert, "SelectRaisingObject"))) obj = Get(alert, "RaisingObject");
                 else if (cmd != null && ReferenceEquals(cmd, Get(alert, "SelectAboutObject"))) obj = Get(alert, "AboutObject");
-                if (obj == null) return;
-                CenterMapOn(obj);
+                if (obj == null) { Trace("event log click: the link's command is not the alert's select command"); return; }
+                // the first click only selects (the game's own command); a click on the same object again centres the map on it
+                var last = _lastLogObj == null ? null : _lastLogObj.Target;
+                _lastLogObj = new WeakReference(obj);
+                if (ReferenceEquals(last, obj)) CenterMapOn(obj);
             }
             catch (Exception ex) { Trace("event log click: " + ex.Message); }
         }
@@ -210,12 +220,13 @@ namespace AlternativeGameInterface
             var getVeh = tObj.GetMethod("GetMapVehicle", all);
             var getPos = tObj.GetMethod("GetMapPositionForTaskforce", all);
             if (tfv == null || getVeh == null || getPos == null) return;
-            if (getVeh.Invoke(obj, new[] { tfv }) == null && !GetB(obj, "IsPlayerObject")) { Verbose("event log: no track of the clicked object, the map stays"); return; }
+            if (getVeh.Invoke(obj, new[] { tfv }) == null && !GetB(obj, "IsPlayerObject")) { Trace("event log click: no track of the clicked object, the map stays"); return; }
             var pos = getPos.Invoke(obj, new object[] { tfv, Activator.CreateInstance(getPos.GetParameters()[1].ParameterType), false });
+            int done = 0;
             foreach (var t in _tracked)
             {
                 var w = t.Ref.Target;
-                if (w == null) continue;
+                if (w == null || !GetB(w, "IsLoaded")) continue;                  // a closed window of an earlier open is not the map on the screen
                 var dc = Get(w, "DataContext");
                 if (dc == null || dc.GetType().Name != "SceneMapViewModel") continue;
                 var map = FindMapBase(w, 0);
@@ -224,8 +235,9 @@ namespace AlternativeGameInterface
                 var loc = Activator.CreateInstance(locT, new[] { pos });
                 var tc = Prop(map, "TargetCenter");
                 if (tc != null) tc.SetValue(map, loc, null); else SetV(map, "Center", loc);
-                return;
+                done++;
             }
+            if (done == 0) Trace("event log click: no Tactical Display window to centre");
         }
     }
 }

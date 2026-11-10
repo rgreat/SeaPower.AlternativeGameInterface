@@ -28,7 +28,7 @@ namespace AlternativeGameInterface
         static WeakReference _wvWin, _wvView;                  // the World View window, its Pip3DView element
         static FieldInfo _cmCamera; static MethodInfo _cmSetRects, _cmRequest;
         static bool _mapRectSelf;
-        static float[] _wvPx;                                   // the World View picture on the screen, pixels, top left origin
+        static int _wvDisp; static float[] _wvPx;                                   // the World View picture on the screen, pixels, top left origin
         static UnityEngine.Rect _wvRectNow; static int _wvAlive; static bool _mapDownInside;
         static FieldInfo _mcsState;
         // WindowedMapRenderToTexture: the cameras render into _rtCam (the window's pixel size, or bigger with supersampling), _rtShown is what the element draws
@@ -54,7 +54,7 @@ namespace AlternativeGameInterface
 
         static PropertyInfo _hudProp; static bool _photoApplied;
         /// <summary>The HUD is hidden (Backspace: the game's photo mode; also the console, the briefing): the 3D view is shown on the whole screen.</summary>
-        static bool PhotoMode() { return MapOn() && HudHidden(); }
+        static bool PhotoMode() { return MapOn() && HudHidden() && _wvDisp == 0; }
 
         static bool HudHidden()
         {
@@ -292,10 +292,10 @@ namespace AlternativeGameInterface
                 Trace("backdrop camera removed");
             }
             // the mission is over / the option is off: the cameras go back to the screen and the textures are freed (also with no backdrop)
-            if (!want && (_rtCam != null || _rtShown != null || _photoApplied))
+            if (!want && (_rtCam != null || _rtShown != null || _photoApplied) || want && _rtCam != null && WorldDetachedNow())
             {
                 try { MapRtRelease(CmInst()); } catch { }
-                _photoApplied = false; _wvPx = null; _wvView = null;
+                _photoApplied = false; _wvPx = null; _wvView = null; _wvDisp = 0;
             }
         }
 
@@ -338,6 +338,8 @@ namespace AlternativeGameInterface
 
         static bool MapOn() { var a = Active; return (object)a != null && a._windowedMap != null && a._windowedMap.Value; }
 
+        static bool WorldDetachedNow() { try { var vm = MainVm(); return vm != null && SGetB(vm, "WorldViewDetached"); } catch { return false; } }
+
         /// <summary>The one who called the patched method (frame 3: 0 = Caller itself, 1 = the prefix, 2 = the patched method): the game's binding machinery
         /// (a compiler-made closure / PropertyAccessor) or the game's own code.</summary>
         static string Caller(int skip)
@@ -373,6 +375,7 @@ namespace AlternativeGameInterface
             {
                 var vm = MainVm();
                 if (vm == null) return;
+                if (SGetB(vm, "WorldViewDetached")) return;      // the game's World View monitor: the cameras render there, whatever the window says
                 if (_showPipProp == null) _showPipProp = vm.GetType().GetProperty("ShowPip3D");
                 paused = !((bool)_showPipProp.GetValue(vm, null) || PhotoMode());
             }
@@ -450,12 +453,18 @@ namespace AlternativeGameInterface
         static bool MapRemapPrefix(UnityEngine.Vector3 mousePos, ref UnityEngine.Vector3 __result)
         {
             if (!MapOn()) return true;
+            if (WorldDisplayMouse()) return true;      // the mouse is on the monitor the game shows the World View on: its own mapping
             if (PhotoMode()) { __result = mousePos; return false; }
             if (MapOn() && _rtCam != null && _wvPx != null && _wvPx[2] > _wvPx[0] && _wvPx[3] > _wvPx[1])
             {
                 // the camera renders into a texture: the mouse in pixels of that texture (bottom left origin)
-                float u = (mousePos.x - _wvPx[0]) / (_wvPx[2] - _wvPx[0]);
-                float v = ((UnityEngine.Screen.height - mousePos.y) - _wvPx[1]) / (_wvPx[3] - _wvPx[1]);
+                float mx = mousePos.x, my = UnityEngine.Screen.height - mousePos.y;
+                if (_wvDisp > 0)
+                {
+                    try { var rel = UnityEngine.Display.RelativeMouseAt(mousePos); mx = rel.x; my = UnityEngine.Display.displays[_wvDisp].renderingHeight - rel.y; } catch { }
+                }
+                float u = (mx - _wvPx[0]) / (_wvPx[2] - _wvPx[0]);
+                float v = (my - _wvPx[1]) / (_wvPx[3] - _wvPx[1]);
                 __result = new UnityEngine.Vector3(u * _rtCam.width, (1f - v) * _rtCam.height, mousePos.z);
                 return false;
             }
@@ -503,7 +512,8 @@ namespace AlternativeGameInterface
                 if (aw < 4f || ah < 4f) return;
                 var p0 = fe.PointToScreen(new Noesis.Point(0f, 0f));
                 var p1 = fe.PointToScreen(new Noesis.Point(aw, ah));
-                float sw = UnityEngine.Screen.width, sh = UnityEngine.Screen.height;
+                float sw, sh; DisplaySize(fe, out sw, out sh);
+                _wvDisp = DisplayOf(fe);
                 float l = Math.Min(p0.X, p1.X), r = Math.Max(p0.X, p1.X), t = Math.Min(p0.Y, p1.Y), b = Math.Max(p0.Y, p1.Y);
                 // the whole window area (also the part off the screen): the texture is made for it, the mouse is mapped by it
                 if (_wvPx == null) _wvPx = new float[4];
@@ -543,10 +553,11 @@ namespace AlternativeGameInterface
         static bool HitIsWorld(Noesis.Visual win, out Noesis.DependencyObject hit)
         {
             hit = null;
-            var mp = UnityEngine.Input.mousePosition;
+            float px, py;
+            if (!PointerOn(DisplayOf(win), out px, out py)) return false;
             var root = Noesis.VisualTreeHelper.GetRoot(win) as Noesis.Visual;
             if (root == null) return false;
-            var pt = root.PointFromScreen(new Noesis.Point(mp.x, UnityEngine.Screen.height - mp.y));
+            var pt = root.PointFromScreen(new Noesis.Point(px, py));
             hit = Noesis.VisualTreeHelper.HitTest(root, pt).VisualHit;
             for (Noesis.DependencyObject d = hit; d != null; d = Noesis.VisualTreeHelper.GetParent(d))
             {
@@ -596,6 +607,7 @@ namespace AlternativeGameInterface
         static void GameMouseFix(object mcs)
         {
             var a = Active; if ((object)a == null || HudHidden() || MainVm() == null) return;
+            if (MouseDisplay() > 0 || WorldDisplayMouse()) return;      // the mouse is on another monitor (the game's second map / World View): the game decides
             var view = a.MainGameViewInstance() as Noesis.Visual;
             var root = view == null ? null : Noesis.VisualTreeHelper.GetRoot(view) as Noesis.Visual;
             if (root == null) return;
@@ -621,26 +633,41 @@ namespace AlternativeGameInterface
         static void MapMouseStatePostfix(object __instance)
         {
             if (!MapOn()) { try { GameMouseFix(__instance); } catch { } return; }
+            if (WorldDisplayMouse()) return;      // the mouse is on the monitor with the game's World View: the game decides
+            if (Monitors.Count > 0 && MouseDisplay() > 0 && MouseDisplay() != _wvDisp) { ForceUi(__instance); return; }      // another monitor of ours: only windows are there
             if (PhotoMode()) return;     // photo mode: the whole screen is the 3D view
             try
             {
                 var mp = UnityEngine.Input.mousePosition;
-                float sw = UnityEngine.Screen.width, sh = UnityEngine.Screen.height;
                 // no World View picture (closed): no mouse in the 3D world at all
-                bool alive = UnityEngine.Time.frameCount - _wvAlive <= 2 && _wvRectNow.width > 0f;
-                bool inside = alive && mp.x >= _wvRectNow.x * sw && mp.x <= (_wvRectNow.x + _wvRectNow.width) * sw && mp.y >= _wvRectNow.y * sh && mp.y <= (_wvRectNow.y + _wvRectNow.height) * sh;
+                bool alive = UnityEngine.Time.frameCount - _wvAlive <= 2 && _wvRectNow.width > 0f && _wvPx != null;
+                float px, py;
+                bool inside = alive && PointerOn(_wvDisp, out px, out py) && px >= _wvPx[0] && px <= _wvPx[2] && py >= _wvPx[1] && py <= _wvPx[3];
                 bool down = UnityEngine.Input.GetMouseButtonDown(0) || UnityEngine.Input.GetMouseButtonDown(1) || UnityEngine.Input.GetMouseButtonDown(2);
                 bool over = OverWorld(inside, down);       // the picture, not a window over it or a thumb: resizing a window must not rotate the camera too
                 if (down) _mapDownInside = over;
                 bool held = UnityEngine.Input.GetMouseButton(0) || UnityEngine.Input.GetMouseButton(1) || UnityEngine.Input.GetMouseButton(2);
                 if (held ? _mapDownInside : over) { MapOverlayIsWorld(__instance); return; }
-                _mcsState.SetValue(__instance, Enum.Parse(_mcsState.FieldType, "UI"));
-                var cmT = _cmCamera.DeclaringType;
-                var gt = cmT.Assembly.GetType("SeaPower.Singleton`1").MakeGenericType(cmT);
-                var cm = gt.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic).GetValue(null, null);
-                if (cm != null) cmT.GetMethod("setMouseInteractionFlag").Invoke(cm, new object[] { false });
+                ForceUi(__instance);
             }
             catch { }
+        }
+
+        /// <summary>The mouse state is UI and the camera ignores the mouse.</summary>
+        static void ForceUi(object mcs)
+        {
+            _mcsState.SetValue(mcs, Enum.Parse(_mcsState.FieldType, "UI"));
+            var cmT = _cmCamera.DeclaringType;
+            var gt = cmT.Assembly.GetType("SeaPower.Singleton`1").MakeGenericType(cmT);
+            var cm = gt.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic).GetValue(null, null);
+            if (cm != null) cmT.GetMethod("setMouseInteractionFlag").Invoke(cm, new object[] { false });
+        }
+
+        /// <summary>CameraManager.MouseOnWorldDisplay: the mouse is on the display the game shows the World View on (the game's own monitor setting).</summary>
+        static bool WorldDisplayMouse()
+        {
+            try { var cm = CmInst(); return cm != null && SGetB(cm, "MouseOnWorldDisplay"); }
+            catch { return false; }
         }
 
         // Tab: no fullscreen flip (the order of the two windows is changed by a click)

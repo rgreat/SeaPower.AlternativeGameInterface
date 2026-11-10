@@ -45,7 +45,8 @@ namespace AlternativeGameInterface
                 float ks = ScreenScale(fe);
                 if (ks > 0f)
                 {
-                    float ww = UnityEngine.Screen.width / ks, hh = UnityEngine.Screen.height / ks;
+                    float dw, dh; DisplaySize(fe, out dw, out dh);
+                    float ww = dw / ks, hh = dh / ks;
                     if (!fs.On) { fs.Orig = fe.Margin; fs.On = true; }
                     if (Math.Abs(fe.Width - ww) > 0.5f || Math.Abs(fe.Height - hh) > 0.5f || !float.IsNaN(fe.MaxWidth) && fe.MaxWidth < ww)
                     {
@@ -67,7 +68,7 @@ namespace AlternativeGameInterface
                 b = panel.PointToScreen(new Point(panel.ActualWidth - ins[2], panel.ActualHeight - ins[3]));
             }
             catch { return; }
-            float sw = UnityEngine.Screen.width, sh = UnityEngine.Screen.height;
+            float sw, sh; DisplaySize(panel, out sw, out sh);
             float k = ScreenScale(panel);
             if (k <= 0f) return;
             // the body must lie in [0, sw] x [0, sh]: overflow per side in UI units (negative: room to give back)

@@ -27,7 +27,7 @@ namespace AlternativeGameInterface
                 "(the Information window of the contact: status, confidence, detections, signatures) instead of staying empty.");
         }
 
-        const int TrackTabKind = 7;   // 5 = Reference, 6 = Alternative Weapons Control's Weapons tab
+        const int TrackTabKind = 107;   // far past the game's values (see RefTabKind); 105 = Reference, 6 = Alternative Weapons Control's Weapons tab
 
         sealed class TrackTab
         {
@@ -38,6 +38,7 @@ namespace AlternativeGameInterface
             public bool TookOver;              // this mod set HasUnit / the name, not the game or another mod
             public Noesis.Border Host;
             public bool Failed;
+            public Delegate Upd; public object UpdFor; public string LastIni;   // the contact's Updated handler (the Reference tab follows its type)
         }
         static readonly ConditionalWeakTable<object, TrackTab> TrackTabs = new ConditionalWeakTable<object, TrackTab>();
         static readonly ConditionalWeakTable<object, object> TrackHostFailed = new ConditionalWeakTable<object, object>();
@@ -94,7 +95,8 @@ namespace AlternativeGameInterface
             if (tabs == null) return;
             var tab = Activator.CreateInstance(_ustType, status, Enum.ToObject(_ustKind, TrackTabKind), Loc.T("tab.track"));
             SetV(tab, "IsAvailable", false);
-            tabs.Add(tab);
+            RefTab rt; int at = RefTabs.TryGetValue(status, out rt) ? tabs.IndexOf(rt.Tab) : -1;
+            if (at >= 0) tabs.Insert(at, tab); else tabs.Add(tab);   // the Reference tab stays the last one
             TrackTabs.Add(status, new TrackTab { Tab = tab });
         }
 
@@ -111,18 +113,19 @@ namespace AlternativeGameInterface
                 bool changed = !ReferenceEquals(tt.Vehicle, contact);
                 if (changed) TrackDrop(tt);
                 tt.Vehicle = contact;
+                WatchContact(status, tt);
                 if (!GetB(status, "HasUnit"))
                 {
                     tt.TookOver = true;
                     SetV(status, "HasUnit", true);
                     if (eng != null) { SetV(eng, "IsSelected", false); SetV(eng, "IsAvailable", false); }
                     SetV(tt.Tab, "IsAvailable", true);
-                    SetV(tt.Tab, "IsSelected", true);
+                    SelectOnly(status, tt.Tab);
                 }
                 else
                 {
                     SetV(tt.Tab, "IsAvailable", true);
-                    if (tt.TookOver && changed) SetV(tt.Tab, "IsSelected", true);
+                    if (tt.TookOver && changed) SelectOnly(status, tt.Tab);
                 }
                 var nm = Get(contact, "DisplayNameShort") as string;
                 if (tt.TookOver && !string.IsNullOrEmpty(nm)) SetV(status, "UnitName", nm);
@@ -132,6 +135,7 @@ namespace AlternativeGameInterface
             bool wasSelected = GetB(tt.Tab, "IsSelected");
             TrackDrop(tt);
             tt.Vehicle = null;
+            UnwatchContact(tt);
             SetV(tt.Tab, "IsSelected", false);
             SetV(tt.Tab, "IsAvailable", false);
             if (tt.TookOver)
@@ -148,6 +152,14 @@ namespace AlternativeGameInterface
             else if (wasSelected && _ustSelectFirst != null) Invoke(_ustSelectFirst, status);
         }
 
+        /// <summary>The tab selected and every other one not (the Reference tab, available for a contact too, may have been the selected one).</summary>
+        void SelectOnly(object status, object tab)
+        {
+            var tabs = Get(status, "Tabs") as IList;
+            if (tabs != null) foreach (var o in tabs) if (!ReferenceEquals(o, tab) && GetB(o, "IsSelected")) SetV(o, "IsSelected", false);
+            SetV(tab, "IsSelected", true);
+        }
+
         void TrackDrop(TrackTab tt)
         {
             if (tt.Host != null) tt.Host.Child = null;
@@ -160,7 +172,7 @@ namespace AlternativeGameInterface
         void DropTrackContent(object status)
         {
             TrackTab tt;
-            if (TrackTabs.TryGetValue(status, out tt)) TrackDrop(tt);
+            if (TrackTabs.TryGetValue(status, out tt)) { TrackDrop(tt); UnwatchContact(tt); }
         }
 
         /// <summary>Each frame for a window on screen: if it is a Unit Status window, show / hide our host of the Track State tab.</summary>

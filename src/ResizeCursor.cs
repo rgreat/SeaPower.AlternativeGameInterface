@@ -107,6 +107,7 @@ namespace AlternativeGameInterface
         {
             try
             {
+                if (!CursorViewAllowed(view)) return;
                 string name = cursor.Type != Noesis.CursorType.Custom ? cursor.Type.ToString() : (cursor.Filename == null ? null : cursor.Filename.OriginalString);
                 KeyValuePair<UnityEngine.Texture2D, UnityEngine.Vector2> gc;
                 if ((name != null && _gameCursors.TryGetValue(name.ToLowerInvariant(), out gc)) || _gameCursors.TryGetValue("default", out gc))
