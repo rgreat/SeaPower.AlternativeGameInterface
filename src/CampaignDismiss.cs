@@ -58,6 +58,7 @@ namespace AlternativeGameInterface
             {
                 // what the game checked before the damage: not an airbase unit, not a historical campaign, not destroyed
                 if (!string.IsNullOrWhiteSpace(a.Get(item, "CampaignAirbaseId") as string) || a.GetB(__instance, "UsesHistoricalReinforcements") || a.GetB(item, "IsAirUnit")) return;
+                if (IsFlagship(item)) return;   // 0.9.0: the flagship is never dismissed
                 var gl = __instance.GetType().GetMethod("GetLogisticsState", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 var ls = gl == null ? null : gl.Invoke(__instance, new[] { item });
                 if (ls == null || a.GetB(ls, "IsDestroyed")) return;
@@ -65,6 +66,20 @@ namespace AlternativeGameInterface
                 if (a.RepairInfo(__instance, item, out repairable, out cost) && repairable) __result = true;
             }
             catch (Exception e) { Trace("DismissDamaged (CanDismiss): " + e.Message); }
+        }
+
+        static MethodInfo _isFlagship; static bool _isFlagshipTried;
+
+        /// <summary>LinearCampaignForceFlagship.IsFlagship(item) (0.9.0; absent before - then no unit is a flagship).</summary>
+        static bool IsFlagship(object item)
+        {
+            if (!_isFlagshipTried)
+            {
+                _isFlagshipTried = true;
+                var t = item.GetType().Assembly.GetType("SeapowerUI.ViewModels.LinearCampaignForceFlagship");
+                _isFlagship = t == null ? null : t.GetMethod("IsFlagship", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic, null, new[] { item.GetType() }, null);
+            }
+            return _isFlagship != null && (bool)_isFlagship.Invoke(null, new[] { item });
         }
 
         static void DismissRefundPostfix(object __instance, object item, ref int __result)

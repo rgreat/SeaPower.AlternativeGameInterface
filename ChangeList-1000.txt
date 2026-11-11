@@ -8,4 +8,5 @@ Version 1.9.0
 - Unit Status: the tab is kept per unit.
 - Window menu: "Text outline" became "Text contrast" (switches on by itself below 50% opacity, changeable).
 - Unit Reference: "Source" drop-down by the search box - show units of chosen mods / the base game.
+- Ready for Sea Power 0.9.0 (no "incompatible mod" warning; the mission timer moves with the time panel).
 - Event Log: a repeated click on the same link centres the map.

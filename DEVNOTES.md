@@ -44,7 +44,7 @@ thumbnail.jpg берётся из клона репозитория.
 (напоминание stop-hook о незакоммиченном — молча пропускать).
 
 ## Совместимость с версиями игры
-Поддерживаются Sea Power 0.8.6 (`_info.ini` ApproximateVersion=0.8.6; README и README.BBCode — тоже).
+Поддерживаются Sea Power 0.8.6 - 0.9.0 (`_info.ini` GreaterThanEqualToVersion=0.8.6, до 1.9.0 - ApproximateVersion=0.8.6; README и README.BBCode — тоже).
 `ModCompatibility.Matches` → `SemanticVersion.ApproximatelyEquals`: тот же Major.Minor и Patch ≥ указанного.
 Несовместимому моду игра не скачивает обновления из Workshop (`FileManager.CheckForUpdates`) → нижнюю границу не поднимать
 без нужды. **Правило пользователя: если правка ломает работу мода на 0.8.3–0.8.4 (новые методы/типы игры, изменённые
@@ -698,3 +698,21 @@ Harmony's patch runs the type's static constructor, which registers a routed eve
 
 ## Enabling in the Mods menu needs a restart (2026-11-11)
 Anchor Chain (with its Beta Compatibility preloader) loads the DLLs of **ticked** mod folders only ("original mod code will be loaded only from checked directories"). A mod that is unticked at game start is not loaded at all (LogOutput.log lists no "Loaded assembly AlternativeGameInterface"), so nothing in the plugin runs and ticking it later (Apply only reloads scene 0) cannot start it: the game must be restarted. Turning it OFF at run time works (the plugin follows the tick and goes idle). The comment in AnchorChainEntry ("started even when unticked") is only true for older Anchor Chain versions. Not fixable in the mod.
+
+## Sea Power 0.9.0 - compatibility review (2026-11-12, mod 1.9.0, nothing changed in the source yet)
+Compared: decompiled 0.9.0 (`Seapower-Scripts.dll`, `Noesis.NoesisGUI.dll` from GameFiles) against the 0.8.7 builds, and the 0.9.0 XAML against the 0.8.7 XAML. Every game type and member name the mod reflects still exists; no patched method changed its parameters in a way that breaks a patch.
+
+Fixed on 2026-11-12 (1.9.0): `_info.ini` -> `GreaterThanEqualToVersion=0.8.6`; `IsFlagship` check in `CanDismissPostfix` (CampaignDismiss.cs); `MoveTimeFollowers` in TimePanel.cs (the other children of the time Canvas get the panel's Canvas.Right and its Canvas.Top added to their own top margin, their Top binding stays). The findings:
+* `Release/_info.ini` has `ApproximateVersion=0.8.6` (rule: same major.minor, patch not lower). On 0.9.0 it fails: `FileManager.CheckCompatibility` shows the "incompatible mods" warning at start (Disable mods / Ignore), and `CheckForUpdates` does not download Workshop updates of a mod whose metadata fails the check. Use `GreaterThanEqualToVersion=0.8.6` (the key exists in 0.8.6 / 0.8.7 / 0.9.0). The same line is in ADM, AWC, ASE.
+* DismissDamaged: 0.9.0 `CanDismiss` also refuses the flagship (`LinearCampaignForceFlagship.IsFlagship(item)`); `CanDismissPostfix` repeats the airbase / historical checks but not this one, so a damaged flagship becomes dismissable. Add the flagship check (type is absent before 0.9.0).
+* Time panel (TimePanel.cs): `TimeCompressionView.xaml` got a second Canvas child - the mission timer Border (Canvas.Right=0, Top = height of the controls, RenderTransform bound to the controls). The mod moves the controls Grid by Canvas.Top / Canvas.Right, so the timer stays in the corner when the panel is dragged.
+
+Works, behaviour to know:
+* Tactical map rewritten (`MapInstance`, `MapRegistry`, `MapTerrainBackground`, geometry store instead of XAML shapes, orthographic projection, shared `MapDrawingLayer`). The map world is built when a `MapBase` is loaded and released when it is unloaded: closing / reopening the Tactical Display or moving it to another monitor rebuilds it. Still a RenderTexture, so it shows in any NoesisView. Main map renders only while `UiCamera.enabled` (HostVisible). `MapBase.ZoomLevel / TargetZoomLevel`, `MapViewModel.Center` are there (KeepMapView, EventLogMap). The pending "GizmoHost drawing duplicates" fix is probably obsolete (drawings are no longer per-view XAML) - check in game.
+* `MainGameViewModel` takes the host from `RootControl.FindName("WindowHost")` (as 0.8.6); `WindowHostManager.CurrentHost` still exists. `MainHost()` covers both.
+* NoesisGUI updated: `NoesisView.ProjectPointer` uses the camera's pixelRect, `ProcessEvent` uses `_viewSizeY` instead of `Screen.height`. The monitor patches replace / gate these and stay valid. Public managed API: additions only.
+* Unit Status: new game tab `UnitStatusTab.Supplies = 5`. Mod kinds 105 / 107 are clear; AWC's Weapons tab is 6 - the next game tab will collide.
+* Unit Reference: new "Performance" tab (index 3, aircraft / helicopters only; `HasPerformanceTab`, `EnsureSelectedTabAvailable` handles a remembered index). New weapon / sensor rows. Tree, search panel, loadouts unchanged.
+* Event Log: new `RaiseContactAlert` (New contact ...) makes the track number a link itself (`Alert.SelectContact` -> `NavigateToContact`: opens the map and centres it on the first click). It is not a `RaiseAlert` overload, so the mod leaves these messages alone; its own links still centre on the repeated click.
+* File layers (`FileLayer`, `LayerKind`, runtime mounts): `GetAllFiles(path, pattern, kinds)`, `SaveDirectories`, `specialDirectories`, [LoadOrder] format unchanged for the mod. `GetModSourceForFile` returns the layer name for every non-base layer (the user folder too) - the Source filter lists it as a source.
+* New: rolling replay (Alt+F8; closes Unit Status / Formation Manager / Tactical Doctrine while active, hides the bottom bar), radio subtitles, rudder / wire / fuel in the bottom bar, game option for World View supersampling (already read by the mod). Not seen in game yet with Desktop mode.

@@ -107,6 +107,29 @@ namespace AlternativeGameInterface
             ClampTime(grid, canvas, ref r, ref t);
             if (Math.Abs(NaN0(Canvas.GetRight(grid)) - r) > 0.01f) Canvas.SetRight(grid, r);
             if (Math.Abs(NaN0(Canvas.GetTop(grid)) - t) > 0.01f) Canvas.SetTop(grid, t);
+            MoveTimeFollowers(grid);
+        }
+
+        // 0.9.0: the mission timer is a second child of the same Canvas, pinned to the corner under the controls (Canvas.Right = 0, Canvas.Top bound to the
+        // controls' height). It follows the panel: the same Canvas.Right, and the panel's Canvas.Top added to its own top margin (its Top binding stays).
+        static readonly ConditionalWeakTable<object, object> TimeFollowerMargin = new ConditionalWeakTable<object, object>();
+
+        static void MoveTimeFollowers(Grid grid)
+        {
+            var canvas = VisualTreeHelper.GetParent(grid) as Canvas;
+            if (canvas == null) return;
+            float r = NaN0(Canvas.GetRight(grid)), t = NaN0(Canvas.GetTop(grid));
+            foreach (var c in canvas.Children)
+            {
+                var f = c as FrameworkElement;
+                if (f == null || ReferenceEquals(f, grid)) continue;
+                object m0;
+                if (!TimeFollowerMargin.TryGetValue(f, out m0)) { m0 = f.Margin; TimeFollowerMargin.Add(f, m0); }
+                var m = (Thickness)m0;
+                if (Math.Abs(NaN0(Canvas.GetRight(f)) - r) > 0.01f) Canvas.SetRight(f, r);
+                var want = new Thickness(m.Left, m.Top + t, m.Right, m.Bottom);
+                if (Math.Abs(f.Margin.Top - want.Top) > 0.01f) f.Margin = want;
+            }
         }
 
         static void ClampTime(Grid grid, FrameworkElement canvas, ref float r, ref float t)
@@ -144,6 +167,7 @@ namespace AlternativeGameInterface
                 float r = r0 - (q.X - st0.X), t = t0 + (q.Y - st0.Y);
                 ClampTime(grid, canvas, ref r, ref t);
                 Canvas.SetRight(grid, r); Canvas.SetTop(grid, t);
+                MoveTimeFollowers(grid);
             };
             grid.MouseLeftButtonUp += (o, e) =>
             {

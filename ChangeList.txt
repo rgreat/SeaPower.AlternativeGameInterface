@@ -11,6 +11,7 @@ Version 1.9.0
 - Window menu: "Text outline" is replaced by "Text contrast" - grey texts become pure white or black with a halo, readable at high transparency; switches on by itself when the opacity goes below 50% (off above it), you can change it.
 - Desktop mode with the game's own World View monitor: the 3D view is no longer paused, the mouse works on that monitor.
 - Unit Reference: a "Source" drop-down next to the search box - tick the sources (base game and mods) whose units the tree shows (any number, at least one).
+- Sea Power 0.9.0: no "incompatible mod" warning at start; the mission timer moves together with the dragged time panel; Dismiss Damaged leaves the flagship alone.
 - Desktop mode, other monitors: a lighter camera on them (no G-buffer or depth texture of the game's rendering path).
 
 Version 1.8.2

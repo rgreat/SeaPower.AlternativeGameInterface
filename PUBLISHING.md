@@ -114,6 +114,7 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
 
 ## 7. Что проверить перед публикацией
 
+* 0.9.0 (2026-11-12): `_info.ini` now has `GreaterThanEqualToVersion=0.8.6` instead of `ApproximateVersion` (that one needs the same major.minor and fails on 0.9.0). The text below is about the old key.
 * `_info.ini`: `ApproximateVersion` — нижняя граница: игра считает мод совместимым при той же 0.8 и патче не меньше указанного
   (0.8.3 принимает 0.8.3 … 0.8.6...). Несовместимому моду игра не скачивает обновления из Workshop, поэтому
   поднимайте значение только когда мод действительно перестал работать на старых версиях.
