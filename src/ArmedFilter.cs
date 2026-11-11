@@ -44,11 +44,19 @@ namespace AlternativeGameInterface
                 try { a.FilterArmed(__instance); }
                 catch (Exception e) { Trace("FilterArmed: " + e); }
             }
+            if (a._improvedUI.Value)
+            {
+                try { var keep = a.SourcePredicate(__instance); if (keep != null) a.FilterBy(__instance, keep, "sources"); }
+                catch (Exception e) { Trace("FilterSources: " + e); }
+            }
             try { a.AfterFilters(__instance); }
             catch (Exception e) { Trace("AfterFilters: " + e); }
         }
 
-        void FilterArmed(object browser)
+        void FilterArmed(object browser) { FilterBy(browser, IsArmed, "armed only"); }
+
+        /// <summary>Leaves out the units that fail <paramref name="ok"/> (folders that end up empty go too): new FilteredMuseumEntries collections.</summary>
+        void FilterBy(object browser, Func<object, bool> ok, string what)
         {
             if (_browserInitializing != null && _browserInitializing.GetValue(browser) is bool && (bool)_browserInitializing.GetValue(browser)) return;
             if (!IsEncyclopediaBrowser(browser)) return;
@@ -56,23 +64,29 @@ namespace AlternativeGameInterface
             if (root == null) return;
             var kept = Activator.CreateInstance(root.GetType()) as IList;   // ObservableCollection<MuseumEntry>
             int dropped = 0;
-            foreach (var cat in root) if (KeepArmed(cat, ref dropped)) kept.Add(cat);
+            foreach (var cat in root) if (KeepBy(cat, ok, ref dropped)) kept.Add(cat);
             SetV(browser, "FilteredMuseumEntries", kept);
-            Verbose("armed only: " + dropped + " unit(s) left out");
+            Verbose(what + ": " + dropped + " unit(s) left out");
         }
 
         /// <summary>A folder keeps its armed entries (FilteredMuseumEntries replaced) and stays if any are left; a unit stays if armed.</summary>
-        bool KeepArmed(object e, ref int dropped)
+        bool KeepBy(object e, Func<object, bool> ok, ref int dropped)
         {
             if (e == null) return false;
-            if (e.GetType().Name != "MuseumEntry") { if (IsArmed(e)) return true; dropped++; return false; }
+            if (e.GetType().Name != "MuseumEntry") { if (ok(e)) return true; dropped++; return false; }
             var kids = Get(e, "FilteredMuseumEntries") as IList;
             if (kids == null || kids.Count == 0) return true;   // an empty folder: as the game has it
             var kept = Activator.CreateInstance(kids.GetType()) as IList;
-            foreach (var k in kids) if (KeepArmed(k, ref dropped)) kept.Add(k);
+            foreach (var k in kids) if (KeepBy(k, ok, ref dropped)) kept.Add(k);
             if (kept.Count == kids.Count) return true;
             SetV(e, "FilteredMuseumEntries", kept);
             return kept.Count > 0;
+        }
+
+        static bool IsUnitEntry(object e)
+        {
+            for (var b = e.GetType(); b != null; b = b.BaseType) if (b.Name == "MuseumObjectEntry") return true;
+            return false;
         }
 
         static readonly string[] NotArms = { "Noisemaker", "Chaff", "None", "Sonobuoy", "Fueltank", "Paratrooper", "MOSS" };
@@ -81,10 +95,7 @@ namespace AlternativeGameInterface
         /// systems, as the Weapons tab lists them) hold anything but decoys, sonobuoys, fuel tanks, paratroopers. Not a unit: kept.</summary>
         bool IsArmed(object e)
         {
-            var t = e.GetType();
-            bool unit = false;
-            for (var b = t; b != null; b = b.BaseType) if (b.Name == "MuseumObjectEntry") { unit = true; break; }
-            if (!unit) return true;   // weapons, sensors
+            if (!IsUnitEntry(e)) return true;   // weapons, sensors
             var list = Get(e, "WeaponEntries") as IEnumerable;
             if (list == null) return false;
             foreach (var w in list)

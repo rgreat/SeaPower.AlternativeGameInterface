@@ -10,6 +10,7 @@ Version 1.9.0
 - Event Log: the first click on a contact link only selects it, a repeated click on the same link also centres the Tactical Display on it.
 - Window menu: "Text outline" is replaced by "Text contrast" - grey texts become pure white or black with a halo, readable at high transparency; switches on by itself when the opacity goes below 50% (off above it), you can change it.
 - Desktop mode with the game's own World View monitor: the 3D view is no longer paused, the mouse works on that monitor.
+- Unit Reference: a "Source" drop-down next to the search box - tick the sources (base game and mods) whose units the tree shows (any number, at least one).
 - Desktop mode, other monitors: a lighter camera on them (no G-buffer or depth texture of the game's rendering path).
 
 Version 1.8.2

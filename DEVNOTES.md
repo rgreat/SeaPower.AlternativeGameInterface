@@ -222,6 +222,14 @@ thumbnail.jpg берётся из клона репозитория.
   — с неё. Click → [UnitReference] ArmedOnly, SaveExpansionState (если не поиск) и UpdateFilteredMuseumEntries.
 * Отдельного переключателя нет: галочка и фильтр — при Layout Improvements; строка «Armed only» в «Kept by the mod». Всё есть и в 0.8.4.
 
+## Фильтр по источникам — выпадающий список «Source» (при ImprovedUnitReferenceUI, 1.9.0, `src/SourceFilter.cs`)
+* Источник юнита — `MuseumEntry.ModSource` (игра ставит из папки ini юнита, `FileManager.GetModSourceForFile`; у базовой игры пусто; есть и в 0.8.6, и в 0.8.7; `CloneForFiltering` = MemberwiseClone, поле сохраняется). Только `MuseumObjectEntry`; оружие/сенсоры — не трогаются.
+* Список источников — один обход `MuseumEntries` браузера (кэш на браузер, не кэшируется пока дерево пусто): база первой, потом моды по имени. Меньше двух — кнопка скрыта.
+* Состояние — `[UnitReference] SourcesOff`: ВЫКЛЮЧЕННЫЕ источники через `|` (`<base>` = базовая игра), чтобы новый мод появлялся включённым. Пусто = все. Если выключены все присутствующие — фильтра нет (рассинхрон с установленными модами); в меню последний включённый снять нельзя.
+* Фильтр — тот же постфикс `UpdateFilteredMuseumEntries`, что у Armed only, после него: `FilterBy(browser, SourcePredicate, …)` (Armed only переписан на общий `FilterBy`/`KeepBy`). `SyncNations` учитывает фильтр (`_collectSrc`): страны без оставшихся юнитов уходят из списка.
+* Кнопка — `SourceBoxStep` рядом с `ArmedBoxStep` (раз в 0.12 с на окно): вставляется в тот же StackPanel сразу после Grid с TextBox поиска; подпись «Source: all ▾» / «Source: 2/5 ▾» обновляется по изменению. Меню — Popup как у меню вида окна (☑/☐, StaysOpen, закрывается при уходе мыши или повторном клике), строка «all» сбрасывает фильтр; клик по строке → SourcesOff, `SaveExpansionState` (если не поиск), `UpdateFilteredMuseumEntries`.
+* Тексты: `ui.sources`, `ui.sourcesAll`, `ui.baseGame`, `tip.sources` во всех lang/*.ini.
+
 ## Вкладка Reference в Unit Status (UnitReferenceTab, 1.5.0, `src/StatusReference.cs`)
 * Игра: `UnitStatusViewModel.Tabs` — `UnitStatusTabViewModel(owner, UnitStatusTab kind, header)` с Header / IsAvailable /
   IsSelected (сеттер → `OnTabSelected` → `EnsureContent`) / Content / ContentError. `SwitchUnit` (смена выбранного юнита:

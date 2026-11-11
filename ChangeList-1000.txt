@@ -7,4 +7,5 @@ Version 1.9.0
 - Menu backgrounds apply at game start.
 - Unit Status: the tab is kept per unit.
 - Window menu: "Text outline" became "Text contrast" (switches on by itself below 50% opacity, changeable).
+- Unit Reference: "Source" drop-down by the search box - show units of chosen mods / the base game.
 - Event Log: a repeated click on the same link centres the map.

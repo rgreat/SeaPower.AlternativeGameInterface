@@ -247,6 +247,8 @@ namespace AlternativeGameInterface
             catch (Exception e) { Trace("SetupNations: " + e.Message); }
         }
 
+        Func<object, bool> _collectSrc;   // the source filter while the nations are collected (SyncNations)
+
         void SyncNations(object browser)
         {
             NationMaster m;
@@ -255,7 +257,8 @@ namespace AlternativeGameInterface
             string text = (Get(browser, "SearchText") as string ?? "").Trim();
             bool byDate = GetB(browser, "FilterByDate"), armed = _improvedUI.Value && _armOnly.Value;
             HashSet<string> present = null;
-            if (text.Length > 0 || byDate || armed)
+            _collectSrc = _improvedUI.Value ? SourcePredicate(browser) : null;
+            if (text.Length > 0 || byDate || armed || _collectSrc != null)
             {
                 present = new HashSet<string>();
                 int year = 0;
@@ -293,6 +296,7 @@ namespace AlternativeGameInterface
                 }
                 if (text.Length > 0 && !MatchesText(browser, e, text, nameOnly)) continue;
                 if (armed && !IsArmed(e)) continue;
+                if (_collectSrc != null && !_collectSrc(e)) continue;
                 NationsOf(e, present);
             }
         }

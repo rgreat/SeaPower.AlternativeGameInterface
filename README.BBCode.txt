@@ -29,6 +29,7 @@ The country list shows only countries that have units for the current search.
 Without "Search by name only" the search also looks into descriptions and unit ids (<Id>.ini).
 Tooltips with a short help on the highlighted links to weapons, sensors and systems.
 Loadout selector for ships, submarines and land units too, not only aircraft.
+"Source" drop-down next to the search box: tick the sources (base game and mods) whose units the tree shows; any number, at least one.
 "Armed only" check box: hides unarmed units (rafts, targets, tankers, civilian ships...).
 Propulsion of ships and submarines (engine type and power) next to Max Speed.
 [*]Unit Status window:

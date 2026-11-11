@@ -443,6 +443,7 @@ namespace AlternativeGameInterface
             CleanLogsOnce();   // as early as possible: before the game starts this session's files
             BindLinkHelpConfig();
             _armOnly = Config.Bind("UnitReference", "ArmedOnly", false, "The \"Armed only\" check box the mod adds to the Unit Reference search panel (with ImprovedUnitReferenceUI): when ticked, units without weapons (decoys, sonobuoys, fuel tanks do not count) are left out of the tree.");
+            _srcOff = Config.Bind("UnitReference", "SourcesOff", "", "The \"Source\" drop-down the mod adds to the Unit Reference search panel (with ImprovedUnitReferenceUI): the sources (mods; <base> = the base game) whose units are left out of the tree, separated by |. Empty = all sources shown. Set with the drop-down, at least one source stays on.");
             _statusRef = Config.Bind("UnitStatus", "UnitReferenceTab", true,
                 "Unit Status window: a \"Reference\" tab (last) with the Unit Reference of the selected unit - its ship / variant and loadout - " +
                 "without the unit tree and the search panel.");
@@ -3098,7 +3099,7 @@ namespace AlternativeGameInterface
                 {
                     if (_treeScroll.Value) TreeScrollStep(w, ivm);
                     if (_treeWheel.Value) TreeWheelStep(w, ivm);
-                    if (_improvedUI.Value) ArmedBoxStep(w, ivm);
+                    if (_improvedUI.Value) { ArmedBoxStep(w, ivm); SourceBoxStep(w, ivm); }
                     if (_loadoutList.Value) ReplaceButtonStep(w, ivm);
                 }
             }
