@@ -127,7 +127,7 @@ namespace AlternativeGameInterface
             D("look.level.bottom", "Bottom");
             D("look.level.default", "Default");
             D("look.level.top", "Top");
-            D("look.outline.tip", "Grey texts become pure white or black and get a halo - easier to read when the window opacity is below 100%; always on below 50%");
+            D("look.outline.tip", "Texts of a transparent window stay readable: grey texts become pure white or black with a halo, and every text gets darker on a light backdrop (its lightness follows the brightness of what the screen shows under the window; the hue stays). Switched on by itself when the opacity goes below 50%, you can change it.");
             // Check boxes the mod adds to the game's windows
             D("ui.armedOnly", "Armed only");
             D("tip.armedOnly", "Hide units without weapons");

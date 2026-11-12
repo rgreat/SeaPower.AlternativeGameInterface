@@ -67,6 +67,7 @@ namespace AlternativeGameInterface
         // a press waits for the next event: views (several NoesisViews get each event) and the copies of the event, in their order
         static readonly List<KeyValuePair<object, object>> _pendingDown = new List<KeyValuePair<object, object>>();
         static int _pendingFrame = -1;
+        static bool _noesisDown, _withheld; static int _hotBefore;   // the last press went to the interface / was kept from it
         static MethodInfo _processEvent;
         static FieldInfo _enKeyboard, _enMouse, _uiViewF;
         static ConstructorInfo _evCopy;
@@ -93,11 +94,18 @@ namespace AlternativeGameInterface
                 if (t == 0)                                                     // MouseDown: keep, decide at the next event
                 {
                     if (_uiViewF.GetValue(__instance) == null) return true;
+                    if (_pendingDown.Count == 0) _hotBefore = _hotControl();   // what was hot before this press: a stale hot control (a window closed under the press) is not a grab
                     _pendingFrame = UnityEngine.Time.frameCount;
                     _pendingDown.Add(new KeyValuePair<object, object>(__instance, _evCopy.Invoke(new[] { ev })));
                     return false;
                 }
-                if ((t == 1 || t == 3) && _hotControl() != 0) return false;   // MouseUp / MouseDrag of an IMGUI drag
+                if (t == 1 || t == 3)                                           // MouseUp / MouseDrag
+                {
+                    // a press the interface got always gets its release (else it keeps the mouse captured: the menu buttons stop answering);
+                    // a press the interface did not get (an IMGUI control took it) gets no release / drag either
+                    if (_noesisDown) { if (t == 1) _noesisDown = false; return true; }
+                    if (_withheld) { if (t == 1) _withheld = false; return false; }
+                }
                 return true;
             }
             catch (Exception e) { if (_imguiTraces++ < 4) Trace("NoesisGuiPrefix: " + e.Message); _pendingDown.Clear(); return true; }
@@ -114,7 +122,9 @@ namespace AlternativeGameInterface
             var list = _pendingDown.ToArray();
             _pendingDown.Clear();
             int hot = _hotControl();
-            if (hot != 0)
+            bool taken = hot != 0 && hot != _hotBefore;   // an IMGUI control became hot with this press
+            _noesisDown = !taken; _withheld = taken;
+            if (taken)
             {
                 if (_imguiTraces++ < 8) Trace("IMGUI window took a press (hot control " + hot + "): not given to the interface");
                 return;

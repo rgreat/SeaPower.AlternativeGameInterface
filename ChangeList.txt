@@ -1,3 +1,16 @@
+Version 2.0.0
+- Needs Sea Power 0.9.0 or newer: no "incompatible mod" warning at start. Code for 0.8.x is removed.
+- Unit Reference: a "Source" drop-down next to the search box - tick the sources (base game and mods) whose units the tree shows (any number, at least one).
+- Window menu, "Text contrast": each text also follows the brightness of what the screen shows under it (any monitor, in a mission or outside it): on a light backdrop it gets dark, on a dark one light. Two states only, no intermediate greys; the shadow behind the text is pure white or black, no blur (config TextHaloDepth).
+- The frame of a transparent window is half as strong as its opacity (at least 20%).
+- Main menu background: the game's video is the default again (slideshow is an option).
+- The mission timer (Time Remaining) follows the time panel and can be dragged by itself (double-click puts it back).
+- Dismiss Damaged leaves the flagship alone.
+- Loading screen: a line under the progress bar shows the mod's name and version (option LoadScreenInfo).
+- Fixed: no flicker on interface elements that another mod (e.g. AWC) rewrites constantly.
+- Removed the "Fix contact info" option.
+- Works with the R.A.T.S. Keel loader too (the mod asks Keel to start before the load screen ends: [Keel] StartEarly=true in _info.ini; the first loading screen shows the mod's line and pictures again).
+
 Version 1.9.0
 - Keep map view on resize: the map scale stays right when the Tactical Display is closed (a desktop without the map) and opened again at another size.
 - Unit Status: the Reference tab was empty in the newer game build (its new Supplies tab has the same tab number); the Reference tab has a number of its own now.
@@ -10,8 +23,6 @@ Version 1.9.0
 - Event Log: the first click on a contact link only selects it, a repeated click on the same link also centres the Tactical Display on it.
 - Window menu: "Text outline" is replaced by "Text contrast" - grey texts become pure white or black with a halo, readable at high transparency; switches on by itself when the opacity goes below 50% (off above it), you can change it.
 - Desktop mode with the game's own World View monitor: the 3D view is no longer paused, the mouse works on that monitor.
-- Unit Reference: a "Source" drop-down next to the search box - tick the sources (base game and mods) whose units the tree shows (any number, at least one).
-- Sea Power 0.9.0: no "incompatible mod" warning at start; the mission timer moves together with the dragged time panel; Dismiss Damaged leaves the flagship alone.
 - Desktop mode, other monitors: a lighter camera on them (no G-buffer or depth texture of the game's rendering path).
 
 Version 1.8.2

@@ -31,8 +31,9 @@ namespace AlternativeGameInterface
                 return;
             }
 
-            // Started even when unticked in the game's Mods menu: the plugin follows that tick at run time
-            // (it re-reads it whenever the game saves the mod list and after every load screen) and stays idle while it is off.
+            // Newer Anchor Chain loads only the DLLs of mods ticked at game start, so a mod unticked at start is not started at all (a restart
+            // is needed after ticking it). When this entry does run (older Anchor Chain, or the DLL also lies in BepInEx/plugins), the plugin
+            // follows the tick at run time (it re-reads it whenever the game saves the mod list and after every load screen) and stays idle while it is off.
             ModState.Controlled = true;
             host.AddComponent<AlternativeGameInterfacePlugin>(); // BaseUnityPlugin: BepInEx logger and config work as usual
         }

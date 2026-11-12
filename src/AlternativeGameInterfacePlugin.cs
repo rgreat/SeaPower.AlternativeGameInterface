@@ -45,7 +45,7 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
-        public const string PluginVersion = "1.9.0"; // also <Version> in AlternativeGameInterface.csproj
+        public const string PluginVersion = "2.0.0"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
         const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
@@ -345,6 +345,13 @@ namespace AlternativeGameInterface
 
         void Awake()
         {
+            // a second start of the same dll (a loader such as Keel starts both the BepInEx plugin class and the Anchor Chain entry of one dll): the first copy stays
+            if ((object)_inst != null && !ReferenceEquals(_inst, this))
+            {
+                Logger.LogWarning("Alternative Game Interface is already running; the second copy is switched off.");
+                Destroy(this);
+                return;
+            }
             _inst = this;
             OpenSettingsFile();
             Config.SaveOnConfigSet = false; // we save explicitly (debounced)
@@ -426,7 +433,6 @@ namespace AlternativeGameInterface
             BindTreeSearchConfig();
             BindPickersConfig();
             BindUnitMenuConfig();
-            BindGameFixConfig();
             BindCampaignLoadoutsConfig();
             BindDismissConfig();
             BindBinocularConfig();
@@ -479,7 +485,7 @@ namespace AlternativeGameInterface
                 new ConfigDescription("Background pictures of the main menu and the loading screens. Mods = when mods bring their own (ui/backgrounds), only theirs are shown; " +
                 "Mixed = as the game: one picked at random from the game's and every mod's together; Game = only the game's own.",
                 new AcceptableValueList<string>("Mods", "Mixed", "Game")));
-            _menuBg = Config.Bind("General", "MenuBackground", "Slideshow",
+            _menuBg = Config.Bind("General", "MenuBackground", "Video",
                 new ConfigDescription("Background of the main menu. Video = the game's own looped video; Slideshow = the background pictures (see Backgrounds), changing every SlideshowSeconds; " +
                 "the video is not loaded then, which saves resources.",
                 new AcceptableValueList<string>("Video", "Slideshow")));
@@ -627,6 +633,7 @@ namespace AlternativeGameInterface
                 if (save != null) { lsHarmony.Patch(save, postfix: Hm("ModsSavedPostfix")); Trace("patched FileManager.SaveDirectories"); }
                 else Trace("FileManager.SaveDirectories not found: the Mods menu tick is re-read after load screens only");
                 try { HookBackgrounds(lsHarmony, asm); } catch (Exception e) { Trace("HookBackgrounds: " + e.Message); }
+                try { HookLoadInfo(lsHarmony, asm); } catch (Exception e) { Trace("HookLoadInfo: " + e.Message); }
             }
             catch (Exception e) { Logger.LogWarning("Load-screen hook failed: " + e.Message); Trace("TryInstallLoadScreenHook: " + e); }
         }
@@ -753,7 +760,6 @@ namespace AlternativeGameInterface
                     HookPropulsion(harmony, asm);
                     HookTreeSearch(harmony, asm);
                     HookPickers(harmony, asm);
-                    HookGameFixes(harmony, asm);
                     HookCampaignLoadouts(harmony, asm);
                     HookLoadoutsOrder(harmony, asm);
                     HookCampaignDismiss(harmony, asm);
@@ -2319,6 +2325,8 @@ namespace AlternativeGameInterface
                 children.Add(border);
                 Borders.Add(w, border);
                 _borderOwners.Add(new WeakReference(w));
+                LookState lk;
+                if (Looks.TryGetValue(w, out lk) && lk.Applied) FrameOpacity(w, lk.Opacity);
                 Trace("frame added to '" + TextOf(Get(w, "Header")) + "' in " + Describe(panel));
             }
             catch (Exception ex) { Trace("AddBorder: " + ex.Message); }
@@ -2993,6 +3001,7 @@ namespace AlternativeGameInterface
             CleanLogsOnce();
             RerollFirstBackground();
             MenuBackgroundStep();
+            StartupLoadScreenStep();
 
             if (!_hooked && !LoadScreenDone && _traceOnce.Add("agi-wait-ls" + LoadScreenCount)) Trace("on, waiting for a finished load screen (finished so far " + LoadScreenCount + ")");
             if (!_hooked && LoadScreenDone) TryHook();

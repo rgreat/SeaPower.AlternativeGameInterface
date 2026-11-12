@@ -2,7 +2,7 @@
 
 A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows").
 
-**Version 1.9.0**
+**Version 2.0.0**
 
 ## Features
 
@@ -16,7 +16,7 @@ A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows")
 8. Remembers which mission windows were open and restores that at the next mission start.
 9. Thin frame around draggable windows and the game's tooltips for better edge visibility. Customizable.
 10. In-game settings window (gear button in the title bar of a remembered window): tabs, groups, hints, language selector.
-11. Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's. Real photos can be turned off. Main menu: a slideshow (default) or the game's video.
+11. Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's. Real photos can be turned off. Main menu: the game's video (default) or a slideshow.
 12. Hides "_Custom Mission" in the SCENARIOS list of the main menu.
 13. Mission editor: the open-mission picker starts in the last mission's folder; *.ini files are light blue.
 14. Optional: deletes the game's old log files at start (off by default).
@@ -46,9 +46,9 @@ A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows")
 20. Game messages in the bottom right corner no longer block clicks on buttons under them.
 21. Localization: settings window and hints in the 9 languages of the game; the texts can be edited (lang folder).
 22. Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the place, size, look and open state of the windows; the active desktop is remembered. They start as built-in arrangements; the "Desktops" page of the settings window shows what each desktop keeps for each window - edit it or reset it. A key (Insert by default) opens and closes the World View. Both windows open and close independently. A backdrop picture (AlternativeGameInterface_Backdrop.jpg next to the dll, replaceable) is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
-23. A small arrow next to the gear of a window opens its look menu: opacity, scale and level (bottom / default / top). The Tactical Display and the World View start at the bottom level.
+23. A small arrow next to the gear of a window opens its look menu: opacity, scale, text contrast and level. The Tactical Display and the World View start at the bottom level.
 24. Windows docked to a screen edge can still be resized from that edge.
-25. The mission's time panel can be dragged; double-click puts it back. Its place is kept per desktop; in desktop mode it starts a little lower and to the left.
+25. The mission's time panel can be dragged, and so can the mission timer under it (Time Remaining); double-click puts it back. Its place is kept per desktop; in desktop mode it starts a little lower and to the left.
 26. Unit Status: a "Track State" tab for a selected contact of another side (the contact's Information).
 27. Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); loadouts are sorted by date; a hull swap is priced from the roster.
 28. The News window of the main menu gets the mod's gear, frame and remembered position; the game's resize cursors work outside a mission.
@@ -63,7 +63,7 @@ A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows")
 
 ## Compatibility
 
-- Supports Sea Power version 0.9.0 (0.8.6 and 0.8.7 too).
+- Supports Sea Power version 0.9.0 and newer.
 - Requires Anchor Chain.
 - Can be switched on/off in the game's Mods menu.
 

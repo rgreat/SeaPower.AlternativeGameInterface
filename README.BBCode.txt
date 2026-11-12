@@ -1,4 +1,4 @@
-[b]Version 1.9.0[/b]
+[b]Version 2.0.0[/b]
 
 [h1]Features[/h1]
 [olist]
@@ -12,7 +12,7 @@
 [*]Remembers which mission windows were open and restores that at the next mission start.
 [*]Thin frame around draggable windows and the game's tooltips for better edge visibility. Customizable.
 [*]In-game settings window (gear button in the title bar of a remembered window): tabs, groups, hints, language selector.
-[*]Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's. Main menu: slideshow (default) or game video.
+[*]Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's. Main menu: game video (default) or slideshow.
 [*]Hides "_Custom Mission" in the SCENARIOS list of the main menu.
 [*]Mission editor: the open-mission picker starts in the last mission's folder; *.ini files are light blue.
 [*]Optional: deletes the game's old log files at start (off by default).
@@ -42,9 +42,9 @@ The full name of the unit in the header.
 [*]Campaign "Strict loadouts" (optional): a check box on the start screen; the Task Force Builder offers ship versions only for ships available in the mission or owned.
 [*]Localization: settings window and hints in the 9 languages of the game; the texts can be edited (lang folder).
 [*]Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the place, size, look and open state of the windows; the active desktop is remembered. They start as built-in arrangements; the "Desktops" page of the settings window shows what each desktop keeps for each window - edit it or reset it. A key (Insert by default) opens and closes the World View. Both windows open and close independently. A backdrop picture (AlternativeGameInterface_Backdrop.jpg next to the dll, replaceable) is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
-[*]A small arrow next to the gear of a window opens its look menu: opacity, scale and level (bottom / default / top). The Tactical Display and the World View start at the bottom level.
+[*]A small arrow next to the gear of a window opens its look menu: opacity, scale, text contrast and level. The Tactical Display and the World View start at the bottom level.
 [*]Windows docked to a screen edge can still be resized from that edge.
-[*]The mission's time panel can be dragged; double-click puts it back. Its place is kept per desktop; in desktop mode it starts a little lower and to the left.
+[*]The mission's time panel can be dragged, and so can the mission timer under it (Time Remaining); double-click puts it back. Its place is kept per desktop; in desktop mode it starts a little lower and to the left.
 [*]Unit Status: a "Track State" tab for a selected contact of another side (the contact's Information).
 [*]Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); loadouts are sorted by date; a hull swap is priced from the roster.
 [*]The News window of the main menu gets the mod's gear, frame and remembered position; the game's resize cursors work outside a mission.
@@ -60,7 +60,7 @@ The full name of the unit in the header.
 
 [h1]Compatibility[/h1]
 [list]
-[*]Supports Sea Power version 0.9.0 (0.8.6 and 0.8.7 too).
+[*]Supports Sea Power version 0.9.0 and newer.
 [*]Requires Anchor Chain.
 [*]Can be switched on/off in the game's Mods menu.
 [/list]

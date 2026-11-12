@@ -28,8 +28,8 @@ namespace AlternativeGameInterface
         void HookBackgrounds(Harmony harmony, Assembly asm)
         {
             var fm = asm.GetType("SeaPower.FileManager");
-            // 0.8.6: GetAllFiles(string path, string pattern); 0.8.7 adds a third parameter (LayerKind kinds = All): any overload that takes the path and
-            // the pattern first and returns the file list is the one (the callers pass two arguments, the default fills the rest)
+            // GetAllFiles(string path, string pattern, LayerKind kinds = All): the overload that takes the path and the pattern first and
+            // returns the file list is the one (the callers pass two arguments, the default fills the rest)
             MethodInfo m = null;
             if (fm != null)
                 foreach (var c in fm.GetMethods(BindingFlags.Instance | BindingFlags.Public))
@@ -66,13 +66,13 @@ namespace AlternativeGameInterface
         void RerollFirstBackground()
         {
             if (_rerolled || !BackgroundsOn || _lsType == null || _lsChange == null) return;
-            if (LoadScreenDone || LoadScreenCount > 0 || ++_rerollTries > 600) { _rerolled = true; return; }
+            if (LoadScreenDone || LoadScreenCount > 0 || ++_rerollTries > 600) { _rerolled = true; Trace("backgrounds: the first loading screen is over before the mod could replace its picture (tries " + _rerollTries + ", finished " + LoadScreenCount + ")"); return; }
             try
             {
                 var sg = _lsType.Assembly.GetType("SeaPower.Singleton`1");
                 var inst = sg == null ? null : sg.MakeGenericType(_lsType).GetProperty("Instance", BindingFlags.Static | BindingFlags.Public);
                 var ls = inst == null ? null : inst.GetValue(null, null);
-                if (ls == null || Get(ls, "BackgroundImage") == null) return;   // not up yet / not showing a picture
+                if (ls == null || Get(ls, "BackgroundImage") == null) { if (_rerollTries == 1 || _rerollTries % 100 == 0) Trace("backgrounds: first loading screen not up yet (" + (ls == null ? "no LoadScreen" : "no picture") + ", try " + _rerollTries + ")"); return; }   // not up yet / not showing a picture
                 _rerolled = true;
                 if (_originalDir == null) _originalDir = OriginalDir(null);
                 var imgs = _lsImages == null ? null : _lsImages.GetValue(ls) as List<string>;
@@ -285,10 +285,24 @@ namespace AlternativeGameInterface
 
         void MenuBackgroundStep()
         {
-            if (_mainMenuInst == null || _menuVm == null) return;
+            if (_mainMenuInst == null) return;
+            if (_menuVm == null)
+            {
+                // the hook came after the menu was shown (a loader that starts the mods late): the model is found from the page
+                if ((!Slideshow && !BackgroundsOn) || _menuVmType == null) return;
+                var pg = _mainMenuInst.GetValue(null) as Noesis.DependencyObject;
+                for (var q = pg; q != null; q = Noesis.VisualTreeHelper.GetParent(q))
+                {
+                    var fe = q as Noesis.FrameworkElement;
+                    if (fe != null && fe.DataContext != null && _menuVmType.IsInstanceOfType(fe.DataContext))
+                    { _menuVm = new WeakReference(fe.DataContext); Trace("menu background: the menu was already up, its model is found"); break; }
+                }
+                if (_menuVm == null) return;
+            }
             var vm = _menuVm.Target;
             // the menu scene is gone (a mission is loaded): nothing to do any more
             if (vm == null || (vm is UnityEngine.Object && !(UnityEngine.Object)vm)) { _menuVm = null; _fadeTex = null; return; }
+            FixMenuPictures(vm);
             if (!Slideshow && !_videoOffAny && _fadeTex == null) return;   // the game's video, as the game has it
             var page = _mainMenuInst.GetValue(null);
             bool onMain = page != null && ReferenceEquals(Get(vm, "CurrentWindow"), page);
@@ -315,6 +329,25 @@ namespace AlternativeGameInterface
             _slideNext = now + SlideSeconds();
             if (!GetB(vm, "BackgroundImageVisible")) return;
             try { StartFade(vm); } catch (Exception e) { Trace("menu slideshow: " + (e.InnerException ?? e).Message); _fadeTex = null; }
+        }
+
+        WeakReference _menuFixed;
+        /// <summary>The menu model read its picture list in Awake, before a late loader started the mod: the same filter (Backgrounds) is applied to the list now, once, and the picture is changed when it is not among the kept.</summary>
+        void FixMenuPictures(object vm)
+        {
+            if (!BackgroundsOn || (_menuFixed != null && ReferenceEquals(_menuFixed.Target, vm))) return;
+            _menuFixed = new WeakReference(vm);
+            try
+            {
+                if (_originalDir == null) _originalDir = OriginalDir(null);
+                var f = _menuVmType.GetField("imagePaths", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                var paths = f == null ? null : f.GetValue(vm) as List<string>;
+                if (paths == null) return;
+                DropGamePictures(paths, "main menu, late");
+                var cur = _menuKey == null ? null : _menuKey.GetValue(vm) as string;
+                if (_menuChange != null && !string.IsNullOrEmpty(cur) && paths.Count > 0 && !paths.Contains(cur)) { _menuChange.Invoke(vm, null); Trace("backgrounds: the main menu's picture replaced"); }
+            }
+            catch (Exception e) { Trace("backgrounds (main menu, late): " + (e.InnerException ?? e).Message); }
         }
 
         void StartFade(object vm)

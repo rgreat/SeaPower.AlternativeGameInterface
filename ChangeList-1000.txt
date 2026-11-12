@@ -1,12 +1,11 @@
-Version 1.9.0
-- Keep map view on resize: the scale stays right after the Tactical Display is reopened at another size.
-- Unit Status: the Reference tab was empty in the newer game build (the Supplies tab has the same number).
-- Unit Status: Reference tab also for contacts and weapons.
-- Desktop mode: option "Other monitors for windows" - windows can be put on other monitors (Monitor in the window's menu).
-- Main menu background: slideshow (default) or game video.
-- Menu backgrounds apply at game start.
-- Unit Status: the tab is kept per unit.
-- Window menu: "Text outline" became "Text contrast" (switches on by itself below 50% opacity, changeable).
-- Unit Reference: "Source" drop-down by the search box - show units of chosen mods / the base game.
-- Ready for Sea Power 0.9.0 (no "incompatible mod" warning; the mission timer moves with the time panel).
-- Event Log: a repeated click on the same link centres the map.
+Version 2.0.0
+- Needs Sea Power 0.9.0 or newer (no "incompatible mod" warning).
+- Unit Reference: "Source" drop-down - show units of chosen mods / the base game.
+- Text contrast follows the backdrop under each text: dark text on light, light text on dark, pure white/black shadow (any monitor, also outside missions).
+- Frame of a transparent window is half as strong as its opacity (min 20%).
+- Main menu background: game video is the default again.
+- Time Remaining timer can be dragged by itself.
+- Dismiss Damaged leaves the flagship alone.
+- Loading screen shows the mod's name and version.
+- Works with the R.A.T.S. Keel loader.
+- Fixed flicker on elements other mods (e.g. AWC) rewrite constantly.

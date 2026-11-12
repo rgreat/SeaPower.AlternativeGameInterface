@@ -16,6 +16,7 @@
 //    and opens a small list, one button per mod, in the order of the entries (then by id).
 //  - The hub logs to LogOutput.log (source 'rgreat settings hub'): every click, every failure.
 //  - Menus are built each time they are shown, so the label always reflects the mods that are active now. No polling anywhere.
+//  - A mod that registers later than the first one (early start under Keel) refreshes the text of the buttons already in the menus (RefreshLabels, in Register and in Install).
 // ======================================================================================================================
 using System;
 using System.Collections;
@@ -59,6 +60,30 @@ namespace Rgreat.Hub
                 r.RemoveAll(e => e.Length > 0 && string.Equals(e[0] as string, id, StringComparison.Ordinal));
                 r.Add(new object[] { id, title, version, order, open, active });
             }
+            RefreshLabels();
+        }
+
+        /// <summary>The buttons already in the menus get the text for the mods registered now (a mod that starts later than the first one).</summary>
+        static void RefreshLabels()
+        {
+            try
+            {
+                if (_game == null) return;
+                string label = Label();
+                if (label == null) return;
+                var view = GameView("SeapowerUI.MainMenuView") as FrameworkElement;
+                var scroll = view == null ? null : view.FindName("scrollViewer") as ScrollViewer;
+                var list = scroll == null ? null : scroll.Content as StackPanel;
+                if (list != null)
+                    foreach (var c in list.Children)
+                    {
+                        var b = c as Button;
+                        if (b != null && b.Name == ButtonName) b.Content = label.ToUpperInvariant();
+                    }
+                if (_setContent != null)
+                    foreach (var w in _pauseButtons) { var b = w.Target; if (b != null) _setContent.Invoke(b, new object[] { label }); }
+            }
+            catch (Exception e) { _trace("SettingsHub refresh: " + e.Message); }
         }
 
         static List<object[]> Active()
@@ -116,9 +141,24 @@ namespace Rgreat.Hub
         public static void Install(Harmony harmony, Assembly game, Action<string> trace, Func<string> language)
         {
             _game = game; if (trace != null) _trace = trace; if (language != null) _language = language;
+            RefreshLabels();   // each mod has its own copy of this class: Register above ran before _game was known, so the buttons of the mods started earlier get their text here
             // Patching the menu classes at plugin start makes the runtime run their static constructors, which register Noesis properties before Noesis
             // is ready: the game (the Release build) crashes natively. So the patches are made after the game's load screen has finished.
             const BindingFlags any = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            // Keel starts the mods after the start-up load screen is over: the coroutine will not finish again
+            if (LoadScreenIsDone(game))
+            {
+                _harmony = harmony; _installed = true;
+                Log("load screen is already over: menu entries are installed now");
+                try
+                {
+                    DoInstall(harmony);
+                    var menu = GameView("SeapowerUI.MainMenuView");
+                    if (menu != null) MainMenuCtorPostfix(menu);
+                }
+                catch (Exception e) { Log("installing the menu entries failed: " + e); }
+                return;
+            }
             try
             {
                 var ls = game.GetType("SeaPower.LoadScreen");
@@ -133,6 +173,25 @@ namespace Rgreat.Hub
             catch (Exception e) { Log("load-screen hook failed: " + e.Message); }
             Log("load screen not found: menu entries are installed now");
             DoInstall(harmony);
+        }
+
+        static bool LoadScreenIsDone(Assembly game)
+        {
+            try
+            {
+                var ls = game.GetType("SeaPower.LoadScreen");
+                if (ls == null) return false;
+                // Singleton<LoadScreen>.InstanceExists(false) -> Instance -> LoadText
+                var si = ls.BaseType;
+                var exists = si == null ? null : si.GetMethod("InstanceExists", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                var instProp = si == null ? null : si.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                if (exists == null || instProp == null) return false;
+                if (!(bool)exists.Invoke(null, new object[] { false })) return false;
+                var inst = instProp.GetValue(null, null);
+                var p = ls.GetProperty("LoadText", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                return inst != null && p != null && "Done".Equals(p.GetValue(inst, null) as string);
+            }
+            catch { return false; }
         }
 
         static Harmony _harmony;

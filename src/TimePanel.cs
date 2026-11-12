@@ -16,6 +16,8 @@ namespace AlternativeGameInterface
         ConfigEntry<bool> _timeDrag;
         const string TimeKey = "Time Panel";      // its place is kept like a window's: [Layouts] and the desktops (X, Y from the left / top; no size)
         const float TimeDefR = 6.4f, TimeDefT = 26f;   // desktop mode, nothing saved: a little lower and to the left of the corner (distance from the right / top)
+        const string TimerKey = "Time Remaining"; // the mission timer under the panel: its own place once dragged (X, Y from the left / top)
+        bool _timerBusy;
         WeakReference _timeGrid;
         float _timeNext; bool _timeBusy;
         static readonly ConditionalWeakTable<object, object> TimeAttached = new ConditionalWeakTable<object, object>();
@@ -29,6 +31,8 @@ namespace AlternativeGameInterface
             var e = BindLayout(TimeKey);
             Layout l;
             if (Layout.TryParse(e.Value, out l)) _saved[TimeKey] = l;
+            var et = BindLayout(TimerKey);
+            if (Layout.TryParse(et.Value, out l)) _saved[TimerKey] = l;
         }
 
         void TimePanelStep(float now)
@@ -110,26 +114,86 @@ namespace AlternativeGameInterface
             MoveTimeFollowers(grid);
         }
 
-        // 0.9.0: the mission timer is a second child of the same Canvas, pinned to the corner under the controls (Canvas.Right = 0, Canvas.Top bound to the
-        // controls' height). It follows the panel: the same Canvas.Right, and the panel's Canvas.Top added to its own top margin (its Top binding stays).
-        static readonly ConditionalWeakTable<object, object> TimeFollowerMargin = new ConditionalWeakTable<object, object>();
+        // 0.9.0: the mission timer ("Time Remaining") is a second child of the same Canvas, under the controls. By default it follows the panel
+        // (the same Canvas.Right, under its bottom edge); dragged by itself it gets a place of its own (TimerKey) and stays there; a double-click
+        // puts it back under the panel. It is made hit-testable here (the game has IsHitTestVisible=False).
+        static readonly ConditionalWeakTable<object, object> TimerAttached = new ConditionalWeakTable<object, object>();
 
-        static void MoveTimeFollowers(Grid grid)
+        static FrameworkElement TimerOf(Grid grid)
         {
             var canvas = VisualTreeHelper.GetParent(grid) as Canvas;
-            if (canvas == null) return;
-            float r = NaN0(Canvas.GetRight(grid)), t = NaN0(Canvas.GetTop(grid));
-            foreach (var c in canvas.Children)
+            if (canvas == null) return null;
+            foreach (var c in canvas.Children) { var f = c as FrameworkElement; if (f != null && !ReferenceEquals(f, grid)) return f; }
+            return null;
+        }
+
+        void MoveTimeFollowers(Grid grid)
+        {
+            var f = TimerOf(grid);
+            if (f == null) return;
+            object done;
+            if (!TimerAttached.TryGetValue(f, out done)) { TimerAttached.Add(f, this); AttachTimer(f, grid); }
+            if (!_timerBusy) PlaceTimer(f, grid);
+        }
+
+        void PlaceTimer(FrameworkElement f, Grid grid)
+        {
+            var canvas = VisualTreeHelper.GetParent(grid) as Canvas;
+            if (canvas == null || canvas.ActualWidth < 1f) return;
+            float w = grid.ActualWidth, r, t;
+            Layout l;
+            if (_saved.TryGetValue(TimerKey, out l) && !float.IsNaN(l.X) && !float.IsNaN(l.Y)) { r = canvas.ActualWidth - l.X - w; t = l.Y; }
+            else { r = NaN0(Canvas.GetRight(grid)); t = NaN0(Canvas.GetTop(grid)) + grid.ActualHeight; }
+            ClampTimer(canvas, f, w, ref r, ref t);
+            if (Math.Abs(NaN0(Canvas.GetRight(f)) - r) > 0.01f) Canvas.SetRight(f, r);
+            if (Math.Abs(NaN0(Canvas.GetTop(f)) - t) > 0.01f) Canvas.SetTop(f, t);
+        }
+
+        static void ClampTimer(FrameworkElement canvas, FrameworkElement f, float w, ref float r, ref float t)
+        {
+            r = Math.Max(0f, Math.Min(r, Math.Max(0f, canvas.ActualWidth - w)));
+            t = Math.Max(0f, Math.Min(t, Math.Max(0f, canvas.ActualHeight - f.ActualHeight)));
+        }
+
+        void AttachTimer(FrameworkElement f, Grid grid)
+        {
+            bool down = false; Point st0 = new Point(); float r0 = 0f, t0 = 0f;
+            f.IsHitTestVisible = true;
+            f.MouseLeftButtonDown += (o, e) =>
             {
-                var f = c as FrameworkElement;
-                if (f == null || ReferenceEquals(f, grid)) continue;
-                object m0;
-                if (!TimeFollowerMargin.TryGetValue(f, out m0)) { m0 = f.Margin; TimeFollowerMargin.Add(f, m0); }
-                var m = (Thickness)m0;
-                if (Math.Abs(NaN0(Canvas.GetRight(f)) - r) > 0.01f) Canvas.SetRight(f, r);
-                var want = new Thickness(m.Left, m.Top + t, m.Right, m.Bottom);
-                if (Math.Abs(f.Margin.Top - want.Top) > 0.01f) f.Margin = want;
-            }
+                var canvas = VisualTreeHelper.GetParent(f) as FrameworkElement;
+                if (canvas == null) return;
+                if (e.ClickCount >= 2)
+                {
+                    _saved.Remove(TimerKey);
+                    ConfigEntry<string> le;
+                    if (_layoutEntries.TryGetValue(TimerKey, out le)) le.Value = "";
+                    PlaceTimer(f, grid);        // back under the panel
+                    _dirty = true; _dirtySince = UnityEngine.Time.unscaledTime;
+                    e.Handled = true; return;
+                }
+                down = true; _timerBusy = true; st0 = e.GetPosition(canvas); r0 = NaN0(Canvas.GetRight(f)); t0 = NaN0(Canvas.GetTop(f));
+                f.CaptureMouse(); e.Handled = true;
+            };
+            f.MouseMove += (o, e) =>
+            {
+                if (!down) return;
+                var canvas = VisualTreeHelper.GetParent(f) as FrameworkElement;
+                if (canvas == null) return;
+                var q = e.GetPosition(canvas);
+                float r = r0 - (q.X - st0.X), t = t0 + (q.Y - st0.Y);
+                ClampTimer(canvas, f, grid.ActualWidth, ref r, ref t);
+                Canvas.SetRight(f, r); Canvas.SetTop(f, t);
+            };
+            f.MouseLeftButtonUp += (o, e) =>
+            {
+                if (!down) return;
+                down = false; _timerBusy = false; f.ReleaseMouseCapture(); e.Handled = true;
+                var canvas = VisualTreeHelper.GetParent(f) as FrameworkElement;
+                if (canvas == null) return;
+                _saved[TimerKey] = new Layout { X = (float)Math.Round(canvas.ActualWidth - NaN0(Canvas.GetRight(f)) - grid.ActualWidth), Y = (float)Math.Round(NaN0(Canvas.GetTop(f))), W = float.NaN, H = float.NaN };
+                _dirty = true; _dirtySince = UnityEngine.Time.unscaledTime;
+            };
         }
 
         static void ClampTime(Grid grid, FrameworkElement canvas, ref float r, ref float t)

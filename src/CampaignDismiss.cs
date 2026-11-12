@@ -58,7 +58,7 @@ namespace AlternativeGameInterface
             {
                 // what the game checked before the damage: not an airbase unit, not a historical campaign, not destroyed
                 if (!string.IsNullOrWhiteSpace(a.Get(item, "CampaignAirbaseId") as string) || a.GetB(__instance, "UsesHistoricalReinforcements") || a.GetB(item, "IsAirUnit")) return;
-                if (IsFlagship(item)) return;   // 0.9.0: the flagship is never dismissed
+                if (IsFlagship(item)) return;   // the flagship is never dismissed
                 var gl = __instance.GetType().GetMethod("GetLogisticsState", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 var ls = gl == null ? null : gl.Invoke(__instance, new[] { item });
                 if (ls == null || a.GetB(ls, "IsDestroyed")) return;
@@ -70,7 +70,7 @@ namespace AlternativeGameInterface
 
         static MethodInfo _isFlagship; static bool _isFlagshipTried;
 
-        /// <summary>LinearCampaignForceFlagship.IsFlagship(item) (0.9.0; absent before - then no unit is a flagship).</summary>
+        /// <summary>LinearCampaignForceFlagship.IsFlagship(item) (0.9.0+; if the name is gone, no unit counts as a flagship).</summary>
         static bool IsFlagship(object item)
         {
             if (!_isFlagshipTried)

@@ -89,7 +89,6 @@ namespace AlternativeGameInterface
                 Add(TMission, "In Mission", p._binoDown, 'f', "Ship binoculars below the horizon", "degrees · 0 = game", 1f, 0f, 45f);
                 Add(TMission, "In Mission", p._binoNormal, 'b', "Normal view in binoculars at max zoom", "");
                 Add(TMission, "In Mission", p._binoNormalDay, 'b', "Normal view only by day", "");
-                if (_contactFixApplies) Add(TMission, "In Mission", p._fixContact, 'b', "Fix contact Information ages", "");   // hidden when this game version has nothing to fix
 
                 Add(TFiles, "Scenarios", p._hideCustom, 'b', "Hide _Custom Mission", "");
                 Add(TFiles, "Backgrounds", p._realPhotos, 'b', "Real photos as backgrounds", "");

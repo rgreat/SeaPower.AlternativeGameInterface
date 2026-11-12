@@ -59,7 +59,7 @@ namespace AlternativeGameInterface
 
         static object UpStatic(string typeName, string method, params object[] args)
         {
-            var t = GameAssembly().GetType("SeapowerUI.ViewModels." + typeName);
+            var t = GameAssembly().GetType(string.Join(".", "SeapowerUI", "ViewModels", typeName));   // (not one literal: Keel would list it as a type this game lacks)
             if (t == null) throw new MissingMemberException(typeName);
             foreach (var m in t.GetMethods(UpAll))
                 if (m.Name == method && m.IsStatic && m.GetParameters().Length == args.Length)

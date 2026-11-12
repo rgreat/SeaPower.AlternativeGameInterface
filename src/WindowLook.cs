@@ -32,11 +32,24 @@ namespace AlternativeGameInterface
             public bool Applied;
             public float Opacity = 1f, Scale = 1f, Next;
             public bool Outline, Bottom;
+            public List<TextBlock> AutoTexts = new List<TextBlock>();   // the texts the last window step coloured by the backdrop (recoloured at once by AutoLookRefresh)
+            public int AutoDisp = -1;                                  // the display of the window while the texts follow the backdrop
+            public float AutoT;   // text by background: 0 = the texts as they are (dark backdrop), 1 = the texts darkened as far as they go (light backdrop)
         }
         static readonly ConditionalWeakTable<object, LookState> Looks = new ConditionalWeakTable<object, LookState>();
 
+        ConfigEntry<string> _slOrient;
+
         void BindLookConfig()
         {
+            try
+            {
+                float hd = Config.Bind("General", "TextHaloDepth", 1f, "Text contrast: offset in pixels of the pure white / black shadow behind the texts (no blur; 0.5 - 3). Restart the game after changing.").Value;
+                OutlineDepth = Math.Max(0.5f, Math.Min(3f, hd));
+            }
+            catch { }
+            _slOrient = Config.Bind("General", "BackdropRows", "auto",
+                "Text by background: which row of the screen copy comes first: auto (by the graphics API), topFirst or bottomFirst. Change it only if the texts of a window follow the brightness of the wrong place.");
             _looks = Config.Bind("General", "WindowLooks", "",
                 "Opacity, scale and text contrast (+ / -) of the remembered windows, written by the plugin: pattern|opacity|scale|contrast;...");
         }
@@ -58,6 +71,7 @@ namespace AlternativeGameInterface
                     string f = p.Length == 4 ? p[3].Trim() : "0";
                     if (f == "+") ol = 1f;
                     else if (f == "-") ol = 0f;
+                    else if (f == "*") ol = 1f;   // an earlier build of the merged option
                     else { float legacy; float.TryParse(f, NumberStyles.Float, CultureInfo.InvariantCulture, out legacy); ol = legacy > 0.5f || o < 0.5f ? 1f : 0f; }
                     _lookMap[p[0].Trim()] = new[] { Clamp(o, 0f, 1f), Clamp(s, 0.5f, 2f), ol > 0.5f ? 1f : 0f };
                 }
@@ -176,7 +190,24 @@ namespace AlternativeGameInterface
             catch { _lkK = 0f; _lkPanel = null; }
             DimWalk(panel, render ? look[0] : lf, lf, render, false, menu, ref budget);   // under the 3D view too: what really lies under the window shows through
             int tb = 6000;
-            OutlineWalk(panel, look[2] > 0.5f, menu, ref tb);
+            float auto = -1f;   // text by background (see ShiftText)
+            if (look[2] > 0.5f)
+            {
+                int disp = DisplayOf(w);   // the display the window is on (0 = the main one)
+                SceneLumAsk(disp);
+                float sl;
+                if (SceneLumUnder(panel, disp, out sl))
+                {
+                    AutoStep(st, sl);
+                }
+                auto = st.AutoT;
+            }
+            else st.AutoT = 0f;
+            st.AutoTexts.Clear();
+            st.AutoDisp = auto >= 0f ? DisplayOf(w) : -1;
+            _owDisp = st.AutoDisp;
+            OutlineWalk(panel, look[2] > 0.5f, menu, ref tb, auto, auto >= 0f ? st.AutoTexts : null);
+            FrameOpacity(w, look[0]);
             var cp = FindContentPresenter(w, panel);
             if (cp != null)
             {
@@ -187,12 +218,12 @@ namespace AlternativeGameInterface
         }
 
         // black halo of the texts (our own effect: recognised by its blur radius, the game's own effects stay)
-        const float OutlineBlur = 2f;
+        static float OutlineDepth = 1f;   // [General] TextHaloDepth; the shadow has no blur: pure white / black
 
         static bool IsOurHalo(Effect ef)
         {
             var d = ef as DropShadowEffect;
-            return d != null && Math.Abs(d.BlurRadius - OutlineBlur) < 0.001f;
+            return d != null && d.BlurRadius < 0.001f && Math.Abs(d.ShadowDepth - OutlineDepth) < 0.001f;
         }
 
         static bool IsDarkText(Brush b)
@@ -218,38 +249,203 @@ namespace AlternativeGameInterface
             return Math.Max(r, Math.Max(g, bl)) - Math.Min(r, Math.Min(g, bl)) < 0.12f;
         }
 
-        void OutlineWalk(DependencyObject e, bool on, object skip, ref int budget)
+        /// <summary>The frame of a transparent window is half as strong as the window's opacity (100 % = the frame as set, never below 20 %).</summary>
+        void FrameOpacity(object w, float opacity)
+        {
+            object b;
+            if (!Borders.TryGetValue(w, out b)) return;
+            var fe = b as FrameworkElement;
+            if (fe == null) return;
+            float f = opacity >= 0.999f ? 1f : Math.Max(0.2f, opacity * 0.5f);
+            if (Math.Abs(fe.Opacity - f) > 0.001f) fe.Opacity = f;
+        }
+
+        // ---- text by background: the lightness of a text colour moves with the backdrop (HSL), the hue stays
+        static void Rgb01(SolidColorBrush b, out float r, out float g, out float bl, out float a)
+        {
+            var c = b.Color;
+            r = Convert.ToSingle(c.R); g = Convert.ToSingle(c.G); bl = Convert.ToSingle(c.B); a = Convert.ToSingle(c.A);
+            if (Math.Max(r, Math.Max(g, bl)) > 1.0001f || a > 1.0001f) { r /= 255f; g /= 255f; bl /= 255f; a /= 255f; }
+        }
+
+        static Color ShiftText(SolidColorBrush src, float t)
+        {
+            float r, g, b, a;
+            Rgb01(src, out r, out g, out b, out a);
+            bool grey = Math.Max(r, Math.Max(g, b)) - Math.Min(r, Math.Min(g, b)) < 0.12f;
+            if (grey) { float y = 0.299f * r + 0.587f * g + 0.114f * b; r = g = b = y < 0.5f ? 0f : 1f; }
+            float mx = Math.Max(r, Math.Max(g, b)), mn = Math.Min(r, Math.Min(g, b)), l = (mx + mn) / 2f, h = 0f, s = 0f;
+            if (mx - mn > 1e-5f)
+            {
+                float d = mx - mn;
+                s = l > 0.5f ? d / (2f - mx - mn) : d / (mx + mn);
+                if (mx == r) h = (g - b) / d + (g < b ? 6f : 0f); else if (mx == g) h = (b - r) / d + 2f; else h = (r - g) / d + 4f;
+                h /= 6f;
+            }
+            if (l > 0.3f) l += (l * 0.15f - l) * t;   // down to 15 % of the lightness (nearly black) on a fully light backdrop, coloured texts too; dark texts stay as they are
+            float q = l < 0.5f ? l * (1f + s) : l + s - l * s, p = 2f * l - q;
+            float rr = s <= 0f ? l : Hue(p, q, h + 1f / 3f), gg = s <= 0f ? l : Hue(p, q, h), bb = s <= 0f ? l : Hue(p, q, h - 1f / 3f);
+            return Color.FromArgb(ToByte(a), ToByte(rr), ToByte(gg), ToByte(bb));
+        }
+
+        static float Hue(float p, float q, float t)
+        {
+            if (t < 0f) t += 1f; else if (t > 1f) t -= 1f;
+            if (t < 1f / 6f) return p + (q - p) * 6f * t;
+            if (t < 0.5f) return q;
+            if (t < 2f / 3f) return p + (q - p) * (2f / 3f - t) * 6f;
+            return p;
+        }
+
+        static byte ToByte(float v) { return (byte)Math.Max(0, Math.Min(255, (int)Math.Round(v * 255f))); }
+
+        static bool SameColour(SolidColorBrush cur, Color want)
+        {
+            float r, g, b, a;
+            Rgb01(cur, out r, out g, out b, out a);
+            return Math.Abs(ToByte(r) - want.R) <= 3 && Math.Abs(ToByte(g) - want.G) <= 3 && Math.Abs(ToByte(b) - want.B) <= 3;   // a step this small is not worth a new brush
+        }
+
+        /// <summary>The backdrop brightness 'sl' switches the window's texts between two states, no gradations: t = 0 (the texts as they are, black halo on light
+        /// ones) and t = 1 (darkened, white halo). Up at 0.66 and down at 0.58 (a hysteresis; white text with a black halo stays until the backdrop is really
+        /// light). True when t changed.</summary>
+        static int _owDisp;
+        sealed class TBox { public float T; }
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TextBlock, TBox> _txtT = new System.Runtime.CompilerServices.ConditionalWeakTable<TextBlock, TBox>();
+        static float TextTOf(TextBlock t) { TBox b; return _txtT.TryGetValue(t, out b) ? b.T : 0f; }
+        /// <summary>The state (0 / 1) of one text by the brightness right under it (same hysteresis); without a picture: the window's state.</summary>
+        static float TextT(TextBlock t, int disp, float fallback)
+        {
+            TBox b;
+            if (!_txtT.TryGetValue(t, out b)) { b = new TBox { T = fallback }; _txtT.Add(t, b); }
+            float sl;
+            if (disp >= 0 && SceneLumUnder(t, disp, out sl)) b.T = sl >= 0.66f ? 1f : sl <= 0.58f ? 0f : b.T;
+            return b.T;
+        }
+
+        static bool AutoStep(LookState st, float sl)
+        {
+            float nt = sl >= 0.66f ? 1f : sl <= 0.58f ? 0f : st.AutoT;
+            if (nt == st.AutoT) return false;
+            st.AutoT = nt;
+            return true;
+        }
+
+        // dark text: a white halo, light text: a black one
+        static void ApplyHalo(TextBlock t, bool darkText)
+        {
+            var cur = t.Effect;
+            if (cur == null || (IsOurHalo(cur) && (Convert.ToSingle(((DropShadowEffect)cur).Color.R) > 127f) != darkText))
+                t.Effect = new DropShadowEffect { Color = darkText ? Color.FromRgb(255, 255, 255) : Color.FromRgb(0, 0, 0), BlurRadius = 0f, ShadowDepth = OutlineDepth, Direction = 315f, Opacity = 1f };
+        }
+
+        /// <summary>A new picture of a display arrived: the windows on it that follow the backdrop get their texts recoloured at once (no tree walk: the texts
+        /// the last window step found), when the backdrop moved their colour by a visible step.</summary>
+        static void AutoLookRefresh(int display)
+        {
+            var a = Active;
+            if ((object)a == null) return;
+            try
+            {
+                foreach (var tr in a._tracked)
+                {
+                    var w = tr.Ref == null ? null : tr.Ref.Target;
+                    LookState st;
+                    if (w == null || !Looks.TryGetValue(w, out st) || !st.Applied || st.AutoDisp != display || st.AutoTexts.Count == 0) continue;
+                    var panel = st.Panel == null ? null : st.Panel.Target as Panel;
+                    if (panel == null || !panel.IsLoaded) continue;
+                    foreach (var tb in st.AutoTexts)
+                    {
+                        float before = TextTOf(tb), nt = TextT(tb, display, before);
+                        if (nt == before) continue;
+                        Brush o;
+                        var src = _origFg.TryGetValue(tb, out o) ? o as SolidColorBrush : null;
+                        if (src == null || FgForeign(tb)) continue;
+                        var want = ShiftText(src, nt);
+                        var cur = tb.Foreground as SolidColorBrush;
+                        if (cur == null || !SameColour(cur, want)) SetFg(tb, new SolidColorBrush(want));
+                        ApplyHalo(tb, IsDarkText(tb.Foreground));
+                    }
+                }
+            }
+            catch (Exception e) { Trace("AutoLookRefresh: " + e.Message); }
+        }
+
+        // Elements another code rewrites all the time (a mod that sets its colours on every refresh) must not be fought over: a colour / background we
+        // set is remembered; when it is found replaced twice, the element is left alone for good (it flickered between its colour and ours).
+        sealed class Hits { public int N; }
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, Brush> _ourFg = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Brush>();
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, Hits> _fgHits = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Hits>();
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, Hits> _bgHits = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Hits>();
+
+        static void SetFg(TextBlock t, Brush b) { t.Foreground = b; _ourFg.Remove(t); _ourFg.Add(t, b); }
+
+        /// <summary>True when the text's colour is managed by other code (replaced after us twice): it is not touched any more.</summary>
+        static bool FgForeign(TextBlock t)
+        {
+            Hits h;
+            if (_fgHits.TryGetValue(t, out h) && h.N >= 2) return true;
+            Brush ours;
+            if (_ourFg.TryGetValue(t, out ours) && !ReferenceEquals(t.Foreground, ours))
+            {
+                _ourFg.Remove(t); _origFg.Remove(t);   // what we knew of the text is stale
+                if (h == null) h = _fgHits.GetOrCreateValue(t);
+                h.N++;
+                return h.N >= 2;
+            }
+            return false;
+        }
+
+        void OutlineWalk(DependencyObject e, bool on, object skip, ref int budget, float auto = -1f, List<TextBlock> sink = null)
         {
             if (ReferenceEquals(e, skip) || --budget < 0) return;
             var t = e as TextBlock;
-            if (t != null)
+            if (t != null && !FgForeign(t))
             {
                 try
                 {
                     if (on)
                     {
+                        if (auto >= 0f)
+                        {
+                            // text by background: the colour keeps its hue, only its lightness moves (light texts get darker on a light backdrop);
+                            // grey texts start from the pure white / black of the contrast. The two halo colours (white / black) stay.
+                            Brush o0; bool known = _origFg.TryGetValue(t, out o0);
+                            var src = (known ? o0 : t.Foreground) as SolidColorBrush;
+                            if (src != null)
+                            {
+                                if (!known) _origFg.Add(t, t.Foreground);
+                                var want = ShiftText(src, TextT(t, _owDisp, auto));
+                                var cur0 = t.Foreground as SolidColorBrush;
+                                if (cur0 == null || !SameColour(cur0, want)) SetFg(t, new SolidColorBrush(want));
+                                if (sink != null) sink.Add(t);
+                            }
+                        }
                         bool darkText = IsDarkText(t.Foreground);
-                        var cur = t.Effect;
-                        // dark text: a white halo, light text: a black one
-                        if (cur == null || (IsOurHalo(cur) && (Convert.ToSingle(((DropShadowEffect)cur).Color.R) > 127f) != darkText))
-                            t.Effect = new DropShadowEffect { Color = darkText ? Color.FromRgb(255, 255, 255) : Color.FromRgb(0, 0, 0), BlurRadius = OutlineBlur, ShadowDepth = 0f, Direction = 315f, Opacity = 1f };
+                        ApplyHalo(t, darkText);
                         bool dk; Brush o;
-                        if (IsGrey(t.Foreground, out dk) && !_origFg.TryGetValue(t, out o))
+                        if (auto < 0f && IsGrey(t.Foreground, out dk) && !_origFg.TryGetValue(t, out o))
                         {
                             var sc = (SolidColorBrush)t.Foreground;
                             bool pure = (dk && sc.Color.R == 0 && sc.Color.G == 0 && sc.Color.B == 0) || (!dk && sc.Color.R == 255 && sc.Color.G == 255 && sc.Color.B == 255);
                             if (!pure)
                             {
                                 _origFg.Add(t, t.Foreground);
-                                t.Foreground = new SolidColorBrush(dk ? Color.FromRgb(0, 0, 0) : Color.FromRgb(255, 255, 255));
+                                SetFg(t, new SolidColorBrush(dk ? Color.FromRgb(0, 0, 0) : Color.FromRgb(255, 255, 255)));
                             }
+                        }
+                        else if (auto < 0f && _origFg.TryGetValue(t, out o))
+                        {
+                            // text by background was switched off: back to the pure white / black of the text's own kind (grey) or to the colour it had
+                            if (IsGrey(o, out dk)) SetFg(t, new SolidColorBrush(dk ? Color.FromRgb(0, 0, 0) : Color.FromRgb(255, 255, 255)));
+                            else { t.Foreground = o; _ourFg.Remove(t); _origFg.Remove(t); }
                         }
                     }
                     else
                     {
                         if (IsOurHalo(t.Effect)) t.Effect = null;
                         Brush o;
-                        if (_origFg.TryGetValue(t, out o)) { t.Foreground = o; _origFg.Remove(t); }
+                        if (_origFg.TryGetValue(t, out o)) { t.Foreground = o; _ourFg.Remove(t); _origFg.Remove(t); }
                     }
                 }
                 catch { }
@@ -257,7 +453,7 @@ namespace AlternativeGameInterface
             for (int k = VisualTreeHelper.GetChildrenCount(e) - 1; k >= 0; k--)
             {
                 var c = VisualTreeHelper.GetChild(e, k);
-                if (c != null) OutlineWalk(c, on, skip, ref budget);
+                if (c != null) OutlineWalk(c, on, skip, ref budget, auto, sink);
             }
         }
 
@@ -589,6 +785,8 @@ namespace AlternativeGameInterface
             if (state) HookState(fe.TemplatedParent, factor);
             Brush cur = b != null ? b.Background : p != null ? p.Background : null;
             if (cur == null) { if (fe.Tag is string && ((string)fe.Tag).StartsWith(DimTag)) fe.Tag = null; return; }
+            Hits bh;
+            if (!state && _bgHits.TryGetValue(fe, out bh) && bh.N >= 2) return;   // managed by other code: not touched
             string tag = fe.Tag as string;
             float origOp = 1f, last = 1f;
             bool ours = false;
@@ -601,6 +799,12 @@ namespace AlternativeGameInterface
                     ours = Math.Abs(cur.Opacity - origOp * last) < 0.002f;   // not ours any more: the game put its brush back
             }
             else if (fe.Tag != null) return;   // the game's own Tag
+            if (!state && tag != null && tag.StartsWith(DimTag) && !ours)
+            {
+                // our brush was replaced by other code: twice = it sets its backgrounds all the time, the element is left alone (it flickered)
+                var h = _bgHits.GetOrCreateValue(fe);
+                if (++h.N >= 2) { fe.Tag = null; return; }
+            }
             if (!ours) { if (factor >= 0.999f) return; origOp = cur.Opacity; cur = (Brush)cur.Clone(); }
             cur.Opacity = origOp * factor;
             if (state)
@@ -741,7 +945,7 @@ namespace AlternativeGameInterface
                 cols.Children.Add(new Border { Width = 6f });
                 cols.Children.Add(LookColumn("", ScaleHigh, look[1], false, pick));
             }
-            // text contrast: set by itself when the opacity crosses 50 %, always free to change
+            // text contrast (the texts also follow the backdrop): set by itself when the opacity crosses 50 %, always free to change
             var outl = new Border
             {
                 Margin = new Thickness(0f, 6f, 0f, 0f), Padding = new Thickness(4f, 3f, 4f, 3f),
