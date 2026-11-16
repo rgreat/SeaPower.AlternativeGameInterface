@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -30,8 +30,10 @@ namespace AlternativeGameInterface
         {
             public WeakReference Panel, Button, Menu;
             public bool Applied;
-            public float Opacity = 1f, Scale = 1f, Next;
+            public float Opacity = 1f, Scale = 1f, Next, Full;      // Next: the next look at the window (once a second); Full: the next walk of the tree even without a layout change
+            public bool Dirty, LayoutHooked; public float SigW, SigH; public int SigN;                         // Dirty: the layout of the interface changed since the last walk
             public bool Outline, Bottom;
+            public bool Hover, HoverHooked, Ghost;   // Ghost: opacity 0 % and the mouse is not over the window - the frame and the title bar are hidden
             public List<TextBlock> AutoTexts = new List<TextBlock>();   // the texts the last window step coloured by the backdrop (recoloured at once by AutoLookRefresh)
             public int AutoDisp = -1;                                  // the display of the window while the texts follow the backdrop
             public float AutoT;   // text by background: 0 = the texts as they are (dark backdrop), 1 = the texts darkened as far as they go (light backdrop)
@@ -173,6 +175,8 @@ namespace AlternativeGameInterface
             st.Panel = new WeakReference(panel);
             st.Opacity = look[0]; st.Scale = look[1]; st.Outline = look[2] > 0.5f; st.Bottom = IsBottomWindow(w); st.Applied = true;
             st.Next = UnityEngine.Time.unscaledTime + 1f;
+            st.Full = UnityEngine.Time.unscaledTime + 10f; st.Dirty = false;
+            try { st.SigW = (float)panel.ActualWidth; st.SigH = (float)panel.ActualHeight; st.SigN = panel.Children.Count; } catch { }
             var menu = st.Menu == null ? null : st.Menu.Target;
             _bigArea = Math.Max(1f, panel.ActualWidth * panel.ActualHeight * 0.15f);
             int budget = 6000;
@@ -181,7 +185,10 @@ namespace AlternativeGameInterface
             float lf = render ? look[0] : SolveFactor(panel, look[0], menu);   // render window: the rest (title bar, frame) as single layers
             budget = 6000;
             // the title bar never gets below 30 % (without it the window cannot be seen / grabbed any more)
-            _titleFactor = look[0] >= 0.3f ? lf : (render ? 0.3f : SolveFactor(panel, 0.3f, menu));
+            // fully transparent window: the frame and the title bar are hidden until the mouse is over the window (or its look menu is open)
+            bool ghost = look[0] <= 0.001f && !st.Hover && menu == null && !IsBottomWindow(w);
+            HookGhost(w, st);
+            _titleFactor = ghost ? 0f : look[0] >= 0.3f ? lf : (render ? 0.3f : SolveFactor(panel, 0.3f, menu));
             try
             {
                 var a0 = panel.PointToScreen(new Point(0f, 0f)); var b0 = panel.PointToScreen(new Point(100f, 0f));
@@ -207,7 +214,9 @@ namespace AlternativeGameInterface
             st.AutoDisp = auto >= 0f ? DisplayOf(w) : -1;
             _owDisp = st.AutoDisp;
             OutlineWalk(panel, look[2] > 0.5f, menu, ref tb, auto, auto >= 0f ? st.AutoTexts : null);
-            FrameOpacity(w, look[0]);
+            FrameOpacity(w, look[0], ghost);
+            GhostHeader(w, ghost);
+            st.Ghost = ghost;
             var cp = FindContentPresenter(w, panel);
             if (cp != null)
             {
@@ -249,14 +258,48 @@ namespace AlternativeGameInterface
             return Math.Max(r, Math.Max(g, bl)) - Math.Min(r, Math.Min(g, bl)) < 0.12f;
         }
 
+        /// <summary>The mouse entering / leaving the window shows / hides the ghost parts (once per window; no polling).</summary>
+        void HookGhost(object w, LookState st)
+        {
+            if (st.HoverHooked) return;
+            var fe = w as FrameworkElement;
+            if (fe == null) return;
+            st.HoverHooked = true;
+            Action<bool> set = over =>
+            {
+                if (st.Hover == over) return;
+                st.Hover = over;
+                if (st.Opacity > 0.001f) return;
+                var panel = st.Panel == null ? null : st.Panel.Target as Panel;
+                if (panel != null) ApplyLook(w, panel);
+            };
+            fe.MouseEnter += (s, e) => set(true);
+            fe.MouseLeave += (s, e) => set(false);
+            st.Hover = fe.IsMouseOver;
+        }
+
+        /// <summary>The header grid (title, buttons, gear) of a ghost window is invisible; it still takes the mouse, so the window shows again when the mouse comes.</summary>
+        void GhostHeader(object w, bool ghost)
+        {
+            try
+            {
+                var thumb = Get(w, "HeaderThumb") as FrameworkElement;
+                var grid = thumb == null ? null : VisualTreeHelper.GetParent(thumb) as Grid;
+                if (grid == null || grid.ActualHeight > 48f) return;   // not the title bar's own grid: leave it alone
+                float want = ghost ? 0f : 1f;
+                if (Math.Abs(grid.Opacity - want) > 0.001f) grid.Opacity = want;
+            }
+            catch { }
+        }
+
         /// <summary>The frame of a transparent window is half as strong as the window's opacity (100 % = the frame as set, never below 20 %).</summary>
-        void FrameOpacity(object w, float opacity)
+        void FrameOpacity(object w, float opacity, bool ghost = false)
         {
             object b;
             if (!Borders.TryGetValue(w, out b)) return;
             var fe = b as FrameworkElement;
             if (fe == null) return;
-            float f = opacity >= 0.999f ? 1f : Math.Max(0.2f, opacity * 0.5f);
+            float f = ghost ? 0f : opacity >= 0.999f ? 1f : Math.Max(0.2f, opacity * 0.5f);
             if (Math.Abs(fe.Opacity - f) > 0.001f) fe.Opacity = f;
         }
 
@@ -309,8 +352,9 @@ namespace AlternativeGameInterface
         /// <summary>The backdrop brightness 'sl' switches the window's texts between two states, no gradations: t = 0 (the texts as they are, black halo on light
         /// ones) and t = 1 (darkened, white halo). Up at 0.66 and down at 0.58 (a hysteresis; white text with a black halo stays until the backdrop is really
         /// light). True when t changed.</summary>
+        const float TextCover = 0.25f;   // the share of a text's box that its own glyphs and halo cover in the screen capture
         static int _owDisp;
-        sealed class TBox { public float T; }
+        sealed class TBox { public float T; public float Ema = -1f, Last, CandT = -1f, CandSince; }
         static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TextBlock, TBox> _txtT = new System.Runtime.CompilerServices.ConditionalWeakTable<TextBlock, TBox>();
         static float TextTOf(TextBlock t) { TBox b; return _txtT.TryGetValue(t, out b) ? b.T : 0f; }
         /// <summary>The state (0 / 1) of one text by the brightness right under it (same hysteresis); without a picture: the window's state.</summary>
@@ -319,7 +363,29 @@ namespace AlternativeGameInterface
             TBox b;
             if (!_txtT.TryGetValue(t, out b)) { b = new TBox { T = fallback }; _txtT.Add(t, b); }
             float sl;
-            if (disp >= 0 && SceneLumUnder(t, disp, out sl)) b.T = sl >= 0.66f ? 1f : sl <= 0.58f ? 0f : b.T;
+            if (disp >= 0 && SceneLumUnder(t, disp, out sl))
+            {
+                // the capture is the finished screen: the text itself (glyphs and halo, about a quarter of its box) is in the brightness under it. A white text
+                // lifts it over the threshold, the text turns dark, the brightness falls, the text turns white... (4 times a second on a still picture).
+                // The text's own part is taken out, so the decision no longer depends on the colour it has now.
+                var fg = t.Foreground as SolidColorBrush;
+                if (fg != null)
+                {
+                    float fr, fgn, fb, fa; Rgb01(fg, out fr, out fgn, out fb, out fa);
+                    float lt = 0.2126f * fr + 0.7152f * fgn + 0.0722f * fb;
+                    sl = Math.Max(0f, Math.Min(1f, (sl - TextCover * lt) / (1f - TextCover)));
+                }
+                // the picture moves even on a pause (smoke, water, particles): the brightness is smoothed (about 0.3 s) and a new state has to hold for
+                // 0.4 s before the text switches, so a backdrop near the threshold does not make the text flicker
+                float now = UnityEngine.Time.unscaledTime;
+                if (b.Ema < 0f) { b.Ema = sl; b.Last = now; b.T = sl >= 0.62f ? 1f : 0f; return b.T; }   // the first look: at once
+                float dt = Math.Max(0f, Math.Min(1f, now - b.Last)); b.Last = now;
+                b.Ema += (sl - b.Ema) * Math.Min(1f, dt / 0.3f);
+                float want = b.Ema >= 0.66f ? 1f : b.Ema <= 0.58f ? 0f : b.T;
+                if (want == b.T) b.CandT = -1f;
+                else if (b.CandT != want) { b.CandT = want; b.CandSince = now; }
+                else if (now - b.CandSince >= 0.4f) { b.T = want; b.CandT = -1f; }
+            }
             return b.T;
         }
 
@@ -832,6 +898,24 @@ namespace AlternativeGameInterface
             if (!flip && st.Opacity >= 0.999f && Math.Abs(st.Scale - 1f) < 0.001f && !st.Outline) return;
             float now = UnityEngine.Time.unscaledTime;
             if (!flip && now < st.Next) return;
+            // the tree is walked again (every text gets its halo, every background its opacity) only when the layout changed since the last walk - new rows
+            // of a list, a window that grew - or every ten seconds; the walk was done every second whatever happened (a hitch each second, on a pause too)
+            if (!flip && !st.Dirty)
+            {
+                // LayoutUpdated fires all the time in the menus (animations), so the change is looked for here: the size of the panel and its children count
+                try
+                {
+                    var pn = st.Panel == null ? null : st.Panel.Target as Panel;
+                    if (pn != null && (Math.Abs((float)pn.ActualWidth - st.SigW) > 0.5f || Math.Abs((float)pn.ActualHeight - st.SigH) > 0.5f || pn.Children.Count != st.SigN)) st.Dirty = true;
+                }
+                catch { }
+            }
+            if (!flip && !st.Dirty && now < st.Full)
+            {
+                st.Next = now + 1f;
+                if (st.Outline && st.AutoDisp >= 0) SceneLumAsk(st.AutoDisp);       // the texts that follow the backdrop keep their picture coming
+                return;
+            }
             var panel = st.Panel == null ? null : st.Panel.Target as Panel;
             if (panel != null) ApplyLook(w, panel);
         }

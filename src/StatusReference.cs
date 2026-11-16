@@ -83,7 +83,6 @@ namespace AlternativeGameInterface
         /// mode) swaps / changes the unit under the same window, and ObjectInformationViewModel.ChangeVariant (its last step) triggers this.</summary>
         void SyncFullNames()
         {
-            if (!_fullName.Value) return;
             lock (Statuses)
             {
                 for (int i = Statuses.Count - 1; i >= 0; i--)
@@ -121,14 +120,73 @@ namespace AlternativeGameInterface
             try { a.TabRestore(__instance, __state); } catch (Exception e) { Trace("remember tab: " + e.Message); }
         }
 
-        /// <summary>FullUnitName: the unit's full name (DisplayNameFull) in the Unit Status header instead of the short one.</summary>
+        /// <summary>The unit's name in one of the five forms (Short unit name = the game's; for a Sverdlov cruiser: Lazarev / Admiral Lazarev CL-626 /
+        /// Sverdlov / Prj.68bis "Sverdlov" / Light Cruiser Prj.68bis "Sverdlov"); the short unit name when the form is empty.</summary>
+        string UnitText(object unit, string mode)
+        {
+            string r = null;
+            switch (mode)
+            {
+                case "FullName": r = Get(unit, "DisplayNameFull") as string; break;
+                case "ShortClass": r = Get(unit, "ClassNameShort") as string; break;
+                case "FullClass": r = Get(unit, "ClassNameFull") as string; break;
+                case "TypeClass":
+                    {
+                        string cls = Get(unit, "ClassNameFull") as string;
+                        string type = null;
+                        try
+                        {
+                            var of = unit.GetType().GetField("_obp", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                            var obp = of == null ? null : of.GetValue(unit);
+                            var tf = obp == null ? null : obp.GetType().GetField("_typeFullName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                            type = tf == null ? null : tf.GetValue(obp) as string;
+                        }
+                        catch { }
+                        r = string.IsNullOrEmpty(type) ? cls : string.IsNullOrEmpty(cls) ? type : type + " " + cls;
+                        break;
+                    }
+            }
+            return string.IsNullOrEmpty(r) ? (Get(unit, "DisplayNameShort") as string ?? "") : r;
+        }
+
+        /// <summary>The label at the right of the tabs: the game binds it to UnitStatusViewModel.UnitName (set on a unit switch).</summary>
         void FullUnitName(object status)
         {
-            if (!_fullName.Value) return;
             var unit = StatusUnit(status);
             if (unit == null) return;
-            var full = Get(unit, "DisplayNameFull") as string;
-            if (!string.IsNullOrEmpty(full) && !string.Equals(Get(status, "UnitName") as string, full)) SetV(status, "UnitName", full);
+            var text = UnitText(unit, _labelName.Value);
+            if (!string.Equals(Get(status, "UnitName") as string, text)) SetV(status, "UnitName", text);
+        }
+
+        static readonly ConditionalWeakTable<object, object> TitleSet = new ConditionalWeakTable<object, object>();
+
+        /// <summary>The title of the window is "<Run WindowHeader/> <Run UnitName/>" (MainGameView.xaml): the second Run is bound to the same UnitName as the label,
+        /// so the last Run gets its own text (a local value replaces the binding) from WindowTitleName.</summary>
+        void StatusTitleStep(object w)
+        {
+            WeakReference r;
+            if (!StatusViewByWindow.TryGetValue(w, out r)) return;
+            var usv = r.Target as Noesis.DependencyObject;
+            if (usv == null) return;
+            var tb = Get(w, "Header") as Noesis.TextBlock;
+            if (tb == null) return;
+            Noesis.Run run = null;
+            int n = 0;
+            foreach (var inl in (System.Collections.IEnumerable)tb.Inlines)   // WindowHeader, the space between the Runs (a Run too), UnitName: the last one
+            {
+                if (inl is Noesis.Run) { run = (Noesis.Run)inl; n++; }
+            }
+            if (run == null || n < 2) return;
+            var unit = StatusUnit(Get(usv, "DataContext"));
+            object mark;
+            if (unit == null)
+            {
+                if (TitleSet.TryGetValue(run, out mark) && run.Text != "") run.Text = "";
+                return;
+            }
+            var text = UnitText(unit, _titleName.Value);
+            if (run.Text != text) run.Text = text;
+            if (!TitleSet.TryGetValue(run, out mark)) TitleSet.Add(run, run);
         }
 
         static void StatusEnsurePostfix(object __instance, object tab)

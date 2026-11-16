@@ -132,6 +132,9 @@ namespace AlternativeGameInterface
             D("ui.armedOnly", "Armed only");
             D("tip.armedOnly", "Hide units without weapons");
             D("ui.strict", "Strict loadouts");
+            D("ui.adaptiveVsync", "Adaptive V-Sync");
+            D("ui.noFpsLimit", "Remove frame rate limit");
+            D("tip.noFpsLimit", "No frame rate limit; the slider above is off. With vertical sync on, the screen still caps it (Alternative Game Interface).");
             D("tip.strict", "Task Force Builder offers ship versions and purchases only for ships the mission lists as available or that you already own (Alternative Game Interface).");
         }
 

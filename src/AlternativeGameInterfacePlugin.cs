@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -45,7 +45,7 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
-        public const string PluginVersion = "2.0.0"; // also <Version> in AlternativeGameInterface.csproj
+        public const string PluginVersion = "2.3.1"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
         const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
@@ -99,13 +99,15 @@ namespace AlternativeGameInterface
             public string OsKey;
             public int OsTries;
             public float OsNext;
+            public bool Wake = true, WakeHooked, NoEvents;   // Wake: the window changed (shown, hidden, loaded, unloaded) - a closed window is not looked at until it does
+            public bool OsHooked, OsDirty;      // OsDirty: IsVisibleChanged fired since the last look
             public int Countdown = -1, Tries;
             public float NextTry;
             public Layout Last;
             public bool UrDone;          // Unit Reference set-up (size limits, tree width, splitter) done for this opening
             public int UrTries;
             public float UrNext;
-            public float UiNext, PollNext;   // throttles: the Unit Reference helpers and the position polling do not run every frame
+            public float UiNext, PollNext, UsNext;   // throttles: the Unit Reference helpers and the position polling do not run every frame
         }
 
         /// <summary>The splitter added between the unit tree and the unit information of one Unit Reference window.</summary>
@@ -196,6 +198,7 @@ namespace AlternativeGameInterface
         static readonly ConditionalWeakTable<object, TreeState> TreeStates = new ConditionalWeakTable<object, TreeState>();
         static readonly ConditionalWeakTable<object, SplitState> SplitStates = new ConditionalWeakTable<object, SplitState>(); // by window
         static readonly List<WeakReference> Created = new List<WeakReference>();
+        float _createdPrune;
         static volatile bool LoadScreenDone;
         static volatile bool ModsChanged = true;   // re-read the Mods menu tick in the next Update
         static bool Enabled;                       // ticked in the game's Mods menu (always true for a BepInEx/plugins copy)
@@ -297,10 +300,41 @@ namespace AlternativeGameInterface
             return "unknown";
         }
 
+        // the trace is written by a thread of its own (a file append on the game's thread can take a hundred milliseconds when a virus scanner looks at it)
+        static readonly System.Collections.Concurrent.ConcurrentQueue<string> _traceQ = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        static System.Threading.Thread _traceThread;
+        static readonly object _traceLock = new object();
+
         static void Trace(string msg)
         {
             if (!_debug) return;
-            try { File.AppendAllText(_traceFile, DateTime.Now.ToString("HH:mm:ss.fff") + "  " + msg + Environment.NewLine); }
+            _traceQ.Enqueue(DateTime.Now.ToString("HH:mm:ss.fff") + "  " + msg + Environment.NewLine);
+            if (_traceThread == null)
+            {
+                lock (_traceLock)
+                {
+                    if (_traceThread == null)
+                    {
+                        var th = new System.Threading.Thread(() => { while (true) { System.Threading.Thread.Sleep(300); TraceFlush(); } }) { IsBackground = true, Name = "AGI trace" };
+                        _traceThread = th; th.Start();
+                    }
+                }
+            }
+        }
+
+        static void TraceFlush()
+        {
+            try
+            {
+                lock (_traceLock)
+                {
+                    if (_traceQ.IsEmpty) return;
+                    var sb = new StringBuilder();
+                    string line;
+                    while (_traceQ.TryDequeue(out line)) sb.Append(line);
+                    File.AppendAllText(_traceFile, sb.ToString());
+                }
+            }
             catch { }
         }
 
@@ -432,9 +466,12 @@ namespace AlternativeGameInterface
                 "for aircraft only); the unit's information follows the chosen loadout.");
             BindTreeSearchConfig();
             BindPickersConfig();
+            BindModCreateConfig();
             BindUnitMenuConfig();
             BindCampaignLoadoutsConfig();
             BindDismissConfig();
+            BindSoundReloadConfig();
+            BindEncyclopediaConfig();
             BindBinocularConfig();
             BindPropulsionConfig();
             BindDamageScrollConfig();
@@ -442,10 +479,14 @@ namespace AlternativeGameInterface
             BindBinocularViewConfig();
             BindUpgradeConfig();
             BindLoadoutsOrderConfig();
+            BindCampaignEventsConfig();
+            BindContactEllipseConfig();
+            BindSonobuoyConfig();
             BindLookConfig();
             BindTrackStateConfig();
             BindCursorConfig();
             BindXamlDumpConfig();
+            BindSnapshotConfig();
             CleanLogsOnce();   // as early as possible: before the game starts this session's files
             BindLinkHelpConfig();
             _armOnly = Config.Bind("UnitReference", "ArmedOnly", false, "The \"Armed only\" check box the mod adds to the Unit Reference search panel (with ImprovedUnitReferenceUI): when ticked, units without weapons (decoys, sonobuoys, fuel tanks do not count) are left out of the tree.");
@@ -562,7 +603,7 @@ namespace AlternativeGameInterface
                                           new ConfigDefinition("UnitStatus", "DamageControlMinHeightAdd"),
                                           // test builds: the Weapons tab moved to the Alternative Weapons Control mod
                                           new ConfigDefinition("General", "ModBackgroundsOnly"), new ConfigDefinition("General", "TabSwitchesWindowSets"), new ConfigDefinition("General", "AddWindowKey"), new ConfigDefinition("InMission", "TimePanelPosition"), new ConfigDefinition("UnitStatus", "WeaponsTab"), new ConfigDefinition("UnitStatus", "ClickVolume"),
-                                          new ConfigDefinition("UnitStatus", "GunOneDirector"), new ConfigDefinition("UnitStatus", "GunChannelLimit") })
+                                          new ConfigDefinition("UnitStatus", "RememberTab"), new ConfigDefinition("UnitStatus", "FullUnitName"), new ConfigDefinition("UnitStatus", "HeaderName"), new ConfigDefinition("UnitStatus", "ClassInHeader"), new ConfigDefinition("UnitStatus", "GunOneDirector"), new ConfigDefinition("UnitStatus", "GunChannelLimit") })
                     orphans.Remove(d);
             }
             catch (Exception e) { Trace("DropRetiredEntries: " + e.Message); }
@@ -667,6 +708,7 @@ namespace AlternativeGameInterface
             Trace("mods menu: tick read " + (state == null ? "null" : state.ToString()) + ", was " + Enabled + ", id '" + ModState.ModId + "', load screens " + LoadScreenCount + ", hooked " + _hooked + ", hook failed " + _hookFailed);
             if (now == Enabled) return;
             Enabled = now;
+            if (!now) ReleaseFrameControl();
             if (ModState.Controlled)
                 Logger.LogInfo(now ? "Enabled in the game's Mods menu (" + ModState.ModId + ")." : "Disabled in the game's Mods menu (" + ModState.ModId + "); idle.");
         }
@@ -760,8 +802,12 @@ namespace AlternativeGameInterface
                     HookPropulsion(harmony, asm);
                     HookTreeSearch(harmony, asm);
                     HookPickers(harmony, asm);
+                    HookModCreate(harmony, asm);
                     HookCampaignLoadouts(harmony, asm);
                     HookLoadoutsOrder(harmony, asm);
+                    HookCampaignEvents(harmony, asm);
+                    HookContactEllipse(harmony, asm);
+                    HookSonobuoys(harmony, asm);
                     HookCampaignDismiss(harmony, asm);
                     HookPipScene(harmony, asm);
                     HookMapFullscreen(harmony, asm);
@@ -771,6 +817,9 @@ namespace AlternativeGameInterface
                     HookBinocularView(harmony, asm);
                     HookEventLog(harmony, asm);
                     HookStatusReference(harmony, asm);
+                    HookMuseumSave(harmony, asm);
+                    HookSoundReload(harmony, asm);
+                    HookEncyclopediaSplit(harmony, asm);
                 }
 
                 {
@@ -1196,6 +1245,8 @@ namespace AlternativeGameInterface
         /// </summary>
         bool IsOnScreen(object w)
         {
+            var ue = w as Noesis.UIElement;
+            if (ue != null) { try { return ue.IsVisible && Noesis.VisualTreeHelper.GetParent(ue) != null; } catch { return false; } }
             return w != null && GetB(w, "IsVisible") && VtParent(w) != null;
         }
 
@@ -1300,15 +1351,40 @@ namespace AlternativeGameInterface
         bool IsMapWindow(object w) { return IsWindowOf(w, MapHeaders, MapViewModels); }
 
         /// <summary>The World View window (the 3D picture) only.</summary>
-        bool IsWorldViewWindow(object w) { return IsWindowOf(w, new[] { "WorldView" }, new[] { "WorldViewWindowViewModel" }); }
+        bool IsWorldViewWindow(object w) { return IsWindowOf(w, WorldViewHeaders, WorldViewModels); }
+
+        // a window that was recognised once stays so (the header / view model do not change back): not asked again (per list of names)
+        static readonly ConditionalWeakTable<object, object> WinOfMapYes = new ConditionalWeakTable<object, object>(), WinOfWvYes = new ConditionalWeakTable<object, object>();
+        static readonly Dictionary<string, string> SquashCache = new Dictionary<string, string>();
 
         bool IsWindowOf(object w, string[] headers, string[] viewModels)
+        {
+            if (w == null) return false;
+            var cache = ReferenceEquals(headers, MapHeaders) ? WinOfMapYes : ReferenceEquals(headers, WorldViewHeaders) ? WinOfWvYes : null;
+            object seen;
+            if (cache != null && cache.TryGetValue(w, out seen)) return true;
+            bool r = IsWindowOfNow(w, headers, viewModels);
+            if (r && cache != null) cache.Add(w, w);
+            return r;
+        }
+
+        static bool HeaderIs(string t, string[] headers)
+        {
+            if (t == null) return false;
+            string sq;
+            if (!SquashCache.TryGetValue(t, out sq)) { sq = Squash(t); if (SquashCache.Count < 512) SquashCache[t] = sq; }
+            for (int i = 0; i < headers.Length; i++) if (sq.Equals(headers[i], StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
+        static readonly string[] WorldViewHeaders = { "WorldView" }, WorldViewModels = { "WorldViewWindowViewModel" };
+
+        bool IsWindowOfNow(object w, string[] headers, string[] viewModels)
         {
             var h = Get(w, "Header") as string;
             var c = Get(w, "Content");
             var ch = c == null ? null : Get(c, "Header") as string;
-            foreach (var t in new[] { h, ch })
-                if (t != null && Array.Exists(headers, m => Squash(t).Equals(m, StringComparison.OrdinalIgnoreCase))) return true;
+            if (HeaderIs(h, headers) || HeaderIs(ch, headers)) return true;
 
             var parentDc = Get(VtParent(w), "DataContext");
             var wdc = Get(w, "DataContext");
@@ -2808,10 +2884,35 @@ namespace AlternativeGameInterface
                     var w = _tracked[i].Ref.Target;
                     if (w == null || !GetB(w, "IsVisible") || GetB(w, "IsMouseOver") != (pass == 0)) continue;
                     var t = FindTreeView(w, vm, browser);
-                    if (t != null) { win = w; tree = t; return true; }
+                    if (t != null) { win = w; tree = t; TreeOfVm.Remove(vm); TreeOfVm.Add(vm, new WeakReference[] { new WeakReference(w), new WeakReference(t) }); return true; }
                 }
+            // a window opened with the tree already hidden: a collapsed tree is never loaded, so its TreeView was not caught. The
+            // window is the tracked one that shows this view model; the tree view is looked up in it once, here
+            for (int i = _tracked.Count - 1; i >= 0; i--)
+            {
+                var w = _tracked[i].Ref.Target as Noesis.DependencyObject;
+                if (w == null || !GetB(w, "IsVisible") || !ReferenceEquals(InfoViewModel(w), vm)) continue;
+                var v = FindFirst(w, e => TypeName(e) == "UnitTreeBrowserView");
+                if (v == null) continue;
+                win = w; tree = v;
+                TreeOfVm.Remove(vm); TreeOfVm.Add(vm, new WeakReference[] { new WeakReference(w), new WeakReference(v) });
+                return true;
+            }
+            // not found among the tracked windows (a window of the main menu, a tree that is not reachable now): the pair found
+            // for this view model last time is still valid while both are alive
+            WeakReference[] last;
+            if (TreeOfVm.TryGetValue(vm, out last) && last[0].Target != null && last[1].Target != null && VtParent(last[0].Target) != null)
+            {
+                win = last[0].Target; tree = last[1].Target;
+                Trace("tree toggle: window taken from the previous lookup (tracked " + _tracked.Count + ")");
+                return true;
+            }
+            Trace("tree toggle: no window (tracked " + _tracked.Count + ", tree view " + (TreeViewOf(browser) != null ? "found" : "not found") + ")");
             return false;
         }
+
+        /// <summary>The window and the tree view last found for a Unit Reference view model.</summary>
+        static readonly ConditionalWeakTable<object, WeakReference[]> TreeOfVm = new ConditionalWeakTable<object, WeakReference[]>();
 
         /// <summary>The UnitTreeBrowserView of this browser inside 'root' (a window / view): the TreeView was caught when it loaded, the view is above it.</summary>
         object FindTreeView(object root, object vm, object browser)
@@ -2952,9 +3053,26 @@ namespace AlternativeGameInterface
             return p;
         }
 
+        // the readers of properties: a delegate made once per (type, name) instead of PropertyInfo.GetValue on every call (FastGet)
+        readonly Dictionary<Type, Dictionary<string, Func<object, object>>> _getters = new Dictionary<Type, Dictionary<string, Func<object, object>>>();
+
         object Get(object o, string name)
         {
-            try { var p = Prop(o, name); return p == null ? null : p.GetValue(o, null); }
+            if (o == null) return null;
+            try
+            {
+                var type = o.GetType();
+                Dictionary<string, Func<object, object>> byName;
+                if (!_getters.TryGetValue(type, out byName)) _getters[type] = byName = new Dictionary<string, Func<object, object>>(StringComparer.Ordinal);
+                Func<object, object> g;
+                if (!byName.TryGetValue(name, out g))
+                {
+                    var p = Prop(o, name);
+                    g = p == null ? null : FastGet.Property(p) ?? (x => p.GetValue(x, null));
+                    byName[name] = g;
+                }
+                return g == null ? null : g(o);
+            }
             catch { return null; }
         }
 
@@ -2984,11 +3102,33 @@ namespace AlternativeGameInterface
         // after the game's UI has handled this frame's mouse (a window being dragged): the World View texture follows its window at once
         void LateUpdate()
         {
+            Prof.MarkLate();
             if (!_hooked || _hookFailed || _windowedMap == null || !_windowedMap.Value) return;
+            long p = Prof.T();
             MapPipStep();
+            Prof.Lap(Prof.Late, p);
+        }
+
+        internal static void TraceProfile(string s) { Trace(s); }
+
+        bool _phaseLoop;
+        System.Collections.IEnumerator PhaseLoop()
+        {
+            var eof = new UnityEngine.WaitForEndOfFrame();
+            while (true) { yield return eof; Prof.MarkEof(); }
         }
 
         void Update()
+        {
+            Prof.On = _debug;
+            Prof.MarkUpdateStart();
+            if (_debug && !_phaseLoop) { _phaseLoop = true; StartCoroutine(PhaseLoop()); gameObject.AddComponent<FrameStampFirst>(); gameObject.AddComponent<FrameStampLast>(); }
+            long pu = Prof.T();
+            try { UpdateCore(); }
+            finally { Prof.Lap(Prof.Update, pu); Prof.Frame(Time.unscaledTime, Time.unscaledDeltaTime); }
+        }
+
+        void UpdateCore()
         {
             if (!_loadHookTried) TryInstallLoadScreenHook();
             if (ModsChanged) RefreshEnabled();
@@ -2998,6 +3138,7 @@ namespace AlternativeGameInterface
                 return;
             }
 
+            long pp = Prof.T();
             CleanLogsOnce();
             RerollFirstBackground();
             MenuBackgroundStep();
@@ -3005,31 +3146,88 @@ namespace AlternativeGameInterface
 
             if (!_hooked && !LoadScreenDone && _traceOnce.Add("agi-wait-ls" + LoadScreenCount)) Trace("on, waiting for a finished load screen (finished so far " + LoadScreenCount + ")");
             if (!_hooked && LoadScreenDone) TryHook();
+            Prof.Lap(Prof.Pre, pp);
             if (!_hooked || _hookFailed) return;
 
-            ScanStep(Time.unscaledTime); XamlDumpStep(Time.unscaledTime);
+            pp = Prof.T();
+            FpsLimitStep(Time.unscaledTime); AdaptiveVSyncStep(Time.unscaledTime, Time.unscaledDeltaTime); ScanStep(Time.unscaledTime); XamlDumpStep(Time.unscaledTime); SnapshotStep(Time.unscaledTime);
+            Prof.Lap(Prof.Fps, pp);
             for (; _registered < Created.Count; _registered++)
                 _tracked.Add(new Tracked { Ref = Created[_registered] });
 
             float now = Time.unscaledTime;
+            long pm = Prof.T();
+            if (now >= _createdPrune)
+            {
+                // the list of windows ever made only grew (a WeakReference per window and mission): the dead ones go once all are tracked
+                _createdPrune = now + 30f;
+                if (_registered == Created.Count) { Created.RemoveAll(r => r.Target == null); _registered = Created.Count; }
+            }
             BackdropStep();
+            pm = Prof.Lap(Prof.Misc, pm);
             try { MonitorsStep(now); } catch (Exception e) { TraceOnce("MonitorsStep", e); }
+            pm = Prof.Lap(Prof.Monitors, pm);
             TimePanelStep(now);
             CompassTapeStep(now);
             WindowSetsStep();
             WorldViewKeyStep();
+            pm = Prof.Lap(Prof.Misc, pm);
+            long pl = pm;
             for (int i = _tracked.Count - 1; i >= 0; i--)
             {
                 var t = _tracked[i];
                 var w = t.Ref.Target;
                 if (w == null) { _tracked.RemoveAt(i); continue; } // collected
-                try { Step(t, w, now); TrackOpenState(t, w, now); FitMaximized(w, now); PinStep(t, w, now); LookStep(w); MapModeStep(w, now); KeepMapViewStep(t, w, now); EventLogStep(w); DcFitStep(w); PickerStep(w, now); if (_statusRef.Value && t.WasActive) StatusRefStep(w); if (t.WasActive) TrackStateStep(w); if (t.WasActive) ResizeCursorStep(w, now); if (t.WasActive) DockReachStep(w, now); if (t.WasActive) UpgradeStep(w, now); if (t.WasActive) LoadoutOrderStep(w, now); }
+                // a window that is not on the screen is looked at only when it tells that it changed (shown / hidden / loaded / unloaded);
+                // 264 windows of a mission's screen were all walked through each frame
+                if (!t.WakeHooked) HookWake(t, w);
+                if (!t.NoEvents && !t.WasActive && !t.Wake && OsIdle(t)) continue;
+                t.Wake = false;
+                try
+                {
+                    long q = Prof.T();
+                    Step(t, w, now); q = Prof.Lap(Prof.Step, q);
+                    TrackOpenState(t, w, now); q = Prof.Lap(Prof.Open, q);
+                    if (t.WasActive || t.Settled) { FitMaximized(w, now); }          // a closed window has nothing to fit
+                    q = Prof.Lap(Prof.Fit, q);
+                    PinStep(t, w, now); q = Prof.Lap(Prof.Pin, q);
+                    if (t.WasActive) LookStep(w);                     // a closed window is not looked at (it kept the screen capture for its texts going)
+                    q = Prof.Lap(Prof.Look, q);
+                    MapModeStep(w, now); q = Prof.Lap(Prof.MapMode, q);
+                    KeepMapViewStep(t, w, now); q = Prof.Lap(Prof.KeepMap, q);
+                    EventLogStep(w); q = Prof.Lap(Prof.EvLog, q);
+                    if (t.WasActive || t.Settled) DcFitStep(w);                // a window that is not on the screen is not fitted
+                    q = Prof.Lap(Prof.DcFit, q);
+                    if (t.WasActive) PickerStep(w, now);
+                    q = Prof.Lap(Prof.Picker, q);
+                    if (t.WasActive) SonobuoyStep(w, now);
+                    q = Prof.Lap(Prof.Sono, q);
+                    // the Unit Status helpers (title, remembered tab, Reference / Track State tabs): twenty times a second is plenty (they ran every frame)
+                    if (t.WasActive && now >= t.UsNext)
+                    {
+                        t.UsNext = now + 0.05f;
+                        StatusTitleStep(w); TabTrackStep(w);
+                        if (_statusRef.Value) StatusRefStep(w);
+                        TrackStateStep(w);
+                    }
+                    q = Prof.Lap(Prof.UStat, q);
+                    if (t.WasActive) ResizeCursorStep(w, now);
+                    q = Prof.Lap(Prof.RCur, q);
+                    if (t.WasActive) DockReachStep(w, now);
+                    q = Prof.Lap(Prof.Dock, q);
+                    if (t.WasActive) UpgradeStep(w, now);
+                    q = Prof.Lap(Prof.Upg, q);
+                    if (t.WasActive) LoadoutOrderStep(w, now);
+                    Prof.Lap(Prof.LOrd, q);
+                }
                 catch (Exception e)
                 {
                     if (!t.Warned) { t.Warned = true; Logger.LogWarning("Window '" + t.Label + "': " + e.Message); Trace("Step error: " + e); }
                 }
             }
 
+            Prof.Lap(Prof.Loop, pl);
+            long po = Prof.T();
             if (_osPatterns.Count > 0)
             {
                 if (_osSeenGen != Generation)
@@ -3070,13 +3268,37 @@ namespace AlternativeGameInterface
                 }
                 if (now >= _osRecordFrom) PollGameSwitches(now);
             }
+            po = Prof.Lap(Prof.OsPoll, po);
 
             try { RefTabsStep(); } catch (Exception e) { Trace("RefTabsStep: " + e.Message); }
+            Prof.Lap(Prof.RefTabs, po);
+            po = Prof.T();
             if (_probes.Count > 0) RunProbes();
             if (_dirty && now - _dirtySince > 1f) Save();
+            Prof.Lap(Prof.Tail, po);
         }
 
         /// <summary>Per-window state machine: identify, restore (fallback for what the early hooks missed), then record user changes.</summary>
+        static void HookWake(Tracked t, object w)
+        {
+            t.WakeHooked = true;
+            try
+            {
+                var fe = w as Noesis.FrameworkElement;
+                if (fe == null) { t.NoEvents = true; return; }
+                fe.IsVisibleChanged += (s, e) => t.Wake = true;
+                fe.Loaded += (s, e) => t.Wake = true;
+                fe.Unloaded += (s, e) => t.Wake = true;
+            }
+            catch { t.NoEvents = true; }
+        }
+
+        // nothing to be looked at for the open / closed memory of this window
+        bool OsIdle(Tracked t)
+        {
+            return _osPatterns.Count == 0 || (t.OsTried && (t.OsKey == null || (t.OsHooked && !t.OsDirty)));
+        }
+
         void Step(Tracked t, object w, float now)
         {
             bool active = IsOnScreen(w); // a window taken out of the UI counts as closed
@@ -3199,6 +3421,7 @@ namespace AlternativeGameInterface
         void TrackOpenState(Tracked t, object w, float now)
         {
             if (_osPatterns.Count == 0) return;
+            if (t.OsTried && t.OsKey == null) return;       // not a window to remember: nothing to look at
             if (!t.OsTried)
             {
                 if (now < t.OsNext) return;
@@ -3208,8 +3431,19 @@ namespace AlternativeGameInterface
                 t.OsTried = true;
             }
             if (t.OsKey == null) return;
-            if (GameSwitch(t.OsKey) != null) return; // a HUD window: PollGameSwitches follows the game's own switch
+            if (GameSwitch(t.OsKey) != null) { t.OsHooked = true; t.OsDirty = false; return; } // a HUD window: PollGameSwitches follows the game's own switch
 
+            // by the event: the window tells when it is shown or hidden (264 windows on a mission's screen were asked every frame)
+            if (!t.OsHooked)
+            {
+                t.OsHooked = true; t.OsDirty = true;
+                try { var el = w as Noesis.UIElement; if (el != null) el.IsVisibleChanged += (s, e) => t.OsDirty = true; else t.OsHooked = false; } catch { t.OsHooked = false; }
+            }
+            if (t.OsHooked)
+            {
+                if (!t.OsDirty) return;
+                t.OsDirty = false;
+            }
             bool open = GetB(w, "IsVisible");
             if (t.OsKnown && open == t.OsOpen) return;
             bool first = !t.OsKnown;
@@ -3757,6 +3991,6 @@ namespace AlternativeGameInterface
         }
 
         void OnApplicationQuit() { if (_dirty) Save(); }
-        void OnDestroy() { if (_dirty) Save(); }
+        void OnDestroy() { if (_dirty) Save(); TraceFlush(); }
     }
 }

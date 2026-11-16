@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
@@ -137,10 +137,37 @@ namespace AlternativeGameInterface
         /// <summary>After the last camera has drawn into the (supersampled) texture: it is shrunk by halves into the texture the interface shows.</summary>
         sealed class MapRtResolve : UnityEngine.MonoBehaviour
         {
+            static UnityEngine.Material _opaqueMat;
+
+            /// <summary>The sun glow, exhaust and other blended effects leave alpha below 1 in the texture; the screen has no alpha, the interface
+            /// would blend those pixels with what is behind the window. Alpha is set to 1 (colour is added with 0, alpha is added and clamped).</summary>
+            static void ForceOpaque()
+            {
+                if (_opaqueMat == null)
+                {
+                    var sh = UnityEngine.Shader.Find("Hidden/Internal-Colored");
+                    if (sh == null) return;
+                    _opaqueMat = new UnityEngine.Material(sh) { hideFlags = UnityEngine.HideFlags.HideAndDontSave };
+                    _opaqueMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                    _opaqueMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                    _opaqueMat.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+                    _opaqueMat.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
+                    _opaqueMat.SetInt("_ZWrite", 0);
+                }
+                UnityEngine.GL.PushMatrix();
+                UnityEngine.GL.LoadOrtho();
+                _opaqueMat.SetPass(0);
+                UnityEngine.GL.Begin(UnityEngine.GL.QUADS);
+                UnityEngine.GL.Color(new UnityEngine.Color(0f, 0f, 0f, 1f));
+                UnityEngine.GL.Vertex3(0f, 0f, 0f); UnityEngine.GL.Vertex3(0f, 1f, 0f); UnityEngine.GL.Vertex3(1f, 1f, 0f); UnityEngine.GL.Vertex3(1f, 0f, 0f);
+                UnityEngine.GL.End();
+                UnityEngine.GL.PopMatrix();
+            }
+
             void OnPostRender()
             {
                 var big = _rtCam; var small = _rtShown;
-                if (big == null || small == null || big == small || !big.IsCreated() || !small.IsCreated()) return;
+                if (big == null || small == null || !big.IsCreated() || !small.IsCreated()) return;
                 var own = GetComponent<UnityEngine.Camera>();
                 if (own == null || own.targetTexture != big) return;
                 var cm = CmInst();
@@ -148,6 +175,8 @@ namespace AlternativeGameInterface
                 var cams = RtCameras(cm);
                 var last = cams.Length > 1 && cams[1] != null && cams[1].enabled ? cams[1] : cams[0];
                 if (last == null || last.gameObject != gameObject) return;
+                try { ForceOpaque(); } catch (Exception e) { TraceOnce("World View opaque", e); }
+                if (big == small) return;
                 var cur = big;
                 var fm = big.filterMode; big.filterMode = UnityEngine.FilterMode.Bilinear;
                 while (cur.width > small.width * 2 || cur.height > small.height * 2)
@@ -203,6 +232,12 @@ namespace AlternativeGameInterface
             Trace("World View texture " + w + "x" + h + (shown != camRt ? " (cameras draw " + bw + "x" + bh + ", shrunk)" : "") + ", supersample x" + factor + ", MSAA " + aa);
         }
         static UnityEngine.Transform _backdropSprite;
+        static UnityEngine.Texture2D _backdropTex; static UnityEngine.Sprite _backdropSpr;      // assets: a destroyed GameObject does not free them
+        static void FreeBackdropAssets()
+        {
+            try { if (_backdropSpr != null) UnityEngine.Object.Destroy(_backdropSpr); if (_backdropTex != null) UnityEngine.Object.Destroy(_backdropTex); } catch { }
+            _backdropSpr = null; _backdropTex = null;
+        }
         static float _backdropAspect;
         const string BackdropFile = "AlternativeGameInterface_Backdrop";   // .jpg / .png next to AlternativeGameInterface.dll: replace it with any picture (cover-fitted)
 
@@ -223,15 +258,17 @@ namespace AlternativeGameInterface
                 var ic = Type.GetType("UnityEngine.ImageConversion, UnityEngine.ImageConversionModule");
                 var load = ic == null ? null : ic.GetMethod("LoadImage", new[] { typeof(UnityEngine.Texture2D), typeof(byte[]) });
                 if (load == null) { Trace("backdrop picture: ImageConversion not found"); return; }
+                FreeBackdropAssets();
                 var tex = new UnityEngine.Texture2D(2, 2, UnityEngine.TextureFormat.RGBA32, true);
-                if (!(bool)load.Invoke(null, new object[] { tex, System.IO.File.ReadAllBytes(file) })) { Trace("backdrop picture: cannot read " + file); return; }
+                if (!(bool)load.Invoke(null, new object[] { tex, System.IO.File.ReadAllBytes(file) })) { UnityEngine.Object.Destroy(tex); Trace("backdrop picture: cannot read " + file); return; }
+                _backdropTex = tex;
                 tex.wrapMode = UnityEngine.TextureWrapMode.Clamp; tex.filterMode = UnityEngine.FilterMode.Trilinear; tex.anisoLevel = 4;
                 var go = new UnityEngine.GameObject("AlternativeGameInterface_BackdropMap");
                 go.layer = 31;
                 go.transform.SetParent(_backdrop.transform, false);
                 go.transform.localPosition = new UnityEngine.Vector3(0f, 0f, 10f);
                 var sr = go.AddComponent<UnityEngine.SpriteRenderer>();
-                sr.sprite = UnityEngine.Sprite.Create(tex, new UnityEngine.Rect(0, 0, tex.width, tex.height), new UnityEngine.Vector2(0.5f, 0.5f), 100f);
+                sr.sprite = _backdropSpr = UnityEngine.Sprite.Create(tex, new UnityEngine.Rect(0, 0, tex.width, tex.height), new UnityEngine.Vector2(0.5f, 0.5f), 100f);
                 _backdropSprite = go.transform; _backdropAspect = (float)tex.width / tex.height; _backdropFitW = 0;
                 _backdrop.transform.position = new UnityEngine.Vector3(50000f, 0f, 0f);
                 _backdrop.GetComponent<UnityEngine.Camera>().cullingMask = 1 << 31;
@@ -289,6 +326,7 @@ namespace AlternativeGameInterface
             {
                 UnityEngine.Object.Destroy(_backdrop);
                 _backdrop = null; _backdropSprite = null;
+                FreeBackdropAssets();
                 Trace("backdrop camera removed");
             }
             // the mission is over / the option is off: the cameras go back to the screen and the textures are freed (also with no backdrop)
@@ -385,12 +423,24 @@ namespace AlternativeGameInterface
         // the game's own rectangle of the picture (bottom left) is not applied: the step below puts it over the World View window
         static bool MapSetRectsPrefix(UnityEngine.Rect rect)
         {
+            long p = Prof.T();
+            try { return MapSetRectsCore(rect); } finally { Prof.Lap(Prof.PRects, p); }
+        }
+
+        static bool MapSetRectsCore(UnityEngine.Rect rect)
+        {
             if (_mapRectSelf || !MapOn()) return true;
             return rect.width > 0.999f && rect.height > 0.999f;     // back to the whole screen is let through
         }
 
         // the element draws nothing (the camera shows through); the picture is still "requested" so that the game keeps it active
         static bool MapPipRenderPrefix(object __instance, Noesis.DrawingContext context)
+        {
+            long p = Prof.T();
+            try { return MapPipRenderCore(__instance, context); } finally { Prof.Lap(Prof.PPipR, p); }
+        }
+
+        static bool MapPipRenderCore(object __instance, Noesis.DrawingContext context)
         {
             if (!MapOn()) return true;
             try
@@ -446,11 +496,17 @@ namespace AlternativeGameInterface
         /// <summary>A failure that may repeat every frame is written to the trace once.</summary>
         static void TraceOnce(string what, Exception e)
         {
-            try { if (_traceOnce.Add(what + e.GetType().Name + e.Message)) Trace(what + ": " + e.GetType().Name + " " + e.Message); } catch { }
+            try { if (_traceOnce.Count < 300 && _traceOnce.Add(what + e.GetType().Name + e.Message)) Trace(what + ": " + e.GetType().Name + " " + e.Message); } catch { }
         }
 
         // the mouse is over the real screen area of the picture: no remapping
         static bool MapRemapPrefix(UnityEngine.Vector3 mousePos, ref UnityEngine.Vector3 __result)
+        {
+            long p = Prof.T();
+            try { return MapRemapCore(mousePos, ref __result); } finally { Prof.Lap(Prof.PRemap, p); }
+        }
+
+        static bool MapRemapCore(UnityEngine.Vector3 mousePos, ref UnityEngine.Vector3 __result)
         {
             if (!MapOn()) return true;
             if (WorldDisplayMouse()) return true;      // the mouse is on the monitor the game shows the World View on: its own mapping
@@ -478,6 +534,7 @@ namespace AlternativeGameInterface
             if (_windowedMap == null || !_windowedMap.Value || _cmCamera == null || _cmSetRects == null) return;
             try
             {
+                if (!MapMissionOn()) return;        // no mission (loading): the backdrop step puts everything back each frame, the picture must not be set up again
                 // photo mode: the cameras draw on the screen itself, back into the texture when the HUD is back
                 bool photo = PhotoMode();
                 if (photo != _photoApplied)
@@ -632,9 +689,15 @@ namespace AlternativeGameInterface
 
         static void MapMouseStatePostfix(object __instance)
         {
+            long p = Prof.T();
+            try { MapMouseStateCore(__instance); } finally { Prof.Lap(Prof.PMouse, p); }
+        }
+
+        static void MapMouseStateCore(object __instance)
+        {
             if (!MapOn()) { try { GameMouseFix(__instance); } catch { } return; }
             if (WorldDisplayMouse()) return;      // the mouse is on the monitor with the game's World View: the game decides
-            if (Monitors.Count > 0 && MouseDisplay() > 0 && MouseDisplay() != _wvDisp) { ForceUi(__instance); return; }      // another monitor of ours: only windows are there
+            if (Monitors.Count > 0) { int md = MouseDisplay(); if (md > 0 && md != _wvDisp) { ForceUi(__instance); return; } }      // another monitor of ours: only windows are there
             if (PhotoMode()) return;     // photo mode: the whole screen is the 3D view
             try
             {

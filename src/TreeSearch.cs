@@ -22,7 +22,8 @@ namespace AlternativeGameInterface
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
-        ConfigEntry<bool> _earliest, _keepOpened, _hideCountries, _searchDesc, _fullName;
+        ConfigEntry<bool> _earliest, _keepOpened, _hideCountries, _searchDesc;
+        ConfigEntry<string> _labelName, _titleName;
         MethodInfo _matchObject, _matchWeapon, _matchSensor, _missionYear;
 
         sealed class PinState { public object Entry; }
@@ -34,8 +35,13 @@ namespace AlternativeGameInterface
 
         void BindTreeSearchConfig()
         {
-            _fullName = Config.Bind("UnitStatus", "FullUnitName", true,
-                "Unit Status window: the unit's full name in the header (the game shows the short one).");
+            _titleName = Config.Bind("UnitStatus", "WindowTitleName", "FullName",
+                new ConfigDescription("Unit Status window, the title of the window (\"Unit Status <name>\"). ShortName (the game's), FullName, ShortClass, FullClass, TypeClass.",
+                    new AcceptableValueList<string>("ShortName", "FullName", "ShortClass", "FullClass", "TypeClass")));
+            _labelName = Config.Bind("UnitStatus", "UnitLabelName", "TypeClass",
+                new ConfigDescription("Unit Status window, the unit's name at the right of the tabs. ShortName (the game's), FullName, ShortClass, FullClass, TypeClass.",
+                    new AcceptableValueList<string>("ShortName", "FullName", "ShortClass", "FullClass", "TypeClass")));
+            _labelName.SettingChanged += (o, e) => { try { SyncFullNames(); } catch { } };   // the open Unit Status windows follow the choice at once
             _earliest = Config.Bind("UnitReference", "EarliestVariantOnClick", true,
                 "Unit Reference tree: a click on a class (a node with several variants) selects its earliest variant. The game selects the one in service in " +
                 "the mission year, otherwise the latest.");

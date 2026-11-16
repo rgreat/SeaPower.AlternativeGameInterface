@@ -1,4 +1,8 @@
-[b]Version 2.0.0[/b]
+[b]Version 2.3.1[/b]
+
+Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several monitors, windows that remember their place and state, transparency, a richer interface for missions and campaigns.
+
+[h1]Requires [b]Anchor Chain[/b] or [b]R.A.T.S. Keel[/b][/h1]
 
 [h1]Features[/h1]
 [olist]
@@ -8,26 +12,23 @@
 [*]Windows snap to the screen edges and to each other.
 [*]Several windows of one kind (e.g. Weapon Reference) open slightly shifted.
 [*]Lets you drag any window partly outside the visible screen area.
-[*]Remembered windows have no minimum size of their own.
 [*]Remembers which mission windows were open and restores that at the next mission start.
-[*]Thin frame around draggable windows and the game's tooltips for better edge visibility. Customizable.
+[*]Thin, customizable frame around draggable windows and the game's tooltips.
 [*]In-game settings window (gear button in the title bar of a remembered window): tabs, groups, hints, language selector.
 [*]Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's. Main menu: game video (default) or slideshow.
-[*]Hides "_Custom Mission" in the SCENARIOS list of the main menu.
-[*]Mission editor: the open-mission picker starts in the last mission's folder; *.ini files are light blue.
-[*]Optional: deletes the game's old log files at start (off by default).
+[*]Main menu: "Encyclopedia" opens the Unit Reference window at once, "Encyclopedia 3D" is the game's own (optional). Save / Load in the pause menu of Encyclopedia 3D.
+[*]Mission editor: the open-mission picker starts in the last mission's folder; *.ini files are light blue. Save / Load windows remember their last folder; Create Mod fills in the folder and picture of your Workshop item.
 [*]Enhances the UI of the Unit Reference (encyclopedia) window:
 Adds a movable splitter between the unit tree and the unit data; the tree width is remembered.
 The chosen country, the search panel (category, filters, search text) and whether the unit tree is shown are remembered.
 The Show/Hide unit tree button also hides the search panel and adjusts the window width.
 A tidier unit tree: classes sorted by service date, a unit's loadout variants (Early, Late, ASW...) gathered under its class.
-The tree scrolls to the selected unit.
-The wheel scrolls the tree only over the tree.
+The tree scrolls to the selected unit; the wheel scrolls it only over the tree.
 A click on a class selects its earliest variant (optional).
 The unit the window was opened for stays in the tree, even if the filters would hide it.
 The country list shows only countries that have units for the current search.
 Without "Search by name only" the search also looks into descriptions and unit ids (<Id>.ini).
-Tooltips with a short help on the highlighted links to weapons, sensors and systems.
+Tooltips on the links to weapons, sensors and systems.
 Loadout selector for ships, submarines and land units too, not only aircraft.
 "Source" drop-down by the search box: show units of the ticked sources (base game, mods).
 "Armed only" check box: hides unarmed units (rafts, targets, tankers, civilian ships...).
@@ -35,39 +36,35 @@ Propulsion of ships and submarines (engine type and power) next to Max Speed.
 [*]Unit Status window:
 Reference tab: the Unit Reference of the selected unit right in the Unit Status window (also of a contact of a known type).
 Damage Control tab: adjustable minimum height, so the Auto DC status panel at the bottom stays visible; the damage lists scroll with the wheel.
-The full name of the unit in the header.
+The window title and the name beside the tabs show the unit's name, class or type and class, as you choose.
 [*]Right click on the flag or name in the unit panel opens the unit's context menu.
-[*]Fixed: empty sensor / age fields in contact Information.
-[*]Game messages in the bottom right no longer block clicks on buttons under them.
 [*]Campaign "Strict loadouts" (optional): a check box on the start screen; the Task Force Builder offers ship versions only for ships available in the mission or owned.
 [*]Localization: settings window and hints in the 9 languages of the game; the texts can be edited (lang folder).
-[*]Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the place, size, look and open state of the windows; the active desktop is remembered. They start as built-in arrangements; the "Desktops" page of the settings window shows what each desktop keeps for each window - edit it or reset it. A key (Insert by default) opens and closes the World View. Both windows open and close independently. A backdrop picture (AlternativeGameInterface_Backdrop.jpg next to the dll, replaceable) is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
-[*]A small arrow next to the gear of a window opens its look menu: opacity, scale, text contrast and level. The Tactical Display and the World View start at the bottom level.
-[*]Windows docked to a screen edge can still be resized from that edge.
-[*]The mission's time panel can be dragged, and so can the mission timer under it (Time Remaining); double-click puts it back. Its place is kept per desktop; in desktop mode it starts a little lower and to the left.
-[*]Unit Status: a "Track State" tab for a selected contact of another side (the contact's Information).
-[*]Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); loadouts are sorted by date; a hull swap is priced from the roster.
-[*]The News window of the main menu gets the mod's gear, frame and remembered position; the game's resize cursors work outside a mission.
-[*]Optional "Keep map view on resize": the Tactical Display's zoom follows its window size, so the visible area stays visible.
-[*]Event Log: every track number is a link (option); a repeated click on the same contact or unit link centres the Tactical Display on it (option).
+[*]Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the place, size, look and open state of the windows; the active desktop is remembered. Edit them on the "Desktops" page of the settings. A key (Insert by default) opens and closes the World View. A replaceable backdrop picture (AlternativeGameInterface_Backdrop.jpg) is behind them. Backspace shows the 3D view full screen. The compass tape moves into the World View window.
+[*]A small arrow next to the gear of a window opens its look menu: opacity, scale, text contrast and level. The Tactical Display and World View start at the bottom level.
+[*]The mission's time panel and the mission timer under it can be dragged; double-click puts them back. The place is kept per desktop.
+[*]Unit Status: a "Track State" tab for a selected contact of another side, in an optional compact layout.
+[*]Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); loadouts are sorted by date; a hull swap is priced from the roster. At a briefing or newspaper event the Task Force shows ships as after the last mission.
+[*]Main menu: the News window gets the mod's gear, frame and remembered position; "_Custom Mission" is hidden in SCENARIOS; the game's resize cursors work outside a mission.
+[*]Optional "Keep map view on resize": the Tactical Display's zoom follows its window size, so the visible area stays.
+[*]Event Log: every track number is a link; a repeated click on the same link centres the Tactical Display on it (both optional).
 [*]Settings entry "Game Interface" in the main menu (under Mod Manager) and the pause menu (under Options); with several of the author's mods it becomes "Alternative Mods" with a list.
-[*]The settings gear and the look arrow sit among the title bar buttons and never lie over buttons other mods add.
-[*]Binoculars: at max zoom they start with the normal view instead of the night / thermal filter (by day, optional). Desktop mode: frame and interface fit the World View window; Backspace gives a full-screen view.
-[*]Ship binoculars can look below the horizon (In Mission tab, 10 degrees by default).
+[*]Binoculars: at max zoom they start with the normal view instead of the night / thermal filter (by day, optional). Desktop mode: frame and interface fit the World View window; Backspace gives a full-screen view. Ship binoculars can look below the horizon (In Mission tab).
 [*]Moving or resizing a window over the 3D view no longer turns the camera; IMGUI windows of other mods (Camera Offset) can be grabbed over the game's windows.
-[*]Desktop mode: the other monitors work like the main one for windows (Monitor in the window's menu); the game's own second-monitor map and World View monitor are off.
+[*]Desktop mode: the other monitors work like the main one for windows (Monitor in the window's menu).
+[*]Tactical Display: a contact's position ellipse never reaches nearer than the sensor; with many sonobuoys visible their icons shrink and lose their text.
+[*]Video options: the Frame Rate Limit slider goes up to 250, with a "Remove frame rate limit" check box; the V-Sync list gets "Adaptive V-Sync" (on while the frames keep up with the screen).
 [/olist]
 
 [h1]Compatibility[/h1]
 [list]
-[*]Supports Sea Power version 0.9.0 and newer.
-[*]Requires Anchor Chain.
-[*]Can be switched on/off in the game's Mods menu.
+[*]Supports Sea Power version 0.9.2 and newer.
+[*]Loaders: Anchor Chain or R.A.T.S. Keel.
 [/list]
 
 [h1]Install[/h1]
 [olist]
-[*]Install the [b]Anchor Chain[/b] preloader as described in the [url=https://seapower-modders.github.io/AnchorChain/install-anchor-chain.html]documentation[/url].
+[*]Subscribe to [url=https://steamcommunity.com/workshop/filedetails/?id=3380210757]Anchor Chain[/url] or [url=https://steamcommunity.com/workshop/filedetails/?id=3835527459]RATS Keel[/url] (temporarily unavailable) and follow instructions on mods page.
 [*]Subscribe to this mod.
 [*]Start [b]Sea Power[/b].
 [*]Enable mod in game's [b]Mod Manager[/b] and press [b]Apply[/b] button.
@@ -81,5 +78,3 @@ Move or resize them as usual; they come back where you left them.
 [*]Most features can be turned off or customized in the settings window (the gear in the title bar of a remembered window). They are stored in:
 Sea Power/Sea Power_Data/StreamingAssets/user/AlternativeGameInterface/AlternativeGameInterface.cfg
 [/list]
-
-P.S. Highly recommended to use with the [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3676689138]Camera Offset[/url] mod.

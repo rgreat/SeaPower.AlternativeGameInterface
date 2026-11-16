@@ -22,8 +22,8 @@ namespace AlternativeGameInterface
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
-        ConfigEntry<bool> _hideCustom, _rememberFolder, _blueIni, _deleteLogs;
-        ConfigEntry<string> _lastMissionDir;
+        ConfigEntry<bool> _hideCustom, _rememberFolder, _blueIni, _deleteLogs, _rememberSave, _dblOpen;
+        ConfigEntry<string> _lastMissionDir, _lastSaveMissions, _lastSaveCampaigns;
         PropertyInfo _pickerMode, _pickerCtx;
         FieldInfo _pickerInitial, _pickerHome;
         bool _logsDone;
@@ -35,6 +35,12 @@ namespace AlternativeGameInterface
             _rememberFolder = Config.Bind("MissionEditor", "RememberMissionFolder", true,
                 "Mission editor: the file picker for opening a mission starts in the folder of the mission opened last time.");
             _lastMissionDir = Config.Bind("MissionEditor", "LastMissionFolder", "", "The folder of the mission opened last in the mission editor (kept by the mod).");
+            _rememberSave = Config.Bind("General", "RememberSaveFolder", true,
+                "Save game and Load game windows (pause menu, main menu, campaign) open in the folder used last time; campaign and mission saves keep their own folders.");
+            _dblOpen = Config.Bind("General", "DoubleClickOpen", false,
+                "A double click on a file in the Load game and other file-opening windows opens it (like the Open button) and on a scenario in the main menu starts it (like the Play button); save windows are not changed.");
+            _lastSaveMissions = Config.Bind("General", "LastSaveFolderMissions", "", "The last folder of the mission Save / Load game windows (kept by the mod).");
+            _lastSaveCampaigns = Config.Bind("General", "LastSaveFolderCampaigns", "", "The last folder of the campaign Save / Load game windows (kept by the mod).");
             _blueIni = Config.Bind("General", "ColorIniFiles", true, "Mission editor file pickers: names of *.ini files are light blue.");
             _deleteLogs = Config.Bind("General", "DeleteOldLogs", false,
                 "At the start of the game the log files of earlier sessions (the game's Logs folder: *_session_*, *_sessionEventLog_*) are deleted; this session's stay.");
@@ -54,8 +60,21 @@ namespace AlternativeGameInterface
             _pickerInitial = fp == null ? null : fp.GetField("initialPath", inst);
             _pickerHome = fp == null ? null : fp.GetField("homePath", inst);
             var init = fp == null ? null : fp.GetMethod("Initialise", inst, null, Type.EmptyTypes, null);
-            if (init != null && _pickerMode != null && _pickerInitial != null) { TryPatch(harmony, init, null, "PickerInitPostfix", null); Trace("patched FilePickerViewModel.Initialise"); }
-            else Trace("FilePickerViewModel.Initialise not found: RememberMissionFolder not available");
+            if (init != null && _pickerMode != null && _pickerInitial != null) { TryPatch(harmony, init, "PickerInitPrefix", "PickerInitPostfix", null); Trace("patched FilePickerViewModel.Initialise"); }
+            else Trace("FilePickerViewModel.Initialise not found: RememberMissionFolder, RememberSaveFolder not available");
+            var setFolder = fp == null ? null : fp.GetProperty("SelectedFolder", inst);
+            var setter = setFolder == null ? null : setFolder.GetSetMethod(true);
+            if (setter != null) { TryPatch(harmony, setter, null, "PickerFolderPostfix", null); Trace("patched FilePickerViewModel.SelectedFolder (RememberSaveFolder)"); }
+            else Trace("FilePickerViewModel.SelectedFolder not found: RememberSaveFolder not available");
+            // double click on a file of an "open" picker (Load game, open mission...) opens it: the game's double click only highlights
+            MethodInfo sel = null;
+            if (fp != null)
+                foreach (var m in fp.GetMethods(inst))
+                    if (m.Name.StartsWith("<CreateSelectCommand>", StringComparison.Ordinal) && m.GetParameters().Length <= 1) { sel = m; break; }
+            _pickerButton = fp == null ? null : fp.GetProperty("ButtonCommand", inst);
+            _pickerHigh = fp == null ? null : fp.GetProperty("HighlightedItem", inst);
+            if (sel != null && _pickerButton != null && _pickerHigh != null && _pickerMode != null) { TryPatch(harmony, sel, null, "PickerDoubleClickPostfix", null); Trace("patched FilePickerViewModel select command (double click opens)"); }
+            else Trace("FilePickerViewModel select command not found: double click to open not available");
             var mevm = asm.GetType("SeapowerUI.ViewModels.MissionEditorViewModel");
             var load = mevm == null ? null : mevm.GetMethod("LoadMission", inst);
             if (load != null) TryPatch(harmony, load, "LoadMissionPrefix", null, null);
@@ -98,9 +117,89 @@ namespace AlternativeGameInterface
             catch (Exception e) { Trace("RememberMissionFolder: " + e.Message); }
         }
 
+        // ---------------------------------------------------------------- the Save game / Load game folder
+
+        /// <summary>The Save game / Load game pickers: *.sav files under the game's "saves" folder. Ready = the folder is set by the user now.</summary>
+        static readonly ConditionalWeakTable<object, object> SavePickersReady = new ConditionalWeakTable<object, object>();
+
+        /// <summary>The config entry that keeps the folder of this picker ("missions" or "campaigns" saves), or null if it is not a Save / Load game picker.</summary>
+        ConfigEntry<string> SaveFolderEntry(object picker, out DirectoryInfo home)
+        {
+            home = null;
+            var ext = Get(picker, "DefaultExtension") as string;
+            if (!string.Equals(ext, "sav", StringComparison.OrdinalIgnoreCase)) return null;
+            home = _pickerHome == null ? null : _pickerHome.GetValue(picker) as DirectoryInfo;
+            var initial = _pickerInitial == null ? null : _pickerInitial.GetValue(picker) as DirectoryInfo;
+            if (home == null || initial == null) return null;
+            if (!string.Equals(home.Name, "saves", StringComparison.OrdinalIgnoreCase)) return null;
+            return string.Equals(initial.Name, "campaigns", StringComparison.OrdinalIgnoreCase) ? _lastSaveCampaigns : _lastSaveMissions;
+        }
+
+        static void PickerInitPrefix(object __instance)
+        {
+            try { SavePickersReady.Remove(__instance); } catch { }
+        }
+
+        static void PickerFolderPostfix(object __instance, DirectoryInfo value)
+        {
+            var a = Active;
+            if ((object)a == null || !a._rememberSave.Value || value == null) return;
+            try
+            {
+                object ready;
+                if (!SavePickersReady.TryGetValue(__instance, out ready)) return;
+                DirectoryInfo home;
+                var entry = a.SaveFolderEntry(__instance, out home);
+                if (entry == null || !value.FullName.StartsWith(home.FullName, StringComparison.OrdinalIgnoreCase)) return;
+                if (entry.Value != value.FullName) { entry.Value = value.FullName; a.Config.Save(); a.Verbose("save folder kept: " + value.FullName); }
+            }
+            catch (Exception e) { Trace("RememberSaveFolder: " + e.Message); }
+        }
+
+        void RestoreSaveFolder(object picker)
+        {
+            DirectoryInfo home;
+            var entry = SaveFolderEntry(picker, out home);
+            if (entry == null) return;
+            var last = entry.Value;
+            if (!string.IsNullOrEmpty(last) && Directory.Exists(last) && last.StartsWith(home.FullName, StringComparison.OrdinalIgnoreCase))
+            {
+                SetV(picker, "SelectedFolder", new DirectoryInfo(last));
+                Verbose("save picker opened in " + last);
+            }
+            SavePickersReady.Remove(picker);
+            SavePickersReady.Add(picker, new object());
+        }
+
+        PropertyInfo _pickerButton, _pickerHigh;
+
+        static void PickerDoubleClickPostfix(object __instance)
+        {
+            var a = Active;
+            if ((object)a == null || !a._dblOpen.Value) return;
+            try
+            {
+                var mode = a._pickerMode.GetValue(__instance, null);
+                if (mode == null || mode.ToString() != "OpenFile") return;
+                if (!(a._pickerHigh.GetValue(__instance, null) is FileInfo)) return;
+                var cmd = a._pickerButton.GetValue(__instance, null);
+                if (cmd == null) return;
+                var t = cmd.GetType();
+                var can = t.GetMethod("CanExecute", new[] { typeof(object) });
+                if (can != null && !(bool)can.Invoke(cmd, new object[] { null })) return;
+                var exec = t.GetMethod("Execute", new[] { typeof(object) });
+                if (exec != null) exec.Invoke(cmd, new object[] { null });
+            }
+            catch (Exception e) { Trace("DoubleClickOpen: " + (e.InnerException ?? e).Message); }
+        }
+
         static void PickerInitPostfix(object __instance)
         {
             var a = Active;
+            if ((object)a != null && a._rememberSave.Value)
+            {
+                try { a.RestoreSaveFolder(__instance); } catch (Exception e) { Trace("RememberSaveFolder: " + e.Message); }
+            }
             if ((object)a == null || !a._rememberFolder.Value) return;
             try
             {

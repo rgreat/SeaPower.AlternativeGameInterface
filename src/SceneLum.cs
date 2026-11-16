@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -68,7 +68,7 @@ namespace AlternativeGameInterface
         static bool SlDue(SlDisplay d, float now) { return now - d.Asked <= 3f && now >= d.Next && d.Pend == 0; }
 
         // ten times a second with the small capture, four with the full one; a new capture starts only when the last readback is in
-        static float SlGap(SlDisplay d) { return d.Mode == 1 ? 0.1f : 0.25f; }
+        static float SlGap(SlDisplay d) { float g = d.Mode == 1 ? 0.2f : 0.5f; return InMission() ? g : g * 4f; }   // the menus: the picture behind changes slowly, and a full capture costs the GPU a frame
 
         // the main display: at the end of the frame
         IEnumerator SceneLumLoop()
@@ -131,6 +131,23 @@ namespace AlternativeGameInterface
             d.Pend++;
             UnityEngine.Rendering.AsyncGPUReadback.Request(to, 0, TextureFormat.RGBA32, req =>
             {
+                long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+                try { SlReadback(d, dst, req); }
+                finally { SlLog("readback callback", t0, d); }
+            });
+        }
+
+        // a long capture / readback goes to the trace (Debug): the cost of the "text by background" in the frame
+        static int _slLogged;
+        static void SlLog(string what, long t0, SlDisplay d)
+        {
+            double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            if (ms >= 3.0 && _slLogged < 300) { _slLogged++; Trace("text by background: " + what + " took " + ms.ToString("0.0") + " ms (mode " + d.Mode + ")"); }
+        }
+
+        static void SlReadback(SlDisplay d, float[] dst, UnityEngine.Rendering.AsyncGPUReadbackRequest req)
+        {
+            {
                 d.Pend--;
                 bool ok = !req.hasError;
                 if (ok)
@@ -142,7 +159,7 @@ namespace AlternativeGameInterface
                 }
                 if (ReferenceEquals(dst, d.Lum)) { d.Valid = ok; if (ok) AutoLookRefresh(d.Index); }   // the texts follow at once, not at the next window step
                 if (d.Pend == 0 && d.Mode == 0) SlDecideMode(d, ok);
-            });
+            }
         }
 
         // the first captures of a display: the full one and the one 10 times smaller are compared; if the small one shows the same picture, only it is used from then on
@@ -164,6 +181,13 @@ namespace AlternativeGameInterface
         static void SceneLumCapture(SlDisplay d, int sw, int sh, int display)
         {
             if (sw < 16 || sh < 16) return;
+            long tc = System.Diagnostics.Stopwatch.GetTimestamp();
+            try { SceneLumCaptureCore(d, sw, sh, display); }
+            finally { SlLog("capture", tc, d); }
+        }
+
+        static void SceneLumCaptureCore(SlDisplay d, int sw, int sh, int display)
+        {
             int smw = Mathf.Max(16, sw / 10), smh = Mathf.Max(9, sh / 10);
             if (d.Rt == null) d.Rt = SlMake(SlW, SlH);
             if (d.Mode != 1)

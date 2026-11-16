@@ -325,6 +325,7 @@ namespace AlternativeGameInterface
             DisableMenuVideo(page);
             float now = Time.unscaledTime;
             if (_slideNext == 0f) _slideNext = now + SlideSeconds();
+            if (_preKey == null && !_preBusy && now >= _slideNext - 5f && now < _slideNext) PreloadStart(vm);
             if (now < _slideNext) return;
             _slideNext = now + SlideSeconds();
             if (!GetB(vm, "BackgroundImageVisible")) return;
@@ -357,7 +358,9 @@ namespace AlternativeGameInterface
             if (paths == null || paths.Count == 0) return;
             var cur = _menuKey == null ? null : _menuKey.GetValue(vm) as string;
             string next = null;
-            for (int i = 0; i < 6 && (next == null || (paths.Count > 1 && string.Equals(next, cur, StringComparison.OrdinalIgnoreCase))); i++) next = paths[UnityEngine.Random.Range(0, paths.Count)];
+            if (_preReady && _preKey != null) { next = _preKey; _preKey = null; _preReady = false; }   // loaded beforehand (off the main thread), the game's cache has it
+            else _preKey = null;                                                                          // not ready in time: the game loads it itself, as before
+            for (int i = 0; next == null && i < 6 && (next == null || (paths.Count > 1 && string.Equals(next, cur, StringComparison.OrdinalIgnoreCase))); i++) next = paths[UnityEngine.Random.Range(0, paths.Count)];
             var rl = _menuVmType.Assembly.GetType("SeaPower.Singleton`1").MakeGenericType(_menuVmType.Assembly.GetType("SeaPower.ResourceLoader")).GetProperty("Instance", BindingFlags.Static | BindingFlags.Public).GetValue(null, null);
             var tex = rl.GetType().GetMethod("getNoesisTextureSourceResource").Invoke(rl, new object[] { next, false, false, true });
             if (tex == null) return;
@@ -372,6 +375,73 @@ namespace AlternativeGameInterface
             _fadeImg.Source = tex as Noesis.ImageSource;
             _fadeImg.Opacity = 0f; _fadeImg.Visibility = Noesis.Visibility.Visible;
             _fadeTex = tex; _fadePath = next; _fadeVm = vm; _fadeStart = Time.unscaledTime;
+        }
+
+        // ---- the next picture is read and decoded beforehand by a web request (the decoding runs on a worker thread; the game's own loader does it on the main thread, 70-80 ms)
+        string _preKey; bool _preBusy, _preReady;
+
+        object ResLoader()
+        {
+            return _menuVmType.Assembly.GetType("SeaPower.Singleton`1").MakeGenericType(_menuVmType.Assembly.GetType("SeaPower.ResourceLoader")).GetProperty("Instance", BindingFlags.Static | BindingFlags.Public).GetValue(null, null);
+        }
+
+        void PreloadStart(object vm)
+        {
+            try
+            {
+                var paths = Get(vm, "imagePaths") as List<string>;
+                if (paths == null) { var f = _menuVmType.GetField("imagePaths", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public); paths = f == null ? null : f.GetValue(vm) as List<string>; }
+                if (paths == null || paths.Count == 0) { _preKey = ""; return; }
+                var cur = _menuKey == null ? null : _menuKey.GetValue(vm) as string;
+                string next = null;
+                for (int i = 0; i < 6 && (next == null || (paths.Count > 1 && string.Equals(next, cur, StringComparison.OrdinalIgnoreCase))); i++) next = paths[UnityEngine.Random.Range(0, paths.Count)];
+                var rl = ResLoader();
+                // already in the game's cache: nothing to load
+                var t2 = rl.GetType().GetField("_texture2dResources", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                var ts = rl.GetType().GetField("_noesisTextureSourceResources", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                if (t2 == null || ts == null) { _preKey = ""; return; }
+                var d2 = t2.GetValue(rl) as System.Collections.IDictionary;
+                if (d2 != null && d2.Contains(next)) { _preKey = next; _preReady = true; return; }
+                string file = null;
+                if (Path.IsPathRooted(next)) file = next;
+                else
+                {
+                    var fm = _menuVmType.Assembly.GetType("SeaPower.Singleton`1").MakeGenericType(_menuVmType.Assembly.GetType("SeaPower.FileManager")).GetProperty("Instance", BindingFlags.Static | BindingFlags.Public).GetValue(null, null);
+                    file = fm.GetType().GetMethod("GetFile", new[] { typeof(string) }).Invoke(fm, new object[] { next }) as string;
+                }
+                if (string.IsNullOrEmpty(file) || !File.Exists(file)) { _preKey = ""; return; }
+                _preKey = next; _preBusy = true; _preReady = false;
+                StartCoroutine(PreloadRoutine(next, file));
+            }
+            catch (Exception e) { _preKey = ""; _preBusy = false; Trace("menu slideshow (preload): " + (e.InnerException ?? e).Message); }
+        }
+
+        System.Collections.IEnumerator PreloadRoutine(string key, string file)
+        {
+            UnityEngine.Networking.UnityWebRequest req = null;
+            try { req = UnityEngine.Networking.UnityWebRequestTexture.GetTexture(new Uri(file).AbsoluteUri, false); }
+            catch (Exception e) { _preBusy = false; _preKey = ""; Trace("menu slideshow (preload): " + e.Message); yield break; }
+            yield return req.SendWebRequest();
+            _preBusy = false;
+            Texture2D tex = null;
+            try
+            {
+                if (req.result == UnityEngine.Networking.UnityWebRequest.Result.Success && _preKey == key)
+                {
+                    tex = UnityEngine.Networking.DownloadHandlerTexture.GetContent(req);
+                    tex.name = key; tex.anisoLevel = 6;
+                    var rl = ResLoader();
+                    var d2 = rl.GetType().GetField("_texture2dResources", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).GetValue(rl) as System.Collections.IDictionary;
+                    var dn = rl.GetType().GetField("_noesisTextureSourceResources", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).GetValue(rl) as System.Collections.IDictionary;
+                    var src = new Noesis.TextureSource(tex);
+                    d2[key] = tex; dn[key] = src;     // the same two caches the game's loader fills (and PurgeCachedTextures empties)
+                    _preReady = true; tex = null;
+                }
+                else if (req.result != UnityEngine.Networking.UnityWebRequest.Result.Success) { _preKey = ""; Trace("menu slideshow (preload): " + req.error); }
+            }
+            catch (Exception e) { _preKey = ""; _preReady = false; Trace("menu slideshow (preload): " + (e.InnerException ?? e).Message); }
+            finally { try { req.Dispose(); } catch { } }
+            if (tex != null) UnityEngine.Object.Destroy(tex);
         }
 
         void FinishFade(object vm)

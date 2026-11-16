@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reflection;
 using BepInEx.Configuration;
 using HarmonyLib;
@@ -56,6 +56,12 @@ namespace AlternativeGameInterface
         // rest of the screen has (the map's UI drawn over it), as if no camera drew there. To a texture (another image effect follows) the
         // rectangle is painted black after the game's blit instead.
         static bool PipSceneBlitPrefix(object __instance, RenderTexture source, RenderTexture destination)
+        {
+            long p = Prof.T();
+            try { return PipSceneBlitCore(__instance, source, destination); } finally { Prof.Lap(Prof.PBlit, p); }
+        }
+
+        static bool PipSceneBlitCore(object __instance, RenderTexture source, RenderTexture destination)
         {
             var a = Active;
             if ((object)a == null  || source == null) return true;

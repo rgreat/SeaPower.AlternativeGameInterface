@@ -9,11 +9,12 @@
     <AssemblyName>AlternativeGameInterface</AssemblyName>
     <RootNamespace>AlternativeGameInterface</RootNamespace>
     <LangVersion>9.0</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>disable</Nullable>
     <DebugType>none</DebugType>
     <Deterministic>true</Deterministic>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Version>2.0.0</Version>
+    <Version>2.3.1</Version>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <!-- build number written to the log (UTC time of the build): tells which dll is actually running -->
     <BuildStamp Condition="'$(BuildStamp)' == ''">$([System.DateTime]::UtcNow.ToString("yyyyMMdd.HHmm"))</BuildStamp>
@@ -44,6 +45,8 @@
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <!-- Noesis: the settings window is built in code (as in Alternative Damage Model) -->
     <Reference Include="Noesis.NoesisGUI"><HintPath>$(ManagedDir)\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.UnityWebRequestModule"><HintPath>$(ManagedDir)\UnityEngine.UnityWebRequestModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.UnityWebRequestTextureModule"><HintPath>$(ManagedDir)\UnityEngine.UnityWebRequestTextureModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(ManagedDir)\UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
 

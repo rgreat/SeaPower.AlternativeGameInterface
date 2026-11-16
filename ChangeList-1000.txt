@@ -1,11 +1,2 @@
-Version 2.0.0
-- Needs Sea Power 0.9.0 or newer (no "incompatible mod" warning).
-- Unit Reference: "Source" drop-down - show units of chosen mods / the base game.
-- Text contrast follows the backdrop under each text: dark text on light, light text on dark, pure white/black shadow (any monitor, also outside missions).
-- Frame of a transparent window is half as strong as its opacity (min 20%).
-- Main menu background: game video is the default again.
-- Time Remaining timer can be dragged by itself.
-- Dismiss Damaged leaves the flagship alone.
-- Loading screen shows the mod's name and version.
-- Works with the R.A.T.S. Keel loader.
-- Fixed flicker on elements other mods (e.g. AWC) rewrite constantly.
+Version 2.3.1
+- Option "Double click opens a file or scenario" (Settings / Game Menus / Save and load, off by default): a double click on a file in Load game and other file-opening windows opens it, like the Open button; a double click on a scenario in the main menu starts it, like the Play button. Save windows are not changed.

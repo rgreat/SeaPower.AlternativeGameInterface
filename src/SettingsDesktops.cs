@@ -20,27 +20,34 @@ namespace AlternativeGameInterface
             static int _dkSel = 1;
             static readonly string[] DeskOrder = { "World View", "Tactical Display", "Unit Status*", "Unit Reference*", "Event Log", "Formation Manager", "Time Panel" };
 
-            static int _mapSub;      // the tab control inside the "Desktop mode" tab: 0 Settings, 1 Desktops
+            static int _mapSub;      // the tab control inside the "Desktop mode" tab: 0 Settings, 1 Remembered Windows, 2 Desktops (only while desktop mode is on)
 
-            /// <summary>The tab control at the top of the "Desktop mode" tab (only while desktop mode is on); true: the Desktops page is chosen.</summary>
-            static bool MapSubTabs()
+            /// <summary>The tab control at the top of the "Desktop mode" tab: Settings, Remembered Windows and (while desktop mode is on) Desktops. Returns the page chosen.</summary>
+            static int MapSubTabs()
             {
                 bool on = _mapField != null && Get(_mapField) is bool && (bool)Get(_mapField);
-                if (!on) { _mapSub = 0; return false; }
+                if (!on && _mapSub == 2) _mapSub = 0;
                 var strip = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 6f, 12f, 2f) };
-                string[] names = { DT("Settings"), DT("Desktops") };
-                for (int i = 0; i < names.Length; i++)
+                var names = new List<string> { DT("Settings"), TabOf(TRemembered) + (_resets.Count > 0 || _osStates.Count > 0 || RememberedChanged() ? "  •" : "") };
+                if (on) names.Add(DT("Desktops") + (_dkEdited.Count > 0 ? "  •" : ""));
+                for (int i = 0; i < names.Count; i++)
                 {
                     int idx = i;
                     bool sel = i == _mapSub;
-                    var b = new Border { Child = Text(names[i] + (i == 1 && _dkEdited.Count > 0 ? "  •" : ""), sel ? CText : CDim), Padding = new Thickness(14f, 5f, 14f, 5f), Margin = new Thickness(0f, 0f, 2f, 0f),
+                    var b = new Border { Child = Text(names[i], sel ? CText : CDim), Padding = new Thickness(14f, 5f, 14f, 5f), Margin = new Thickness(0f, 0f, 2f, 0f),
                                          Background = B(sel ? CBg : CPanel), BorderBrush = B(CLine), BorderThickness = new Thickness(1f, 1f, 1f, 0f), CornerRadius = new CornerRadius(3f, 3f, 0f, 0f) };
                     try { b.Cursor = Cursors.Hand; } catch { }
                     b.MouseLeftButtonUp += (o, e) => { _mapSub = idx; ShowTab(_tab); e.Handled = true; };
                     strip.Children.Add(b);
                 }
                 _body.Children.Add(strip);
-                return _mapSub == 1;
+                return _mapSub;
+            }
+
+            static bool RememberedChanged()
+            {
+                foreach (var f in Fields) if (f.Tab == TRemembered && Changed(f)) return true;
+                return false;
             }
 
             static string DT(string en) { return Loc.Or("dk." + en, en); }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
@@ -37,6 +37,8 @@ namespace AlternativeGameInterface
         static Func<int> _hotControl;
         static Func<object> _evCurrent;
         static PropertyInfo _evType;
+        static Func<object, object> _evTypeGet;                       // Event.type as a delegate (the events come several times a frame)
+        static int EvType(object ev) { return Convert.ToInt32(_evTypeGet != null ? _evTypeGet(ev) : _evType.GetValue(ev, null)); }
         static bool _imguiInit;
         static Type _noesisViewType;
         static int _imguiTraces;
@@ -49,8 +51,9 @@ namespace AlternativeGameInterface
             var hc = gu == null ? null : gu.GetProperty("hotControl", BindingFlags.Static | BindingFlags.Public);
             var cur = ev == null ? null : ev.GetProperty("current", BindingFlags.Static | BindingFlags.Public);
             if (hc != null) _hotControl = (Func<int>)Delegate.CreateDelegate(typeof(Func<int>), hc.GetGetMethod());
-            if (cur != null) { var g = cur.GetGetMethod(); _evCurrent = () => g.Invoke(null, null); }
+            if (cur != null) { var g = cur.GetGetMethod(); var fast = FastGet.StaticProperty(cur); _evCurrent = fast ?? (() => g.Invoke(null, null)); }
             _evType = ev == null ? null : ev.GetProperty("type", BindingFlags.Instance | BindingFlags.Public);
+            _evTypeGet = FastGet.Property(_evType);
             _evCopy = ev == null ? null : ev.GetConstructor(new[] { ev });
             const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             var nv = _noesisViewType;
@@ -82,13 +85,19 @@ namespace AlternativeGameInterface
         /// </summary>
         static bool NoesisGuiPrefix(object __instance)
         {
+            long p = Prof.T();
+            try { return NoesisGuiCore(__instance); } finally { Prof.Lap(Prof.PGui, p); }
+        }
+
+        static bool NoesisGuiCore(object __instance)
+        {
             try
             {
                 if (!_imguiInit) ImguiInit();
                 if (_evCurrent == null || _evType == null || _hotControl == null || _processEvent == null || _evCopy == null) return true;
                 var ev = _evCurrent();
                 if (ev == null) return true;
-                int t = Convert.ToInt32(_evType.GetValue(ev, null));
+                int t = EvType(ev);
                 bool sameDown = t == 0 && _pendingFrame == UnityEngine.Time.frameCount && !PendingHas(__instance);
                 if (_pendingDown.Count > 0 && !sameDown) ResolveDown();
                 if (t == 0)                                                     // MouseDown: keep, decide at the next event
@@ -133,7 +142,7 @@ namespace AlternativeGameInterface
             {
                 if (_uiViewF.GetValue(p.Key) == null) continue;
                 _processEvent.Invoke(p.Key, new object[] { p.Value, _enKeyboard.GetValue(p.Key), _enMouse.GetValue(p.Key) });
-                if (Convert.ToInt32(_evType.GetValue(p.Value, null)) == 12) break;   // EventType.Used: the later views do not get it (as in the game)
+                if (EvType(p.Value) == 12) break;   // EventType.Used: the later views do not get it (as in the game)
             }
         }
 

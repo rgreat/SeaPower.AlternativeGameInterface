@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using BepInEx.Configuration;
@@ -29,8 +29,8 @@ namespace AlternativeGameInterface
                 public bool TfbOnly;         // shown only when the window is opened from the campaign Task Force Builder
             }
 
-            const string TWindows = "Windows", TMap = "Desktop mode", TTact = "Tactical Display", TLog = "Event Log", TRemembered = "Remembered Windows", TFrame = "Frame", TMission = "In Mission", TFiles = "Game Menus", TDebug = "Debug", TCampaign = "Campaign", TStatus = "Unit Status", TRef = "Unit Reference";
-            static readonly string[] Tabs = { TWindows, TMap, TTact, TLog, TRemembered, TFrame, TMission, TFiles, TStatus, TRef, TCampaign, TDebug };
+            const string TWindows = "Windows", TMap = "Desktop mode", TTact = "Tactical Display", TLog = "Event Log", TRemembered = "Remembered Windows", TFrame = "Frame", TMission = "In Mission", TFiles = "Game Menus", TDebug = "Debug", TCampaign = "Campaign", TStatus = "Unit Status", TTrack = "Track State", TRef = "Unit Reference";
+            static readonly string[] Tabs = { TWindows, TMap, TTact, TLog, TFrame, TMission, TFiles, TStatus, TTrack, TRef, TCampaign, TDebug };
             static readonly List<Field> Fields = new List<Field>();
 
             static void Add(string tab, string group, ConfigEntryBase e, char kind, string label, string unit, float step = 0f, float min = 0f, float max = 0f)
@@ -73,24 +73,34 @@ namespace AlternativeGameInterface
                 Add(TWindows, "Moving, sizing and snapping", p._dockReach, 'b', "Resize docked windows", "zone reaches inside at screen edges");
                 Add(TWindows, "Order and title bars", p._toFront, 'b', "Clicked window to front", "");
                 Add(TWindows, "Order and title bars", p._cascade, 'f', "Cascade shift", "px · 0 = off", 5f, 0f, 500f);
+                Add(TWindows, "Performance", p._vsyncItem, 'b', "Add Adaptive V-Sync", "in the V-Sync list");
+                Add(TWindows, "Performance", p._fpsNone, 'b', "Remove frame rate limit", "slider off");
                 Add(TWindows, "Order and title bars", p._fixCursors, 'b', "Fix game resize cursors", "menus and campaign");
 
                 Add(TLog, "Links", p._logLinks, 'b', "All contacts in the log are links", "track numbers");
                 Add(TLog, "Links", p._logCenter, 'b', "Center map on repeated click", "Tactical Display");
                 Add(TTact, "Map", p._keepMapView, 'b', "Keep map view on resize", "zoom follows the window size");
+                Add(TTact, "Map", p._clipEllipse, 'b', "Cut contact ellipses", "behind the sensor");
+                Add(TTact, "Map", p._sonoOn, 'b', "Compact sonobuoys", "half size, no text");
+                Add(TTact, "Map", p._sonoMax, 'f', "Sonobuoys threshold", "visible at once", 1f, 5f, 300f);
 
                 Add(TMap, "Desktop mode", p._windowedMap, 'b', "Enable desktop mode", "free move and size");
                 Add(TMap, "Desktop mode", p._deskCount, 'f', "Number of desktops", "2 - 5", 1f, 2f, 5f);
                 Add(TMap, "Desktop mode", p._wvKey, 'k', "World View on / off key", "Insert by default");
                 Add(TMap, "Desktop mode", p._useMonitors, 'b', "Other monitors for windows", "Monitor in the window's menu");
 
+                Add(TMission, "In Mission", p._soundReload, 'b', "No errors when loading a save", "");
                 Add(TMission, "In Mission", p._timeDrag, 'b', "Draggable time panel", "double-click: back to the corner");
                 Add(TMission, "In Mission", p._unitMenu, 'b', "Menu on the unit panel's flag/name", "");
                 Add(TMission, "In Mission", p._binoDown, 'f', "Ship binoculars below the horizon", "degrees · 0 = game", 1f, 0f, 45f);
                 Add(TMission, "In Mission", p._binoNormal, 'b', "Normal view in binoculars at max zoom", "");
                 Add(TMission, "In Mission", p._binoNormalDay, 'b', "Normal view only by day", "");
 
+                Add(TFiles, "Main menu", p._encSplit, 'b', "Encyclopedia and Encyclopedia 3D", "");
                 Add(TFiles, "Scenarios", p._hideCustom, 'b', "Hide _Custom Mission", "");
+                Add(TFiles, "Save and load", p._rememberSave, 'b', "Remember last folder", "");
+                Add(TFiles, "Save and load", p._dblOpen, 'b', "Double click opens a file or scenario", "");
+                Add(TFiles, "Mods", p._modCreateFill, 'b', "Fill in Create Mod", "Update Existing");
                 Add(TFiles, "Backgrounds", p._realPhotos, 'b', "Real photos as backgrounds", "");
                 Add(TFiles, "Backgrounds", p._modBackgrounds, 'm', "Background pictures", "");
                 Add(TFiles, "Backgrounds", p._menuBg, 'm', "Main menu background", "");
@@ -102,9 +112,12 @@ namespace AlternativeGameInterface
                 Add(TCampaign, "Task Force", p._sortLoadouts, 'b', "Sort loadouts by date", "own versions first");
                 Add(TCampaign, "Task Force", p._fixSwapPrice, 'b', "Fix version swap price", "roster price");
                 Add(TCampaign, "Task Force", p._upgradeShip, 'b', "Upgrade ship button in the Builder", "crew -1 level");
+                Add(TCampaign, "Task Force", p._eventState, 'b', "Ship state on briefing and newspaper events", "after the latest mission");
                 Add(TDebug, "Game logs", p._deleteLogs, 'b', "Delete old game logs at start", "");
                 Add(TDebug, "Mod log", p._debugEntry, 'b', "Debug trace", "");
-                if (!IsWorkshopInstall()) Add(TDebug, "Game UI", p._dumpXaml, 'b', "Dump XAML now", "switches itself off");   // a development tool: not for the Steam Workshop copy
+                Add(TDebug, "Diagnostics", p._snapshot, 'a', "Take a snapshot now", "");
+                Add(TDebug, "Diagnostics", p._collectGarbage, 'a', "Collect garbage now", "");
+                if (!IsWorkshopInstall()) Add(TDebug, "Game UI", p._dumpXaml, 'a', "Dump XAML now", "");   // a development tool: not for the Steam Workshop copy
 
                 Add(TRemembered, "Position and size", p._windows, 'w', "Remembered windows", "'*' = any text");
                 Add(TRemembered, "Open or closed at mission start", p._openWindows, 'w', "Windows", "");
@@ -117,9 +130,11 @@ namespace AlternativeGameInterface
                 Add(TStatus, "Damage Control tab", p._secMin, 'f', "Sections min height", "px · 0 = game", 10f, 0f, 3000f);
                 Add(TStatus, "Damage Control tab", p._dcWheel, 'b', "Wheel scrolls the section lists", "");
                 Add(TStatus, "Reference tab", p._statusRef, 'b', "Reference tab", "");
-                Add(TStatus, "Tabs", p._rememberTab, 'b', "Remember tab per unit", "");
-                Add(TStatus, "Track State", p._trackState, 'b', "Track State of a selected contact", "");
-                Add(TStatus, "Unit name", p._fullName, 'b', "Full unit name in the header", "");
+                Add(TTrack, "Track State", p._trackState, 'b', "Track State of a selected contact", "");
+                Add(TTrack, "Track State", p._trackLayout, 'b', "Recomposed Track State layout", "");
+                Add(TTrack, "Track State", p._trackProgress, 'b', "Identification progress", "rough, tens of percent");
+                Add(TStatus, "Unit name", p._titleName, 'm', "Window title name", "");
+                Add(TStatus, "Unit name", p._labelName, 'm', "Name at the right of the tabs", "");
 
                 Add(TRef, "Window and tree", p._improvedUI, 'b', "Layout Improvements", "");
                 Add(TRef, "Window and tree", p._loadoutList, 'b', "Loadout list for all units", "");
@@ -181,7 +196,7 @@ namespace AlternativeGameInterface
             static Button _showAllButton;
 
             static Field _mapField;
-            static bool TabShown(int i) { return _showAll || (Tabs[i] == TRef ? _unitRef : Tabs[i] == TStatus ? _unitStatus : Tabs[i] == TCampaign ? _tfb : Tabs[i] == TTact ? _tact : Tabs[i] == TLog ? _log : true); }
+            static bool TabShown(int i) { return _showAll || (Tabs[i] == TRef ? _unitRef : (Tabs[i] == TStatus || Tabs[i] == TTrack) ? _unitStatus : Tabs[i] == TCampaign ? _tfb : Tabs[i] == TTact ? _tact : Tabs[i] == TLog ? _log : true); }
 
             /// <summary>The button toggles the hidden tabs; not shown when no tab is hidden.</summary>
             static void UpdateShowAll()
@@ -699,8 +714,8 @@ namespace AlternativeGameInterface
             {
                 for (int t = 0; t < Tabs.Length && t < _tabDots.Count; t++)
                 {
-                    bool any = Tabs[t] == TRemembered && (_resets.Count > 0 || _osStates.Count > 0) || Tabs[t] == TMap && _dkEdited.Count > 0;
-                    foreach (var f in Fields) if (f.Tab == Tabs[t] && Changed(f)) { any = true; break; }
+                    bool any = Tabs[t] == TMap && (_dkEdited.Count > 0 || _resets.Count > 0 || _osStates.Count > 0);
+                    foreach (var f in Fields) if ((f.Tab == Tabs[t] || (Tabs[t] == TMap && f.Tab == TRemembered)) && Changed(f)) { any = true; break; }
                     _tabDots[t].Visibility = any ? Visibility.Visible : Visibility.Collapsed;
                 }
                 if (_status != null) _status.Text = Loc.T(Dirty() ? "st.dirty" : "st.clean");
@@ -726,11 +741,17 @@ namespace AlternativeGameInterface
                 _body.Children.Clear();
                 string group = null;
                 // desktop mode: its own tab control (Settings / Desktops) inside the tab
-                if (Tabs[_tab] == TMap && MapSubTabs()) { BuildDesktops(); UpdateHeader(); return; }
-                if (Tabs[_tab] == TMap && _mapField != null && Changed(_mapField) && Get(_mapField) is bool && (bool)Get(_mapField)) _body.Children.Add(ApplyDesktopOffer());
+                string tabKey = Tabs[_tab];
+                if (Tabs[_tab] == TMap)
+                {
+                    int sub = MapSubTabs();
+                    if (sub == 2) { BuildDesktops(); UpdateHeader(); return; }
+                    if (sub == 1) tabKey = TRemembered;   // the remembered windows: a page of the same tab
+                }
+                if (tabKey == TMap && _mapField != null && Changed(_mapField) && Get(_mapField) is bool && (bool)Get(_mapField)) _body.Children.Add(ApplyDesktopOffer());
                 foreach (var f in Fields)
                 {
-                    if (f.Tab != Tabs[_tab] || !Shown(f)) continue;
+                    if (f.Tab != tabKey || !Shown(f)) continue;
                     if (f.Group != group) { group = f.Group; _body.Children.Add(GroupTitle(GroupOf(group))); }
                     _body.Children.Add(f.Kind == 'w' ? ListRow(f) : Row(f));
                 }
@@ -805,10 +826,11 @@ namespace AlternativeGameInterface
                 var outer = new Border { Child = g, Padding = new Thickness(12f, 4f, 6f, 4f), Background = Clear };
                 var mark = Label(g, f);
                 Action refresh;
-                FrameworkElement editor = f.Kind == 'b' ? BoolEditor(f, mark, out refresh) : f.Kind == 'f' ? NumberEditor(f, mark, out refresh) : f.Kind == 'l' ? LanguageEditor(f, mark, out refresh) : f.Kind == 'm' ? ChoiceEditor(f, mark, out refresh) : TextEditor(f, mark, out refresh);
+                FrameworkElement editor = f.Kind == 'a' ? ActionEditor(f, out refresh) : f.Kind == 'b' ? BoolEditor(f, mark, out refresh) : f.Kind == 'f' ? NumberEditor(f, mark, out refresh) : f.Kind == 'l' ? LanguageEditor(f, mark, out refresh) : f.Kind == 'm' ? ChoiceEditor(f, mark, out refresh) : TextEditor(f, mark, out refresh);
                 Grid.SetColumn(editor, 1);
                 g.Children.Add(editor);
 
+                if (f.Kind == 'a') { mark(); Hover(outer, LabelOf(f), HelpOf(f), null); return outer; }   // a button: no default value, nothing to reset
                 var def = new TextBlock { Text = DefaultText(f), Foreground = B(CDim), FontSize = 11f, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
                 Grid.SetColumn(def, 2);
                 g.Children.Add(def);
@@ -869,6 +891,16 @@ namespace AlternativeGameInterface
                 sp.Children.Add(minus); sp.Children.Add(box); sp.Children.Add(plus);
                 if (!string.IsNullOrEmpty(f.Unit)) { var u = Text(UnitOf(f), CDim, 12f); u.Margin = new Thickness(8f, 0f, 0f, 0f); sp.Children.Add(u); }
                 refresh = () => box.Text = Show(f, Get(f));
+                return sp;
+            }
+
+            /// <summary>A button for a one-shot action: it switches the (self-clearing) entry on at once, the plugin runs the action and clears it.</summary>
+            static FrameworkElement ActionEditor(Field f, out Action refresh)
+            {
+                var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                sp.Children.Add(Btn(Loc.T("btn.run"), () => { f.Entry.BoxedValue = true; }, 70f));
+                if (!string.IsNullOrEmpty(f.Unit)) { var u = Text(UnitOf(f), CDim, 12f); u.Margin = new Thickness(4f, 0f, 0f, 0f); sp.Children.Add(u); }
+                refresh = () => { };
                 return sp;
             }
 

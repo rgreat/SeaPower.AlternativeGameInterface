@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -58,7 +58,8 @@ namespace AlternativeGameInterface
         // the weapon mounts (LoadoutWeaponSystemEntries) and pod ammunition of that loadout only. With the other loadouts in the list,
         // choosing one of them showed the sensors of every loadout (nothing to remove found for it). The entry's tables get the other
         // loadouts' rows from the entries of the same ini (the base unit and its other loadout units) - once per table.
-        static readonly HashSet<object> LoadoutDataDone = new HashSet<object>();
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, object> LoadoutDataDone = new System.Runtime.CompilerServices.ConditionalWeakTable<object, object>();      // weak: the tables of every unit were kept for good
+        static bool DataDone(object d) { object x; return LoadoutDataDone.TryGetValue(d, out x); }
 
         void CompleteLoadoutData(object entry)
         {
@@ -67,7 +68,7 @@ namespace AlternativeGameInterface
             var sensors = Get(entry, "LoadoutSensorsToRemove") as IDictionary;
             var mounts = Get(entry, "LoadoutWeaponSystemEntries") as IDictionary;
             var pods = Get(entry, "LoadoutPodAmmunition") as IDictionary;
-            if ((sensors == null || LoadoutDataDone.Contains(sensors)) && (mounts == null || LoadoutDataDone.Contains(mounts)) && (pods == null || LoadoutDataDone.Contains(pods))) return;
+            if ((sensors == null || DataDone(sensors)) && (mounts == null || DataDone(mounts)) && (pods == null || DataDone(pods))) return;
             var edm = GameAssembly().GetType("SeaPower.EncyclopedicDataManager");
             var inst = edm == null ? null : edm.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy).GetValue(null, null);
             var all = Get(inst, "MuseumObjectEntries") as IEnumerable;
@@ -80,7 +81,7 @@ namespace AlternativeGameInterface
                 added += Merge(mounts, Get(other, "LoadoutWeaponSystemEntries") as IDictionary);
                 added += Merge(pods, Get(other, "LoadoutPodAmmunition") as IDictionary);
             }
-            foreach (var d in new[] { sensors, mounts, pods }) if (d != null) LoadoutDataDone.Add(d);
+            foreach (var d in new[] { sensors, mounts, pods }) if (d != null && !DataDone(d)) LoadoutDataDone.Add(d, d);
             if (added > 0) Trace("loadout data: " + ini + " (loadout unit) got " + added + " row(s) of its other loadouts");
         }
 

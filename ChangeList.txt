@@ -1,3 +1,47 @@
+Version 2.3.1
+- Option "Double click opens a file or scenario" (Settings / Game Menus / Save and load, off by default): a double click on a scenario in the main menu's scenario list starts it, like the "Play" button. In the Load game and other file-opening windows (scenario and campaign Load, mission editor and others) a double click on a file opens it, like the "Open" button. The game only highlights the file. Save windows are not changed.
+
+Version 2.3.0
+- Unit Status: the window title and the name at the right of the tabs can each show the unit's short or full name, short or full class name, or type and class (options "Window title name" and "Name at the right of the tabs"; by default the full unit name and the full type and class names).
+- Unit Status, Track State tab: a new layout for contacts: compact facts, a scrolling "Detected By" area sized to its content (up to about a third of the window) and a candidate table that takes the rest. Own settings tab "Track State" with the option "Recomposed Track State layout" (off: the game's layout). The new layout also shows a rough identification progress of the contact in tens of percent (option "Identification progress", on by default; from the observation time of your ESM, "not enough data" when the ESM is done but the class is still unknown; hidden once identified).
+- Settings: the "Remembered Windows" tab is now a page of the "Desktop" tab (formerly "Desktop mode") (Settings / Remembered Windows / Desktops).
+- Unit Status: a unit (contact) with no tab of its own yet opens with the tab that was open last (kept between sessions). The tab per unit is always remembered: the option "Remember tab per unit" is gone.
+- Map: the ellipse of the approximate position of a contact is squeezed along the bearing so that its near edge is not nearer than the sensor: the estimate itself is changed, the icon and the range follow (option "Cut contact ellipses", on by default).
+- Map: with many sonobuoys visible at once their icons are half the size and their text is removed; usual again when you zoom in (options "Compact sonobuoys" and "Sonobuoys threshold").
+- Speed: property reads of the mod are delegates instead of reflection; the Unit Status helpers run 20 times a second instead of every frame; the sonobuoy count walks the interface tree every 2 s (not 2 times a second); closed windows are skipped by more steps; "is it a map window" is remembered.
+- Memory: the backdrop picture of the World View (texture and sprite) is freed when the backdrop goes; the loadout tables of the Unit Reference are no longer kept for good; the picture chosen in Create Mod is freed when another is chosen; the list of tracked windows is cleaned.
+- Desktop mode: while a mission is loading the World View picture was set up and taken down again on every frame (photo mode flickering in the trace); it now waits for the mission.
+- Windows with an opacity / scale / text contrast look: the whole window was walked once a second (a hitch each second, also on a pause, and also for closed windows); now it is walked only when the layout changed, and at least every ten seconds. A closed window no longer keeps the screen capture of "text by background" going.
+- Outside a mission: the cursor callback is put again on a change of screen and every ten seconds (was every second); the "text by background" capture is taken 5 (small) / 2 (full) times a second instead of 10 / 4. The trace is written by a thread of its own (a file write on the game's thread could stall a frame).
+- The look of a window is no longer redone on every LayoutUpdated (it fires all the time in the menus - a hitch each second): the size and children count of the window's panel are compared once a second instead.
+- Outside a mission the "text by background" capture is taken four times less often (0.8 s small / 2 s full): the full-screen capture is a GPU cost the CPU profile does not show.
+- Video options: the game's Frame Rate Limit slider goes up to 250 instead of 120; the limit is set there, in the game's own option. The mod keeps it precisely (a timed wait instead of the engine's coarse one; vertical sync off).
+- Video options: a check box "Remove frame rate limit" under that slider (also Settings / Windows / Performance / "Remove frame rate limit"): no limit at all, the slider is switched off; the game's value stays and comes back when it is off.
+- Video options: "Adaptive V-Sync" in the V-Sync list (Settings / Windows / Performance / "Add Adaptive V-Sync", on): vertical sync is on while the frames keep up with the screen's refresh rate and off while they do not (back on when they are well inside it). It is saved as ordinary V-Sync, so the game works without the mod. Not used when the game's frame limit is below the refresh rate.
+- Menu slideshow: the next picture is read and decoded five seconds beforehand by a web request (a worker thread) and put into the game's texture caches; the game's own loader decoded it on the main thread (a 70-80 ms frame at each change). If it is not ready in time the game loads it as before.
+- In a mission (264 windows on the screen): the open / closed state of the windows is taken from the window's IsVisibleChanged event instead of being asked every frame, and the Damage Control fit skips windows that are not shown: about 0.6 ms per frame less.
+- A window that is not on the screen is no longer walked through by every step each frame: it is looked at when it tells (IsVisibleChanged / Loaded / Unloaded) only.
+- Debug = true: every 10 seconds the trace gets a "profile:" line - the average frame time and the milliseconds per frame the mod's steps and patches take (to find what costs FPS).
+
+Version 2.2.0
+- Improved the 3D picture rendering in the World View window: fixed the transparency of some textures (sun glow, jet exhaust, etc.).
+- Save game / Load game windows remember the last folder (option "Remember last folder").
+- Create Mod window: with "Update Existing", choosing your Workshop item fills in Pick Folder (the mod's folder) and Pick Image (its thumbnail).
+- Campaign: while a briefing or newspaper event is selected, the Task Force shows the ships as they are after the latest mission (the game showed full ammunition and repaired damage).
+
+Version 2.1.1
+- Unit Reference: the "<" / ">" tree button resizes the window again in every case (a window opened with the tree hidden, a window opened from the main menu).
+
+Version 2.1.0
+- LOADER CHANGED: the mod now needs R.A.T.S. Keel (recommended) or Anchor Chain; before, only Anchor Chain. Keel also works on the first loading screen. See Install in the README.
+- Main menu: "Encyclopedia" now opens the Unit Reference window right away; "Encyclopedia 3D" is the game's own item (loads the Encyclopedia mission). Option "Encyclopedia and Encyclopedia 3D" (Game Menus).
+- Encyclopedia 3D: Save and Load in the pause menu (saves go to the Scenarios folder).
+- No more error boxes when a saved game is loaded from a mission (option "No errors when loading a save").
+- Window menu: at 0% opacity (fully transparent) the frame and the title bar are hidden until the mouse is over the window.
+- Loading screen: a line under the progress bar shows the mod's name and version (option LoadScreenInfo).
+- Text contrast: the text no longer flickers on a still picture.
+- Fixed: the main menu entry of several mods is called "Alternative Mods" again; menu items no longer stop reacting after the Keel window is closed.
+
 Version 2.0.0
 - Needs Sea Power 0.9.0 or newer: no "incompatible mod" warning at start. Code for 0.8.x is removed.
 - Unit Reference: a "Source" drop-down next to the search box - tick the sources (base game and mods) whose units the tree shows (any number, at least one).
@@ -6,12 +50,11 @@ Version 2.0.0
 - Main menu background: the game's video is the default again (slideshow is an option).
 - The mission timer (Time Remaining) follows the time panel and can be dragged by itself (double-click puts it back).
 - Dismiss Damaged leaves the flagship alone.
-- Loading screen: a line under the progress bar shows the mod's name and version (option LoadScreenInfo).
 - Fixed: no flicker on interface elements that another mod (e.g. AWC) rewrites constantly.
 - Removed the "Fix contact info" option.
-- Works with the R.A.T.S. Keel loader too (the mod asks Keel to start before the load screen ends: [Keel] StartEarly=true in _info.ini; the first loading screen shows the mod's line and pictures again).
 
 Version 1.9.0
+- Multi-Monitor support in Desktop mode.
 - Keep map view on resize: the map scale stays right when the Tactical Display is closed (a desktop without the map) and opened again at another size.
 - Unit Status: the Reference tab was empty in the newer game build (its new Supplies tab has the same tab number); the Reference tab has a number of its own now.
 - Unit Status: remembers the tab for each unit (contact) and opens it again when the unit is selected again, if available (option).
@@ -45,3 +88,50 @@ Version 1.8.0
 - The gear and the arrow of the window look menu sit among the buttons of the title bar and no longer lie over buttons that other mods add there (for example Topography on the map).
 - Desktop mode, optical view: the binocular frame and interface fit the World View window (enlarged up to 30%), mouse camera control works over the picture, Backspace gives a full-screen binocular view, resizing a window over the World View no longer turns the camera.
 - Ship binoculars can be lowered below the horizon (option "Ship binoculars below the horizon", 10 degrees by default).
+
+Version 1.7.0
+- New desktop mode ("Enable desktop mode"): Tactical Display and World View become ordinary free windows (move, size, snap, any order and level). The 3D picture is rendered by the game's main camera into a texture of the World View window's own size, pixel for pixel (the game's PiP supersampling option is honoured), so it lies in the window like any other content. Each window is opened and closed on its own (the X of World View, the "World View" item in the Tactical Display's menu, the HUD button / key of the map). Behind the windows: a topographic backdrop picture (SmartWindows_Backdrop.jpg next to the dll, replace it with any picture). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting), each with its own position and size, open / closed, opacity, scale and level of the windows and World View open / closed; the active desktop is remembered; the "Desktops" page of the "Desktop mode" settings tab shows and edits what is saved for each window. A key (Insert by default; never one the game uses) opens and closes the World View. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape moves into the World View window and is white or black by the brightness of the picture behind it.
+- Window look menu (the arrow next to the gear): opacity, scale and level (bottom / default / top) of a window. The Tactical Display and the World View start at the bottom level.
+- New option "Keep map view on resize": the Tactical Display zoom follows the window size, so the area that was visible stays visible.
+- Docked windows can be resized from every edge: at the screen edge the resize zone reaches a few pixels inside the window.
+- The time panel of the mission can be dragged (double-click puts it back); its place is kept per desktop.
+- Unit Status: "Track State" tab for a selected contact of another side.
+- Campaign: "Upgrade ship..." button in the Task Force Builder; damaged ships can be dismissed (the repair cost is deducted); loadouts are sorted by date; the price of a hull swap is counted from the roster.
+- The News window of the main menu gets its gear, frame and remembered position; the game's resize cursors work outside a mission.
+- "Backgrounds from mods only" works with Sea Power 0.8.7; Strict loadouts no longer offers ships whose loadout the campaign has not opened yet.
+- Fewer per-frame allocations and lookups in the World View code; the World View texture is freed when a mission ends; the resize zones of docked windows go back to normal when the option is switched off.
+- The AddWindowKey (F12) option is removed: windows to remember are added in the settings window.
+- Supports Sea Power version 0.8.7 (Release and Stable Beta).
+
+Version 1.6.1
+- Fixed: game messages in the bottom right corner blocked clicks on buttons under them even after fading.
+- Fewer FPS drops: the mod no longer scans the game's interface in the background (this caused the slowdown after loading a save); needed elements are caught when the game creates them.
+- Faster Unit Reference search and contact Information window.
+- Supports Sea Power 0.8.6.
+
+Version 1.6.0
+- Localization into the 9 languages of the game.
+- Settings window: tabs, language selector, bigger default size.
+- Strict campaign loadouts (optional): a check box on the campaign start screen.
+- Unit panel: right click on the flag or name opens the unit's context menu.
+- Unit Status: the full unit name in the header.
+- Unit Reference: the opened unit stays in the tree; the country list follows the search; the search looks into descriptions and ids; tooltips on links to weapons, sensors and systems.
+- Mods' background pictures replace the game's (optional).
+- Mission editor: the file picker starts in the last mission's folder; *.ini files are light blue.
+- Hides "_Custom Mission" in SCENARIOS (optional).
+- Optional: deletes old game logs at start.
+- Fixed: empty fields in the contact Information window; game messages blocking clicks; wrong first loading screen background.
+- Supports Sea Power 0.8.6.
+
+Version 1.5.2
+- In-game settings window: the gear button in the title bar of a remembered window.
+- Windows snap to the screen edges and to each other while moved or resized.
+- Thin frame around the game's tooltips too.
+- Unit Status: new Reference tab - the Unit Reference of the selected unit right in the Unit Status window.
+- Unit Status, Damage Control tab: the minimum height is now set in screen pixels.
+- Unit Reference: the search panel (category, filters, search text) is remembered.
+- Unit Reference: tidier unit tree - classes sorted by service date, loadout variants (Early, Late, ASW...) gathered under their class.
+- Unit Reference: the tree scrolls to the selected unit.
+- Unit Reference: loadout selector for ships, submarines and land units too, not only aircraft.
+- Unit Reference: "Armed only" check box hides unarmed units.
+- Supports Sea Power 0.8.3 - 0.8.5 (before: 0.8.4).

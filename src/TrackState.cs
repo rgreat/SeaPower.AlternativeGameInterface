@@ -18,13 +18,19 @@ namespace AlternativeGameInterface
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
-        ConfigEntry<bool> _trackState;
+        ConfigEntry<bool> _trackState, _trackLayout, _trackProgress;
 
         void BindTrackStateConfig()
         {
             _trackState = Config.Bind("UnitStatus", "TrackState", true,
                 "Unit Status window: while a contact of another side (a track, not your own unit) is selected, the window shows its Track State " +
                 "(the Information window of the contact: status, confidence, detections, signatures) instead of staying empty.");
+            _trackLayout = Config.Bind("UnitStatus", "TrackLayout", true,
+                "Track State: the window is recomposed (compact facts, the detectors in a scrolling area of limited height, the candidate table takes the rest). " +
+                "Off: the game's own layout.");
+            _trackProgress = Config.Bind("UnitStatus", "TrackIdentProgress", true,
+                "Track State: a rough progress of the identification of the contact (tens of percent): the observation time of its emitters by your ESM against the time the game needs to " +
+                "identify them. When the ESM has done its part but the class is still unknown, the row says not enough data. Hidden when the contact is identified. Shown only in the recomposed layout, and only when some ESM of yours observes the contact.");
         }
 
         const int TrackTabKind = 107;   // far past the game's values (see RefTabKind); 105 = Reference, 6 = Alternative Weapons Control's Weapons tab
@@ -38,6 +44,7 @@ namespace AlternativeGameInterface
             public bool TookOver;              // this mod set HasUnit / the name, not the game or another mod
             public Noesis.Border Host;
             public bool Failed;
+            public int ProgTick; public string ProgText;   // identification progress: when it was read (ms) and what is shown ("" = hidden)
             public Delegate Upd; public object UpdFor; public string LastIni;   // the contact's Updated handler (the Reference tab follows its type)
         }
         static readonly ConditionalWeakTable<object, TrackTab> TrackTabs = new ConditionalWeakTable<object, TrackTab>();
@@ -53,6 +60,154 @@ namespace AlternativeGameInterface
             "</ItemsControl>" +
             "<Button x:Name=\"ResetBtn\" Grid.Row=\"1\" Command=\"{Binding ResetTma}\" HorizontalAlignment=\"Right\" Margin=\"5\" Padding=\"10,3\"/>" +
             "</Grid>";
+
+        // The composed body (TrackLayout, 2.3.0): the game's own VehicleInfo window gives every part an equal share (4 equal columns, 3 equal rows: a lot of empty space;
+        // "Detected By" grows without a limit and pushes the table away). Here: the facts in one compact block, "Detected By" under its caption in a scrolling area that takes
+        // as much as its content needs but not more than a part of the window (DetBox.MaxHeight, set when the size changes), the candidate table gets everything that is left
+        // (it scrolls itself), Reset TMA at the bottom. The table keeps the game's own template (generated columns).
+        const string TrackXaml2 =
+            "<Grid xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\" Margin=\"6\">" +
+            "<Grid.RowDefinitions><RowDefinition Height=\"Auto\"/><RowDefinition Height=\"Auto\"/><RowDefinition Height=\"*\"/><RowDefinition Height=\"Auto\"/></Grid.RowDefinitions>" +
+            "<Grid Grid.Row=\"0\" DataContext=\"{Binding BaseInfo}\" Margin=\"2,0,2,6\">" +
+            "<Grid.ColumnDefinitions><ColumnDefinition Width=\"Auto\"/><ColumnDefinition Width=\"Auto\"/><ColumnDefinition Width=\"36\"/><ColumnDefinition Width=\"Auto\"/><ColumnDefinition Width=\"Auto\"/></Grid.ColumnDefinitions>" +
+            "<Grid.RowDefinitions><RowDefinition Height=\"Auto\"/><RowDefinition Height=\"Auto\"/><RowDefinition Height=\"Auto\"/></Grid.RowDefinitions>" +
+            "<TextBlock x:Name=\"LblState\" Grid.Row=\"0\" Grid.Column=\"0\" Opacity=\"0.65\" Margin=\"0,1,14,1\"/>" +
+            "<TextBlock Grid.Row=\"0\" Grid.Column=\"1\" Text=\"{Binding Status}\" Margin=\"0,1,0,1\"/>" +
+            "<TextBlock x:Name=\"LblIdent\" Grid.Row=\"1\" Grid.Column=\"0\" Opacity=\"0.65\" Margin=\"0,1,14,1\"/>" +
+            "<TextBlock Grid.Row=\"1\" Grid.Column=\"1\" Text=\"{Binding Identification}\" Margin=\"0,1,0,1\"/>" +
+            "<TextBlock x:Name=\"LblProg\" Grid.Row=\"2\" Grid.Column=\"0\" Opacity=\"0.65\" Margin=\"0,1,14,1\" Visibility=\"Collapsed\"/>" +
+            "<TextBlock x:Name=\"TxtProg\" Grid.Row=\"2\" Grid.Column=\"1\" Margin=\"0,1,0,1\" Visibility=\"Collapsed\"/>" +
+            "<TextBlock x:Name=\"LblLast\" Grid.Row=\"0\" Grid.Column=\"3\" Opacity=\"0.65\" Margin=\"0,1,14,1\"/>" +
+            "<TextBlock Grid.Row=\"0\" Grid.Column=\"4\" Text=\"{Binding LastDetected}\" Margin=\"0,1,0,1\"/>" +
+            "<TextBlock x:Name=\"LblFirst\" Grid.Row=\"1\" Grid.Column=\"3\" Opacity=\"0.65\" Margin=\"0,1,14,1\"/>" +
+            "<TextBlock Grid.Row=\"1\" Grid.Column=\"4\" Text=\"{Binding FirstDetected}\" Margin=\"0,1,0,1\"/>" +
+            "</Grid>" +
+            "<Border Grid.Row=\"1\" Background=\"{StaticResource Brush.Window.BackgroundDark}\" Padding=\"6,4,6,2\" Margin=\"0,0,0,6\">" +
+            "<Grid><Grid.RowDefinitions><RowDefinition Height=\"Auto\"/><RowDefinition Height=\"Auto\"/></Grid.RowDefinitions>" +
+            "<TextBlock x:Name=\"LblDet\" Opacity=\"0.65\" Margin=\"0,0,0,4\"/>" +
+            "<ScrollViewer x:Name=\"DetBox\" Grid.Row=\"1\" VerticalScrollBarVisibility=\"Auto\" HorizontalScrollBarVisibility=\"Disabled\" MaxHeight=\"160\">" +
+            "<ItemsControl DataContext=\"{Binding BaseInfo}\" ItemsSource=\"{Binding DetectedBy}\">" +
+            "<ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation=\"Horizontal\"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>" +
+            "<ItemsControl.ItemTemplate><DataTemplate><Grid Margin=\"0,0,6,6\">" +
+            "<Grid.Resources>" +
+            "<Style TargetType=\"TextBlock\"><Setter Property=\"Padding\" Value=\"4,2\"/></Style>" +
+            "<Style TargetType=\"TextBlock\" x:Key=\"UpperRow\"><Setter Property=\"Padding\" Value=\"4,2\"/><Setter Property=\"Background\" Value=\"{StaticResource Brush.Window.Background}\"/></Style>" +
+            "<Style TargetType=\"TextBlock\" x:Key=\"LowerRow\"><Setter Property=\"Padding\" Value=\"4,2\"/><Setter Property=\"Background\" Value=\"{StaticResource Brush.Window.Header}\"/></Style>" +
+            "<Style TargetType=\"Border\" x:Key=\"RowBorder\"><Setter Property=\"BorderBrush\" Value=\"{StaticResource Brush.Border.Normal}\"/></Style>" +
+            "</Grid.Resources>" +
+            "<Grid.ColumnDefinitions><ColumnDefinition Width=\"Auto\"/><ColumnDefinition Width=\"Auto\"/><ColumnDefinition Width=\"Auto\"/></Grid.ColumnDefinitions>" +
+            "<Border Style=\"{StaticResource RowBorder}\" BorderThickness=\"1,1,0,1\" Background=\"{StaticResource Brush.Window.Background}\"><StackPanel VerticalAlignment=\"Center\">" +
+            "<TextBlock Text=\"{Binding UnitName}\"/><TextBlock Text=\"{Binding Provenance}\"><TextBlock.Style><Style TargetType=\"TextBlock\"><Setter Property=\"Padding\" Value=\"4,0,4,2\"/><Style.Triggers>" +
+            "<DataTrigger Binding=\"{Binding Provenance}\" Value=\"{x:Null}\"><Setter Property=\"Visibility\" Value=\"Collapsed\"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel></Border>" +
+            "<StackPanel Grid.Column=\"1\" Orientation=\"Vertical\">" +
+            "<Border Style=\"{StaticResource RowBorder}\" BorderThickness=\"1,1,1,1\"><TextBlock Text=\"{Binding LanguageDictionary[windowsvehicleinfosensornameheader], Source={StaticResource LanguageResourceInterface}}\" Style=\"{StaticResource UpperRow}\"/></Border>" +
+            "<Border Style=\"{StaticResource RowBorder}\" BorderThickness=\"1,0,1,1\"><TextBlock Text=\"{Binding LanguageDictionary[windowsvehicleinfodetectionageheader], Source={StaticResource LanguageResourceInterface}}\" Style=\"{StaticResource UpperRow}\"/></Border>" +
+            "</StackPanel>" +
+            "<ItemsControl Grid.Column=\"2\" ItemsSource=\"{Binding Detections}\"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation=\"Horizontal\"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>" +
+            "<ItemsControl.ItemTemplate><DataTemplate><StackPanel Orientation=\"Vertical\">" +
+            "<Border Style=\"{StaticResource RowBorder}\" BorderThickness=\"0,1,1,1\"><TextBlock Text=\"{Binding SensorName}\" Style=\"{StaticResource LowerRow}\"/></Border>" +
+            "<Border Style=\"{StaticResource RowBorder}\" BorderThickness=\"0,0,1,1\"><TextBlock Text=\"{Binding DetectionAge}\" Style=\"{StaticResource LowerRow}\"/></Border>" +
+            "</StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>" +
+            "</Grid></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer></Grid></Border>" +
+            "<ContentControl Grid.Row=\"2\" Content=\"{Binding SignatureInfo}\" HorizontalAlignment=\"Stretch\" VerticalAlignment=\"Stretch\"/>" +
+            "<Button x:Name=\"ResetBtn\" Grid.Row=\"3\" Command=\"{Binding ResetTma}\" HorizontalAlignment=\"Right\" Margin=\"5\" Padding=\"10,3\"/>" +
+            "</Grid>";
+
+        /// <summary>A field or a property of any visibility, own or inherited (null when absent).</summary>
+        static readonly Dictionary<string, MemberInfo> FieldVCache = new Dictionary<string, MemberInfo>();
+
+        static object FieldV(object o, string name)
+        {
+            if (o == null) return null;
+            var t0 = o.GetType();
+            string ck = t0.FullName + "|" + name;
+            MemberInfo mi;
+            if (!FieldVCache.TryGetValue(ck, out mi))
+            {
+                for (var ty = t0; ty != null && mi == null; ty = ty.BaseType)
+                {
+                    const BindingFlags bf = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+                    mi = ty.GetField(name, bf);
+                    if (mi == null) { var pr = ty.GetProperty(name, bf); if (pr != null && pr.GetIndexParameters().Length == 0) mi = pr; }
+                }
+                FieldVCache[ck] = mi;
+            }
+            var f = mi as FieldInfo;
+            if (f != null) return f.GetValue(o);
+            var p = mi as PropertyInfo;
+            return p == null ? null : p.GetValue(o, null);
+        }
+
+        static readonly string[] TrackUnitLists = { "_taskforceVessels", "_taskforceSubmarines", "_taskforceAircraft", "_taskforceHelicopters", "_taskforceLandUnits" };
+
+        /// <summary>
+        /// Identification progress of a contact, 0..1, 2 when the contact has its class (identified); else the best ratio "observation time / identification time" over the emitters
+        /// of the contact's real object that ESMs of the player's task force observe (the game's own debug panel shows the same numbers). -1: nothing to show.
+        /// </summary>
+        float TrackIdentProgress(object vehicle)
+        {
+            try
+            {
+                if (FieldV(vehicle, "Class") != null) return 2f;   // identified: nothing to show
+                var target = FieldV(vehicle, "Object");
+                if (target == null) return -1f;
+                var g = GameAssembly().GetType("SeaPower.Globals");
+                var gf = g == null ? null : g.GetField("_playerTaskforce", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                var tf = gf == null ? null : gf.GetValue(null);
+                if (tf == null) return -1f;
+                float best = -1f;
+                foreach (var listName in TrackUnitLists)
+                {
+                    var list = FieldV(tf, listName) as IEnumerable;
+                    if (list == null) continue;
+                    foreach (var unit in list)
+                    {
+                        var obp = FieldV(unit, "_obp");
+                        var esms = obp == null ? null : FieldV(obp, "_esmSystems") as IEnumerable;
+                        if (esms == null) continue;
+                        foreach (var sys in esms)
+                        {
+                            var data = FieldV(FieldV(sys, "_esm"), "_esmObservationData") as IDictionary;
+                            if (data == null) continue;
+                            foreach (DictionaryEntry de in data)
+                            {
+                                if (!ReferenceEquals(FieldV(de.Key, "_baseObject"), target)) continue;
+                                float idt = Convert.ToSingle(FieldV(de.Key, "_identificationTime") ?? 0f);
+                                float t = Convert.ToSingle(FieldV(de.Value, "_observationTime") ?? 0f);
+                                if (idt > 0f) best = Math.Max(best, Math.Min(1f, Math.Max(0f, t / idt)));
+                            }
+                        }
+                    }
+                }
+                return best;
+            }
+            catch { return -1f; }
+        }
+
+        /// <summary>Twice a second: the progress row of the recomposed layout (rounded to tens of percent; hidden when there is nothing to show).</summary>
+        void TrackProgressStep(TrackTab tt)
+        {
+            if (tt.View == null || tt.Vehicle == null) return;
+            int now = Environment.TickCount;
+            if (now - tt.ProgTick < 500 && tt.ProgText != null) return;
+            tt.ProgTick = now;
+            string text = "";
+            if (_trackProgress.Value)
+            {
+                float pr = TrackIdentProgress(tt.Vehicle);
+                if (pr >= 0.95f && pr < 1.5f) text = "!" + Loc.Or("track.identNoData", "not enough data");   // the ESM is done but the class is still not known: say so
+                else if (pr >= 0f && pr < 0.95f) text = ((int)Math.Round(pr * 10f) * 10) + " %";
+            }
+            if (text == tt.ProgText) return;
+            tt.ProgText = text;
+            var lbl = tt.View.FindName("LblProg") as Noesis.FrameworkElement;
+            var val = tt.View.FindName("TxtProg") as Noesis.TextBlock;
+            if (val == null) return;
+            val.Text = text.Length == 0 ? text : text[0] == '!' ? text.Substring(1) : "~ " + text;
+            var vis = text.Length > 0 ? Noesis.Visibility.Visible : Noesis.Visibility.Collapsed;
+            val.Visibility = vis;
+            if (lbl != null) lbl.Visibility = vis;
+        }
 
         /// <summary>The selected contact (a Vehicle of the player's plotting table) when it is of another side than friendly, else null.</summary>
         object SelectedContact()
@@ -71,6 +226,12 @@ namespace AlternativeGameInterface
                 return r != null && r.ToString() == "Friendly" ? null : v;
             }
             catch { return null; }
+        }
+
+        void TrackLabel(Noesis.FrameworkElement root, string name, string key, string fallback)
+        {
+            var tb = root.FindName(name) as Noesis.TextBlock;
+            if (tb != null) tb.Text = GameText(key, fallback);
         }
 
         string GameText(string key, string fallback)
@@ -200,10 +361,23 @@ namespace AlternativeGameInterface
                 {
                     var vmT = GameAssembly().GetType("SeapowerUI.ViewModels.VehicleInfoViewModel");
                     var vm = Activator.CreateInstance(vmT, tt.Vehicle);
-                    var content = Noesis.GUI.ParseXaml(TrackXaml) as Noesis.FrameworkElement;
+                    Noesis.FrameworkElement content = null;
+                    try { if (_trackLayout.Value) content = Noesis.GUI.ParseXaml(TrackXaml2) as Noesis.FrameworkElement; }
+                    catch (Exception e2) { Trace("Track State layout: " + e2.Message + " (the game's layout is used)"); }
+                    if (content == null) content = Noesis.GUI.ParseXaml(TrackXaml) as Noesis.FrameworkElement;
                     if (content == null) throw new InvalidOperationException("the Track State body was not made");
                     var btn = content.FindName("ResetBtn") as Noesis.Button;
                     if (btn != null) btn.Content = GameText("windowsvehicleinforesettma", "Reset TMA");
+                    TrackLabel(content, "LblState", "windowscurrentstatus", "State");
+                    TrackLabel(content, "LblIdent", "windowsidentification", "Identification");
+                    TrackLabel(content, "LblLast", "windowslastdetected", "Last detection age");
+                    TrackLabel(content, "LblFirst", "windowsfirstdetected", "First detection age");
+                    TrackLabel(content, "LblDet", "windowsdetectedby", "Detected By");
+                    var lblProg = content.FindName("LblProg") as Noesis.TextBlock;
+                    if (lblProg != null) lblProg.Text = Loc.Or("track.identProgress", "Identification progress");
+                    tt.ProgTick = Environment.TickCount - 10000; tt.ProgText = null;
+                    var det = content.FindName("DetBox") as Noesis.FrameworkElement;
+                    if (det != null) content.SizeChanged += (o, ev) => { try { det.MaxHeight = Math.Max(64f, ev.NewSize.Height * 0.36f); } catch { } };   // Detected By: its content, up to about a third of the window
                     content.DataContext = vm;
                     tt.Vm = vm; tt.View = content;
                     if (tt.TookOver)
@@ -222,6 +396,7 @@ namespace AlternativeGameInterface
             }
             if (selected && tt.View != null)
             {
+                TrackProgressStep(tt);
                 if (!ReferenceEquals(tt.Host.Child, tt.View)) tt.Host.Child = tt.View;
                 if (tt.Host.Visibility != Noesis.Visibility.Visible) tt.Host.Visibility = Noesis.Visibility.Visible;
             }
