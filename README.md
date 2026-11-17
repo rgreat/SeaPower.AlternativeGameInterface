@@ -2,7 +2,7 @@
 
 A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows").
 
-**Version 2.3.2**
+**Version 2.4.0**
 
 Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several monitors, windows that remember their place and state, transparency, a richer interface for missions and campaigns.
 
@@ -15,11 +15,11 @@ Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several m
 3. Clicking a window brings it to the front. Mission briefings and scripted messages always stay on top; a maximized Tactical Display or World View stays at the back.
 4. Windows snap to the screen edges and to each other.
 5. Several windows of one kind (e.g. Weapon Reference) open slightly shifted.
-6. Lets you drag any window partly outside the visible screen area.
+6. Windows can be dragged partly off the screen.
 7. Remembers which mission windows were open and restores that at the next mission start.
 8. Thin, customizable frame around draggable windows and the game's tooltips.
 9. In-game settings window (gear button in the title bar of a remembered window): tabs, groups, hints, language selector.
-10. Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's. Main menu: the game's video (default) or a slideshow.
+10. Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's. Main menu: a slideshow (default) or the game's video.
 11. Main menu: "Encyclopedia" opens the Unit Reference window at once, "Encyclopedia 3D" is the game's own (optional). Save / Load in the pause menu of Encyclopedia 3D.
 12. Mission editor: the open-mission picker starts in the last mission's folder; *.ini files are light blue. Save / Load windows remember their last folder; Create Mod fills in the folder and picture of your Workshop item.
 13. Enhances the UI of the Unit Reference (encyclopedia) window:
@@ -45,16 +45,16 @@ Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several m
 16. Campaign, "Strict loadouts" (optional): a check box on the campaign start screen; the Task Force Builder offers ship versions only for ships available in the mission or owned.
 17. Localization: settings window and hints in the 9 languages of the game; the texts can be edited (lang folder).
 18. Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the place, size, look and open state of the windows; the active desktop is remembered. The "Desktops" settings page shows and edits what each desktop keeps. A key (Insert by default) opens and closes the World View. A replaceable backdrop picture (AlternativeGameInterface_Backdrop.jpg) is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
-19. A small arrow next to the gear of a window opens its look menu: opacity, scale, text contrast and level. The Tactical Display and World View start at the bottom level.
+19. A small arrow next to the gear of a window opens its look menu: opacity, scale, text contrast and level; for the World View also the camera offset (the followed object off the centre, as the Camera Offset mod; off while that mod works). The Tactical Display and World View start at the bottom level.
 20. The mission's time panel and the mission timer under it can be dragged; double-click puts them back. The place is kept per desktop.
 21. Unit Status: a "Track State" tab for a selected contact of another side, in an optional compact layout.
 22. Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); loadouts are sorted by date; a hull swap is priced from the roster. At a briefing or newspaper event the Task Force shows ships as after the last mission. A submarine away for service stays in the Reserve and is shown on the Submarines tab.
-23. Main menu: the News window gets the mod's gear, frame and remembered position; "_Custom Mission" is hidden in SCENARIOS; the game's resize cursors work outside a mission.
+23. Main menu: the News window gets the mod's gear and frame and fills the free area; "_Custom Mission" is hidden in SCENARIOS; the game's resize cursors work outside a mission.
 24. Optional "Keep map view on resize": the Tactical Display's zoom follows its window size, so the visible area stays.
-25. Event Log: every track number is a link; a repeated click on the same link centres the Tactical Display on it (both optional).
+25. Event Log: every track number is a link; a repeated click on the same link centres the Tactical Display on it (both optional). A compact layout (optional).
 26. Settings entry "Game Interface" in the main menu (under Mod Manager) and the pause menu (under Options); with several of the author's mods it becomes "Alternative Mods".
 27. Binoculars: at max zoom they start with the normal view instead of the night / thermal filter (by day, optional). Desktop mode: frame and interface fit the World View window; Backspace gives a full-screen view. Ship binoculars can look below the horizon (In Mission tab).
-28. Moving or resizing a window over the 3D view no longer turns the camera; other mods' IMGUI windows (Camera Offset) can be grabbed over the game's windows.
+28. Moving a window over the 3D view no longer turns the camera; IMGUI windows of other mods (Camera Offset) can be grabbed over the game's.
 29. Desktop mode: the other monitors work like the main one for windows (Monitor in the window's menu).
 30. Tactical Display: a contact's position ellipse never reaches nearer than the sensor; with many sonobuoys visible their icons shrink and lose their text.
 31. Video options: the Frame Rate Limit slider goes up to 250, with a "Remove frame rate limit" check box; the V-Sync list gets "Adaptive V-Sync".
@@ -79,4 +79,3 @@ Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several m
 - Most features can be turned off or customized in the settings window (the gear in the title bar of a remembered window). They are stored in:
   `Sea Power/Sea Power_Data/StreamingAssets/user/AlternativeGameInterface/AlternativeGameInterface.cfg`
 
-P.S. Highly recommended to use with the [Camera Offset](https://steamcommunity.com/sharedfiles/filedetails/?id=3676689138) mod.

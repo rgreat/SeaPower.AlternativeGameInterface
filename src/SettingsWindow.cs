@@ -27,10 +27,13 @@ namespace AlternativeGameInterface
                 public float Step, Min, Max;
                 public Field Needs;          // shown only while this (bool) field is on
                 public bool TfbOnly;         // shown only when the window is opened from the campaign Task Force Builder
+                public Field Pair;           // kind 'p' (a 2D pad): the field of the second axis (that field itself is not shown as a row)
+                public bool Hidden;          // never a row of its own (the second axis of a pad)
+                public Func<string> Conflict;   // not null and returns a text: greyed out, the text says why (another mod does it)
             }
 
-            const string TWindows = "Windows", TMap = "Desktop mode", TTact = "Tactical Display", TLog = "Event Log", TRemembered = "Remembered Windows", TFrame = "Frame", TMission = "In Mission", TFiles = "Game Menus", TDebug = "Debug", TCampaign = "Campaign", TStatus = "Unit Status", TTrack = "Track State", TRef = "Unit Reference";
-            static readonly string[] Tabs = { TWindows, TMap, TTact, TLog, TFrame, TMission, TFiles, TStatus, TTrack, TRef, TCampaign, TDebug };
+            const string TWindows = "Windows", TMap = "Desktop mode", TTact = "Tactical Display", TLog = "Event Log", TRemembered = "Remembered Windows", TFrame = "Frame", TMission = "In Mission", TFiles = "Game Menus", TDebug = "Debug", TCampaign = "Campaign", TStatus = "Unit Status", TTrack = "Track State", TRef = "Unit Reference", TWorld = "World View";
+            static readonly string[] Tabs = { TWindows, TMap, TTact, TWorld, TLog, TFrame, TMission, TFiles, TStatus, TTrack, TRef, TCampaign, TDebug };
             static readonly List<Field> Fields = new List<Field>();
 
             static void Add(string tab, string group, ConfigEntryBase e, char kind, string label, string unit, float step = 0f, float min = 0f, float max = 0f)
@@ -77,8 +80,19 @@ namespace AlternativeGameInterface
                 Add(TWindows, "Performance", p._fpsNone, 'b', "Remove frame rate limit", "slider off");
                 Add(TWindows, "Order and title bars", p._fixCursors, 'b', "Fix game resize cursors", "menus and campaign");
 
+                {
+                    int from = Fields.Count;
+                    Add(TWorld, "Camera offset", p._camOn, 'b', "Shift the view", "");
+                    Add(TWorld, "Camera offset", p._camX, 'p', "Followed object on the screen", "% of the view", 0.5f, -25f, 25f);
+                    Add(TWorld, "Camera offset", p._camY, 'f', "Followed object on the screen: vertical", "% of the view", 0.5f, -25f, 25f);
+                    Fields[Fields.Count - 2].Pair = Fields[Fields.Count - 1];
+                    Fields[Fields.Count - 1].Hidden = true;
+                    Func<string> camConflict = () => !p.CamModWorking() ? null : Loc.Or("cam.conflict", "The Camera Offset mod is loaded: it shifts the camera, set it in its own window (F11). These settings are not used.");
+                    for (int i = from; i < Fields.Count; i++) Fields[i].Conflict = camConflict;
+                }
                 Add(TLog, "Links", p._logLinks, 'b', "All contacts in the log are links", "track numbers");
                 Add(TLog, "Links", p._logCenter, 'b', "Center map on repeated click", "Tactical Display");
+                Add(TLog, "Layout", p._logCompact, 'b', "Compact layout", "less spacing");
                 Add(TTact, "Map", p._keepMapView, 'b', "Keep map view on resize", "zoom follows the window size");
                 Add(TTact, "Map", p._clipEllipse, 'b', "Cut contact ellipses", "behind the sensor");
                 Add(TTact, "Map", p._sonoOn, 'b', "Compact sonobuoys", "half size, no text");
@@ -97,6 +111,7 @@ namespace AlternativeGameInterface
                 Add(TMission, "In Mission", p._binoNormalDay, 'b', "Normal view only by day", "");
 
                 Add(TFiles, "Main menu", p._encSplit, 'b', "Encyclopedia and Encyclopedia 3D", "");
+                Add(TFiles, "Main menu", p._newsFit, 'b', "News window fills the free area", "");
                 Add(TFiles, "Scenarios", p._hideCustom, 'b', "Hide _Custom Mission", "");
                 Add(TFiles, "Save and load", p._rememberSave, 'b', "Remember last folder", "");
                 Add(TFiles, "Save and load", p._dblOpen, 'b', "Double click opens a file or scenario", "");
@@ -115,6 +130,7 @@ namespace AlternativeGameInterface
                 Add(TCampaign, "Task Force", p._fixSubs, 'b', "Fix submarines sent for service", "");
                 Add(TCampaign, "Task Force", p._eventState, 'b', "Ship state on briefing and newspaper events", "after the latest mission");
                 Add(TDebug, "Game logs", p._deleteLogs, 'b', "Delete old game logs at start", "");
+                Add(TDebug, "Game", p._showVersion, 'm', "Game version watermark", "");
                 Add(TDebug, "Mod log", p._debugEntry, 'b', "Debug trace", "");
                 Add(TDebug, "Diagnostics", p._snapshot, 'a', "Take a snapshot now", "");
                 Add(TDebug, "Diagnostics", p._collectGarbage, 'a', "Collect garbage now", "");
@@ -191,6 +207,7 @@ namespace AlternativeGameInterface
             static bool _unitStatus;           // opened from a Unit Status window: its tab is shown
             static bool _tact;                 // opened from the Tactical Display window: its tab is shown
             static bool _log;                  // opened from the Event Log window: its tab is shown
+            static bool _world;                // opened from the World View window: its tab is shown
             static bool _tfb;                  // opened from the campaign Task Force Builder: its own options are shown
             static bool _saidOpen;
 
@@ -198,16 +215,18 @@ namespace AlternativeGameInterface
             static Button _showAllButton;
 
             static Field _mapField;
-            static bool TabShown(int i) { return _showAll || (Tabs[i] == TRef ? _unitRef : (Tabs[i] == TStatus || Tabs[i] == TTrack) ? _unitStatus : Tabs[i] == TCampaign ? _tfb : Tabs[i] == TTact ? _tact : Tabs[i] == TLog ? _log : true); }
+            static bool TabShown(int i) { return _showAll || (Tabs[i] == TRef ? _unitRef : (Tabs[i] == TStatus || Tabs[i] == TTrack) ? _unitStatus : Tabs[i] == TCampaign ? _tfb : Tabs[i] == TTact ? _tact : Tabs[i] == TLog ? _log : Tabs[i] == TWorld ? _world : true); }
 
             /// <summary>The button toggles the hidden tabs; not shown when no tab is hidden.</summary>
             static void UpdateShowAll()
             {
                 if (_showAllButton == null) return;
-                bool hidden = !_unitRef || !_unitStatus || !_tfb || !_tact || !_log;
+                bool hidden = !_unitRef || !_unitStatus || !_tfb || !_tact || !_log || !_world;
                 _showAllButton.Visibility = hidden ? Visibility.Visible : Visibility.Collapsed;
                 _showAllButton.Content = Loc.T(_showAll ? "btn.showFewer" : "btn.showAll");
             }
+
+            public static bool Exists { get { return _root != null; } }   // built and not closed (maybe hidden with the game's windows)
 
             public static bool IsOpen
             {
@@ -225,15 +244,15 @@ namespace AlternativeGameInterface
             /// from it (not an items host), above everything. Open already: only the Unit Reference / Unit Status tabs follow where it was
             /// opened from. showAll: every tab (the menus' entry, no window to follow).
             /// </summary>
-            public static void Open(AlternativeGameInterfacePlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false, bool tactical = false, bool eventLog = false, bool showAll = false)
+            public static void Open(AlternativeGameInterfacePlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false, bool tactical = false, bool eventLog = false, bool showAll = false, bool worldView = false)
             {
                 if (p == null || anchor == null) return;
                 P = p;
                 try
                 {
                     Define(p);
-                    bool tabChange = _unitRef != unitReference || _unitStatus != unitStatus || _tfb != taskForce || _tact != tactical || _log != eventLog;
-                    _tact = tactical; _log = eventLog;
+                    bool tabChange = _unitRef != unitReference || _unitStatus != unitStatus || _tfb != taskForce || _tact != tactical || _log != eventLog || _world != worldView;
+                    _tact = tactical; _log = eventLog; _world = worldView;
                     _tfb = taskForce;
                     if (taskForce) p.LoadStrictToProxy();
                     _unitRef = unitReference;
@@ -244,6 +263,19 @@ namespace AlternativeGameInterface
                     else if (taskForce) _tab = Array.IndexOf(Tabs, TCampaign);
                     else if (tabChange && tactical) _tab = Array.IndexOf(Tabs, TTact);
                     else if (tabChange && eventLog) _tab = Array.IndexOf(Tabs, TLog);
+                    else if (tabChange && worldView) _tab = Array.IndexOf(Tabs, TWorld);
+                    DependencyObject top = anchor; Panel panel = null;
+                    for (DependencyObject d = anchor; d != null; d = SafeParent(d))
+                    {
+                        top = d;
+                        var pn = d as Panel;
+                        bool itemsHost = false;
+                        try { itemsHost = pn != null && pn.IsItemsHost; } catch { }
+                        if (pn != null && !itemsHost && (pn is Grid || pn is Canvas)) panel = pn;
+                    }
+                    // still "open" but in another screen's tree (a mission / menu was loaded meanwhile, the old screen is not drawn any more):
+                    // that copy is dropped and the window is built anew where the gear is
+                    if (IsOpen && panel != null && !ReferenceEquals(panel, _host)) { Trace("settings window: the open one belongs to another screen - built anew"); Close(); }
                     if (IsOpen)
                     {
                         if (showAll && !_showAll) { _showAll = true; tabChange = true; }
@@ -257,15 +289,6 @@ namespace AlternativeGameInterface
                     _resets.Clear();
                     _osStates.Clear();
                     if (showAll) _showAll = true;   // opened from a menu: no window behind it, so every tab
-                    DependencyObject top = anchor; Panel panel = null;
-                    for (DependencyObject d = anchor; d != null; d = SafeParent(d))
-                    {
-                        top = d;
-                        var pn = d as Panel;
-                        bool itemsHost = false;
-                        try { itemsHost = pn != null && pn.IsItemsHost; } catch { }
-                        if (pn != null && !itemsHost && (pn is Grid || pn is Canvas)) panel = pn;
-                    }
                     if (panel == null) { p.Logger.LogWarning("Alternative Game Interface: no place found for the settings window."); return; }
                     _top = top as UIElement ?? anchor;
                     BuildWindow();
@@ -562,6 +585,14 @@ namespace AlternativeGameInterface
             /// <summary>The value shown: changed in the window, else the one in use.</summary>
             static object Get(Field f) { object v; return _pending.TryGetValue(f, out v) ? v : f.Entry.BoxedValue; }
 
+            /// <summary>For live previews (the camera offset): the value a setting has in the open window, changed or not, else its own.</summary>
+            public static object Shown(ConfigEntryBase e)
+            {
+                if (_root != null && _pending.Count > 0)
+                    foreach (var kv in _pending) if (ReferenceEquals(kv.Key.Entry, e)) return kv.Value;
+                return e.BoxedValue;
+            }
+
             /// <summary>Changed in the window and not applied yet: the yellow dot.</summary>
             static bool Changed(Field f) { return _pending.ContainsKey(f); }
 
@@ -577,7 +608,7 @@ namespace AlternativeGameInterface
             }
 
             /// <summary>The row is shown: the switch it depends on (if any) is on in the window.</summary>
-            static bool Shown(Field f) { return (!f.TfbOnly || _tfb || _showAll) && (f.Needs == null || (Get(f.Needs) is bool && (bool)Get(f.Needs))); }
+            static bool Shown(Field f) { return !f.Hidden && (!f.TfbOnly || _tfb || _showAll) && (f.Needs == null || (Get(f.Needs) is bool && (bool)Get(f.Needs))); }
 
             static bool Dirty() { return _pending.Count > 0 || _resets.Count > 0 || _osStates.Count > 0 || _dkEdited.Count > 0; }
 
@@ -611,7 +642,7 @@ namespace AlternativeGameInterface
                 if (o > 0) P.Config.Save();
                 CommitDesktops();
                 Trace("settings applied: " + n + " value(s), " + r + " layout(s) forgotten, " + o + " open / closed state(s)");
-                if (close) Close();
+                if (close) { Trace("settings window: closed (OK)"); Close(); }
                 else
                 {
                     ShowTab(_tab);
@@ -642,9 +673,13 @@ namespace AlternativeGameInterface
                 try { root.InvalidateMeasure(); } catch { }
             }
 
+            /// <summary>Closed from outside (a new screen is loaded): as Cancel.</summary>
+            public static void Discard() { Cancel(); }
+
             /// <summary>Cancel / ✕: what was changed in the window is dropped.</summary>
             static void Cancel()
             {
+                if (_root != null) Trace("settings window: closed (Cancel / X / discarded)");
                 _pending.Clear();
                 _resets.Clear();
                 _osStates.Clear();
@@ -786,8 +821,15 @@ namespace AlternativeGameInterface
                 foreach (var f in Fields)
                 {
                     if (f.Tab != tabKey || !Shown(f)) continue;
-                    if (f.Group != group) { group = f.Group; _body.Children.Add(GroupTitle(GroupOf(group))); }
-                    _body.Children.Add(f.Kind == 'w' ? ListRow(f) : Row(f));
+                    string why = ConflictOf(f);
+                    if (f.Group != group)
+                    {
+                        group = f.Group; _body.Children.Add(GroupTitle(GroupOf(group)));
+                        if (why != null) _body.Children.Add(new TextBlock { Text = why, Foreground = B(CWarn), FontSize = 11f, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(12f, 2f, 12f, 2f) });
+                    }
+                    var row = f.Kind == 'w' ? ListRow(f) : Row(f);
+                    if (why != null) { var rb = row as Border; if (rb != null && rb.Child is UIElement) ((UIElement)rb.Child).IsEnabled = false; else row.IsEnabled = false; row.Opacity = 0.45f; }
+                    _body.Children.Add(row);
                 }
                 UpdateHeader();
             }
@@ -860,6 +902,7 @@ namespace AlternativeGameInterface
                 var outer = new Border { Child = g, Padding = new Thickness(12f, 4f, 6f, 4f), Background = Clear };
                 var mark = Label(g, f);
                 Action refresh;
+                if (f.Kind == 'p') return PadRow(f);
                 FrameworkElement editor = f.Kind == 'a' ? ActionEditor(f, out refresh) : f.Kind == 'b' ? BoolEditor(f, mark, out refresh) : f.Kind == 'f' ? NumberEditor(f, mark, out refresh) : f.Kind == 'l' ? LanguageEditor(f, mark, out refresh) : f.Kind == 'm' ? ChoiceEditor(f, mark, out refresh) : TextEditor(f, mark, out refresh);
                 Grid.SetColumn(editor, 1);
                 g.Children.Add(editor);
@@ -872,9 +915,151 @@ namespace AlternativeGameInterface
                 Grid.SetColumn(rst, 3);
                 g.Children.Add(rst);
                 mark();
-                Hover(outer, LabelOf(f), HelpOf(f), null);
+                Hover(outer, LabelOf(f), HelpOf(f), ConflictOf(f));
                 return outer;
             }
+
+            /// <summary>A 2D pad for two numbers (x = f, y = f.Pair): a sight with the camera dot on it, dragged with the mouse (also a click
+            /// anywhere on the pad), arrow buttons at the edges step by f.Step (held: repeat). The pad's edges are the limits.</summary>
+            static FrameworkElement PadRow(Field f)
+            {
+                var fy = f.Pair;
+                var g = RowGrid();
+                var outer = new Border { Child = g, Padding = new Thickness(12f, 4f, 6f, 4f), Background = Clear };
+                var lab = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                var dotMark = Dot();
+                lab.Children.Add(dotMark); lab.Children.Add(Text(LabelOf(f), CText));
+                g.Children.Add(lab);
+                Action mark = () => { dotMark.Visibility = Changed(f) || Changed(fy) ? Visibility.Visible : Visibility.Hidden; };
+                Func<Field, float> cur = x => { var o = Get(x); return o is float ? (float)o : 0f; };
+                Action refresh;
+                var ed = Pad(() => cur(f), () => cur(fy), (x, y) => { Set(f, x); Set(fy, y); mark(); }, f.Step, f.Max, out refresh);
+                Grid.SetColumn(ed, 1);
+                g.Children.Add(ed);
+                var def = new TextBlock { Text = Loc.F("val.default", Show(f, f.Entry.DefaultValue) + ", " + Show(fy, fy.Entry.DefaultValue)), Foreground = B(CDim), FontSize = 11f,
+                                          TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
+                Grid.SetColumn(def, 2); g.Children.Add(def);
+                var rst = SmallButton("↺", Loc.T("tip.default"), () => { Set(f, f.Entry.DefaultValue); Set(fy, fy.Entry.DefaultValue); refresh(); mark(); });
+                Grid.SetColumn(rst, 3); g.Children.Add(rst);
+                mark();
+                Hover(outer, LabelOf(f), HelpOf(f), ConflictOf(f));
+                return outer;
+            }
+
+            /// <summary>A setting changed elsewhere (the look menu) while the window is open: its unapplied value here is dropped, the shown tab rebuilt.</summary>
+            public static void Forget(ConfigEntryBase e)
+            {
+                Field hit = null;
+                foreach (var kv in _pending) if (ReferenceEquals(kv.Key.Entry, e)) { hit = kv.Key; break; }
+                if (hit != null) _pending.Remove(hit);
+                if (IsOpen && Fields.Exists(f => ReferenceEquals(f.Entry, e) && f.Tab == Tabs[_tab])) try { ShowTab(_tab); } catch { }
+            }
+
+            public static bool PadDragging;   // the dot is being dragged (the look menu stays open meanwhile)
+
+            /// <summary>The 2D pad itself (also in the World View window's look menu): a sight with the camera dot, dragged with the mouse (or a
+            /// click anywhere on it), arrows at the edges step by <paramref name="step"/> (held: repeat); the edges are ±<paramref name="max"/>; + y = up.</summary>
+            public static FrameworkElement Pad(Func<float> gx, Func<float> gy, Action<float, float> set, float step, float max, out Action refresh, float size = 1f)
+            {
+                float W = 168f * size, H = 96f * size, Dot2 = size < 1f ? 12f : 14f, Ring = size < 1f ? 20f : 26f, A = size < 1f ? 16f : 18f, AL = size < 1f ? 32f : 40f;
+                var canvas = new Canvas { Width = W, Height = H, Background = B(CField), ClipToBounds = true };
+                Action<float, float, float, float, Color> rect = (x, y, w, h, c) => { var r = new Rectangle { Width = w, Height = h, Fill = B(c), IsHitTestVisible = false }; Canvas.SetLeft(r, x); Canvas.SetTop(r, y); canvas.Children.Add(r); };
+                // the sight: centre lines, ticks every 5 %, a ring
+                rect(0f, H / 2f, W, 1f, CLine); rect(W / 2f, 0f, 1f, H, CLine);
+                for (int i = -5; i <= 5; i++)
+                {
+                    if (i == 0) continue;
+                    float tx = W / 2f + i * (W / 2f) / 5f, ty = H / 2f + i * (H / 2f) / 5f;
+                    rect(tx, H / 2f - 3f, 1f, 7f, CLine); rect(W / 2f - 3f, ty, 7f, 1f, CLine);
+                }
+                var ring = new Ellipse { Width = Ring, Height = Ring, Stroke = B(CDim), StrokeThickness = 1f, IsHitTestVisible = false };
+                Canvas.SetLeft(ring, W / 2f - Ring / 2f); Canvas.SetTop(ring, H / 2f - Ring / 2f); canvas.Children.Add(ring);
+                var cam = new Ellipse { Width = Dot2, Height = Dot2, Fill = B(CWarn), Stroke = B(CBg), StrokeThickness = 2f, IsHitTestVisible = false };
+                canvas.Children.Add(cam);
+                // the values sit in the bottom corners, beside ▼ (no empty column)
+                var valX = Text("", CText, 12f); valX.VerticalAlignment = VerticalAlignment.Center; valX.HorizontalAlignment = HorizontalAlignment.Left; valX.Margin = new Thickness(2f, 0f, 0f, 0f);
+                var valY = Text("", CText, 12f); valY.VerticalAlignment = VerticalAlignment.Center; valY.HorizontalAlignment = HorizontalAlignment.Right; valY.Margin = new Thickness(0f, 0f, 2f, 0f);
+                Func<float, string> num = v => v.ToString("0.##", CultureInfo.InvariantCulture);
+                Action place = () =>
+                {
+                    float x = gx(), y = gy();
+                    Canvas.SetLeft(cam, W / 2f + x / max * (W / 2f) - Dot2 / 2f);
+                    Canvas.SetTop(cam, H / 2f - y / max * (H / 2f) - Dot2 / 2f);
+                    valX.Text = "↔ " + num(x) + " %"; valY.Text = "↕ " + num(y) + " %";
+                };
+                Func<float, float> fit = v => Math.Max(-max, Math.Min(max, (float)Math.Round(v / step) * step));
+                Action<float, float> put = (x, y) =>
+                {
+                    x = fit(x); y = fit(y);
+                    if (Math.Abs(x - gx()) > 1e-6f || Math.Abs(y - gy()) > 1e-6f) set(x, y);
+                    place();
+                };
+                bool down = false;
+                Action<Point> at = pt => put((pt.X - W / 2f) / (W / 2f) * max, -(pt.Y - H / 2f) / (H / 2f) * max);
+                canvas.MouseLeftButtonDown += (o, e) => { down = true; PadDragging = true; canvas.CaptureMouse(); at(e.GetPosition(canvas)); e.Handled = true; };
+                canvas.MouseMove += (o, e) => { if (down) at(e.GetPosition(canvas)); };
+                canvas.MouseLeftButtonUp += (o, e) => { if (!down) return; down = false; PadDragging = false; canvas.ReleaseMouseCapture(); e.Handled = true; };
+                canvas.LostMouseCapture += (o, e) => { down = false; PadDragging = false; };
+
+                var pad = new Grid { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
+                pad.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(A + 2f) });
+                pad.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                pad.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(A + 2f) });
+                pad.RowDefinitions.Add(new RowDefinition { Height = new GridLength(A + 2f) });
+                pad.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                pad.RowDefinitions.Add(new RowDefinition { Height = new GridLength(A + 2f) });
+                Action<string, int, int, float, float> arrow = (s, row, col, dx, dy) =>
+                {
+                    // the arrow is drawn (the font draws ◀ ▶ as coloured emoji)
+                    object glyph = s;
+                    try
+                    {
+                        string data = s == "▲" ? "M0,6 L5,0 L10,6 Z" : s == "▼" ? "M0,0 L10,0 L5,6 Z" : s == "◀" ? "M6,0 L6,10 L0,5 Z" : "M0,0 L6,5 L0,10 Z";
+                        glyph = GUI.ParseXaml("<Path xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" Data=\"" + data + "\" " +
+                                              "Fill=\"{Binding Foreground, RelativeSource={RelativeSource AncestorType=RepeatButton}}\"/>");
+                    }
+                    catch { }
+                    var b = new RepeatButton { Content = glyph, Padding = new Thickness(0f), FontSize = 10f, Delay = 350, Interval = 60, Foreground = B(CDim),
+                                               Width = col == 1 ? AL : A, Height = row == 1 ? AL : A,
+                                               HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                    var tpl = ArrowTemplate();
+                    if (tpl != null) b.Template = tpl;
+                    b.Click += (o, e) => put(gx() + dx * step, gy() + dy * step);
+                    Grid.SetRow(b, row); Grid.SetColumn(b, col); pad.Children.Add(b);
+                };
+                arrow("▲", 0, 1, 0f, 1f); arrow("▼", 2, 1, 0f, -1f); arrow("◀", 1, 0, -1f, 0f); arrow("▶", 1, 2, 1f, 0f);
+                var frame = new Border { Child = canvas, BorderBrush = B(CLine), BorderThickness = new Thickness(1f) };
+                Grid.SetRow(frame, 1); Grid.SetColumn(frame, 1); pad.Children.Add(frame);
+                Grid.SetRow(valX, 2); Grid.SetColumn(valX, 0); Grid.SetColumnSpan(valX, 2); pad.Children.Insert(0, valX);
+                Grid.SetRow(valY, 2); Grid.SetColumn(valY, 1); Grid.SetColumnSpan(valY, 2); pad.Children.Insert(0, valY);
+                refresh = place;
+                place();
+                return pad;
+            }
+
+            /// <summary>One look for the pad's arrows (the game's button style draws narrow and wide buttons differently): a flat box, lighter under the mouse / pressed.</summary>
+            static ControlTemplate _arrowTpl; static bool _arrowTried;
+            static ControlTemplate ArrowTemplate()
+            {
+                if (_arrowTried) return _arrowTpl;
+                _arrowTried = true;
+                try
+                {
+                    _arrowTpl = (ControlTemplate)GUI.ParseXaml(
+                        "<ControlTemplate xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\" TargetType=\"RepeatButton\">" +
+                        "<Border x:Name=\"b\" Background=\"#2D3239\" BorderBrush=\"#464C56\" BorderThickness=\"1\" CornerRadius=\"2\">" +
+                        "<ContentPresenter HorizontalAlignment=\"Center\" VerticalAlignment=\"Center\"/></Border>" +
+                        "<ControlTemplate.Triggers>" +
+                        "<Trigger Property=\"IsMouseOver\" Value=\"True\"><Setter TargetName=\"b\" Property=\"Background\" Value=\"#3C434D\"/><Setter Property=\"Foreground\" Value=\"#E6E8EB\"/></Trigger>" +
+                        "<Trigger Property=\"IsPressed\" Value=\"True\"><Setter TargetName=\"b\" Property=\"Background\" Value=\"#505965\"/></Trigger>" +
+                        "<Trigger Property=\"IsEnabled\" Value=\"False\"><Setter TargetName=\"b\" Property=\"Opacity\" Value=\"0.5\"/></Trigger>" +
+                        "</ControlTemplate.Triggers></ControlTemplate>");
+                }
+                catch (Exception e) { Trace("settings: arrow template: " + e.Message); }
+                return _arrowTpl;
+            }
+
+            static string ConflictOf(Field f) { try { return f.Conflict == null ? null : f.Conflict(); } catch { return null; } }
 
             static void Hover(Border row, string label, string text, string extra)
             {

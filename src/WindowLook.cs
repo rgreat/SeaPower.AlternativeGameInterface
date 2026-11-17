@@ -114,6 +114,7 @@ namespace AlternativeGameInterface
             if (key == null) return;
             var m = LevelMap();
             if (level == 0) m.Remove(key); else m[key] = level;
+            NewsUserChanged(w, "level");
             var sb = new System.Text.StringBuilder();
             foreach (var kv in m) { if (sb.Length > 0) sb.Append(';'); sb.Append(kv.Key).Append('|').Append(kv.Value); }
             _levels.Value = sb.ToString();
@@ -267,6 +268,7 @@ namespace AlternativeGameInterface
             st.HoverHooked = true;
             Action<bool> set = over =>
             {
+                if (st.Opacity <= 0.001f && _debug) Trace("ghost hover: '" + TextOf(Get(w, "Header")) + "' " + (over ? "enter" : "leave") + (st.Hover == over ? " (no change)" : "") + ", ghost " + st.Ghost);
                 if (st.Hover == over) return;
                 st.Hover = over;
                 if (st.Opacity > 0.001f) return;
@@ -276,6 +278,7 @@ namespace AlternativeGameInterface
             fe.MouseEnter += (s, e) => set(true);
             fe.MouseLeave += (s, e) => set(false);
             st.Hover = fe.IsMouseOver;
+            if (_debug) Trace("ghost hover hooked: '" + TextOf(Get(w, "Header")) + "' mouse over " + st.Hover);
         }
 
         /// <summary>The header grid (title, buttons, gear) of a ghost window is invisible; it still takes the mouse, so the window shows again when the mouse comes.</summary>
@@ -311,6 +314,18 @@ namespace AlternativeGameInterface
             if (Math.Max(r, Math.Max(g, bl)) > 1.0001f || a > 1.0001f) { r /= 255f; g /= 255f; bl /= 255f; a /= 255f; }
         }
 
+        /// <summary>The halo of a text by the backdrop: white when the text is dark. A coloured text follows the backdrop (white on a light one, black on a dark one),
+        /// not its own lightness: within its band a blue can stay "dark" while lightened.</summary>
+        static bool HaloWhite(TextBlock t)
+        {
+            Brush o; bool dk;
+            var so = (_origFg.TryGetValue(t, out o) ? o : null) as SolidColorBrush;
+            if (so != null && !IsGrey(so, out dk)) return TextTOf(t) >= 0.5f;
+            return IsDarkText(t.Foreground);
+        }
+
+        const float TextColourLight = 0.7f, TextColourDark = 0.35f;   // the HSL lightness a coloured text gets at least on a dark backdrop / at most on a light one
+
         static Color ShiftText(SolidColorBrush src, float t)
         {
             float r, g, b, a;
@@ -325,7 +340,13 @@ namespace AlternativeGameInterface
                 if (mx == r) h = (g - b) / d + (g < b ? 6f : 0f); else if (mx == g) h = (b - r) / d + 2f; else h = (r - g) / d + 4f;
                 h /= 6f;
             }
-            if (l > 0.3f) l += (l * 0.15f - l) * t;   // down to 15 % of the lightness (nearly black) on a fully light backdrop, coloured texts too; dark texts stay as they are
+            if (!grey)
+            {
+                // coloured texts keep their colour: the lightness only moves within a narrow band, up to 70 % on a dark backdrop and down to 35 % on a light one
+                if (l < TextColourLight) l += (TextColourLight - l) * (1f - t);
+                if (l > TextColourDark) l += (TextColourDark - l) * t;
+            }
+            else if (l > 0.3f) l += (l * 0.15f - l) * t;   // grey texts: down to 15 % of the lightness (nearly black) on a fully light backdrop; dark ones stay as they are
             float q = l < 0.5f ? l * (1f + s) : l + s - l * s, p = 2f * l - q;
             float rr = s <= 0f ? l : Hue(p, q, h + 1f / 3f), gg = s <= 0f ? l : Hue(p, q, h), bb = s <= 0f ? l : Hue(p, q, h - 1f / 3f);
             return Color.FromArgb(ToByte(a), ToByte(rr), ToByte(gg), ToByte(bb));
@@ -382,7 +403,7 @@ namespace AlternativeGameInterface
                     lumNow = lt;
                     // measured in a trace (the same backdrop read under a white and under a dark text): the glyphs cover 14 % of the box, the halo 6.5 %
                     // (white behind a dark text, black behind a light one); B = (picture - glyphs - halo) / the rest
-                    sl = Math.Max(0f, Math.Min(1f, (sl - TextGlyph * lt - TextHalo * (lt < 0.5f ? 1f : 0f)) / (1f - TextGlyph - TextHalo)));
+                    sl = Math.Max(0f, Math.Min(1f, (sl - TextGlyph * lt - TextHalo * (HaloWhite(t) ? 1f : 0f)) / (1f - TextGlyph - TextHalo)));
                 }
                 // no smoothing and no hold: the text follows the picture at once (the hysteresis band keeps it from flickering)
                 float now = UnityEngine.Time.unscaledTime;
@@ -441,7 +462,8 @@ namespace AlternativeGameInterface
                         var want = ShiftText(src, nt);
                         var cur = tb.Foreground as SolidColorBrush;
                         if (cur == null || !SameColour(cur, want)) SetFg(tb, new SolidColorBrush(want));
-                        ApplyHalo(tb, IsDarkText(tb.Foreground));
+                        ApplyHalo(tb, HaloWhite(tb));
+                        ShiftInlines(tb, nt);
                     }
                 }
             }
@@ -454,6 +476,97 @@ namespace AlternativeGameInterface
         static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, Brush> _ourFg = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Brush>();
         static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, Hits> _fgHits = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Hits>();
         static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, Hits> _bgHits = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Hits>();
+
+        // the inlines of a text with a colour of their own (the Hyperlink of an Event Log row, a coloured Run) follow the backdrop as the text does;
+        // an inline that only inherits the text's colour is left alone (it follows the text). tt < 0: back to the colour they had.
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TextElement, Brush> _inlOrig = new System.Runtime.CompilerServices.ConditionalWeakTable<TextElement, Brush>();
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TextElement, Brush> _inlOurs = new System.Runtime.CompilerServices.ConditionalWeakTable<TextElement, Brush>();
+
+        static void ShiftInlines(TextBlock t, float tt)
+        {
+            try
+            {
+                var inl = t.Inlines;
+                if (inl == null || inl.Count == 0) return;
+                for (int i = 0; i < inl.Count; i++) ShiftInline(inl[i], t.Foreground, tt);
+            }
+            catch { }
+        }
+
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TextElement, object> _inlLocal = new System.Runtime.CompilerServices.ConditionalWeakTable<TextElement, object>();   // the original colour was a local value (not the style's)
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TextElement, object> _inlHover = new System.Runtime.CompilerServices.ConditionalWeakTable<TextElement, object>();
+
+        static void ShiftInline(Inline e, Brush parentFg, float tt)
+        {
+            if (e == null) return;
+            // a link under the mouse shows the game's hover colour (its style's trigger; a local colour of ours would hide it): it is not touched now
+            if (e.IsMouseOver && _inlOurs.TryGetValue(e, out _)) return;
+            var cur = e.Foreground;
+            Brush ours;
+            bool isOurs = _inlOurs.TryGetValue(e, out ours) && ReferenceEquals(cur, ours);
+            Brush o;
+            if (tt < 0f)
+            {
+                // back to its colour, only where the colour is ours (a colour the game set meanwhile stays)
+                if (isOurs && _inlOrig.TryGetValue(e, out o))
+                {
+                    // a colour that came from the style (with its hover trigger) is given back to the style; a local one is set again
+                    object lf;
+                    if (_inlLocal.TryGetValue(e, out lf)) e.Foreground = o; else e.ClearValue(TextElement.ForegroundProperty);
+                }
+                _inlOurs.Remove(e); _inlOrig.Remove(e); _inlLocal.Remove(e);
+            }
+            else
+            {
+                if (!isOurs)
+                {
+                    _inlOurs.Remove(e); _inlOrig.Remove(e); _inlLocal.Remove(e);
+                    if (cur != null && !ReferenceEquals(cur, parentFg))
+                    {
+                        _inlOrig.Add(e, cur);   // a colour of its own (set by the game or its style)
+                        object lv = null;
+                        try { lv = e.ReadLocalValue(TextElement.ForegroundProperty); } catch { }
+                        if (lv is Brush) _inlLocal.Add(e, true);   // a brush set on the element itself (not UnsetValue, not a binding or resource expression)
+                    }
+                }
+            }
+            if (tt >= 0f && _inlOrig.TryGetValue(e, out o))
+            {
+                var src = o as SolidColorBrush;
+                if (src != null)
+                {
+                    var want = ShiftText(src, tt);
+                    var c0 = e.Foreground as SolidColorBrush;
+                    if (c0 == null || !SameColour(c0, want)) { var nb = new SolidColorBrush(want); e.Foreground = nb; _inlOurs.Remove(e); _inlOurs.Add(e, nb); }
+                    HookInlineHover(e);
+                }
+            }
+            var sp = e as Span;
+            if (sp != null && sp.Inlines != null)
+                for (int i = 0; i < sp.Inlines.Count; i++) ShiftInline(sp.Inlines[i], e.Foreground, tt);
+        }
+
+
+
+        // the mouse over a recoloured link: our colour is taken away so the style's hover colour shows; it comes back when the mouse leaves
+        static void HookInlineHover(TextElement e)
+        {
+            object x;
+            if (_inlHover.TryGetValue(e, out x)) return;
+            _inlHover.Add(e, true);
+            Brush keep = null;
+            e.MouseEnter += (o, a) =>
+            {
+                Brush ours;
+                if (_inlOurs.TryGetValue(e, out ours) && ReferenceEquals(e.Foreground, ours)) { keep = ours; e.ClearValue(TextElement.ForegroundProperty); }
+            };
+            e.MouseLeave += (o, a) =>
+            {
+                Brush ours;
+                if (keep != null && _inlOurs.TryGetValue(e, out ours) && ReferenceEquals(keep, ours)) e.Foreground = keep;
+                keep = null;
+            };
+        }
 
         static void SetFg(TextBlock t, Brush b) { t.Foreground = b; _ourFg.Remove(t); _ourFg.Add(t, b); }
 
@@ -486,7 +599,7 @@ namespace AlternativeGameInterface
                     {
                         if (auto >= 0f)
                         {
-                            // text by background: the colour keeps its hue, only its lightness moves (light texts get darker on a light backdrop);
+                            // text by background: the colour keeps its hue, only its lightness moves (light texts get darker on a light backdrop, coloured texts lighter on a dark one);
                             // grey texts start from the pure white / black of the contrast. The two halo colours (white / black) stay.
                             Brush o0; bool known = _origFg.TryGetValue(t, out o0);
                             var src = (known ? o0 : t.Foreground) as SolidColorBrush;
@@ -496,10 +609,11 @@ namespace AlternativeGameInterface
                                 var want = ShiftText(src, TextT(t, _owDisp, auto));
                                 var cur0 = t.Foreground as SolidColorBrush;
                                 if (cur0 == null || !SameColour(cur0, want)) SetFg(t, new SolidColorBrush(want));
+                                ShiftInlines(t, TextTOf(t));
                                 if (sink != null) sink.Add(t);
                             }
                         }
-                        bool darkText = IsDarkText(t.Foreground);
+                        bool darkText = auto >= 0f ? HaloWhite(t) : IsDarkText(t.Foreground);
                         ApplyHalo(t, darkText);
                         bool dk; Brush o;
                         if (auto < 0f && IsGrey(t.Foreground, out dk) && !_origFg.TryGetValue(t, out o))
@@ -518,12 +632,14 @@ namespace AlternativeGameInterface
                             if (IsGrey(o, out dk)) SetFg(t, new SolidColorBrush(dk ? Color.FromRgb(0, 0, 0) : Color.FromRgb(255, 255, 255)));
                             else { t.Foreground = o; _ourFg.Remove(t); _origFg.Remove(t); }
                         }
+                        if (auto < 0f) ShiftInlines(t, -1f);
                     }
                     else
                     {
                         if (IsOurHalo(t.Effect)) t.Effect = null;
                         Brush o;
                         if (_origFg.TryGetValue(t, out o)) { t.Foreground = o; _ourFg.Remove(t); _origFg.Remove(t); }
+                        ShiftInlines(t, -1f);
                     }
                 }
                 catch { }
@@ -1055,6 +1171,7 @@ namespace AlternativeGameInterface
                 }
                 else if (value < 0f) v[2] = v[2] > 0.5f ? 0f : 1f; else v[1] = value;
                 SaveLooks();
+                NewsUserChanged(ow, "look");
                 _lookTrace = _debug;
                 ApplyLook(ow, panel);
                 _lookTrace = false;
@@ -1113,6 +1230,7 @@ namespace AlternativeGameInterface
             var wrap = new StackPanel { Orientation = Orientation.Vertical };
             if (!wvMap) { wrap.Children.Add(cols); wrap.Children.Add(outl); }
             wrap.Children.Add(lvRow);
+            if (IsWorldViewWindow(w) && _camOn != null) wrap.Children.Add(CameraOffsetMenuRow());
             if (MonitorChoosable(w)) wrap.Children.Add(MonitorRow(w, () => { CloseLookMenu(popup); ls.Menu = null; }));
             // the menu is a popup: it is not limited by the window; its right edge is under the arrow's right edge
             back.Child = wrap;
@@ -1120,7 +1238,7 @@ namespace AlternativeGameInterface
             try { popup.IsOpen = true; } catch { }
             bool entered = false;
             back.MouseEnter += (s, e) => entered = true;
-            back.MouseLeave += (s, e) => { if (entered) { CloseLookMenu(popup); ls.Menu = null; } };
+            back.MouseLeave += (s, e) => { if (entered && !SettingsWindow.PadDragging) { CloseLookMenu(popup); ls.Menu = null; } };
             panel.Children.Add(popup);
             return popup;
         }

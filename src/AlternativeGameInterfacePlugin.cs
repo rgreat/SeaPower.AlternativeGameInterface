@@ -45,7 +45,7 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
-        public const string PluginVersion = "2.3.2"; // also <Version> in AlternativeGameInterface.csproj
+        public const string PluginVersion = "2.4.0"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
         const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
@@ -508,7 +508,7 @@ namespace AlternativeGameInterface
             _snapOn = Config.Bind("General", "SnapWindows", true,
                 "While a window is dragged or resized with the mouse, its edges snap to the edges of the other windows and of the screen " +
                 "when they come closer than SnapDistance (the visible edges, without the invisible resize zone around a window).");
-            BindDockReachConfig(); BindKeepMapViewConfig(); BindEventLogConfig(); BindTimePanelConfig(); BindWindowSetsConfig(); BindWorldViewKeyConfig();
+            BindDockReachConfig(); BindKeepMapViewConfig(); BindEventLogConfig(); BindEventLogCompactConfig(); BindNewsFitConfig(); BindVersionMarkConfig(); BindCameraShiftConfig(); BindTimePanelConfig(); BindWindowSetsConfig(); BindWorldViewKeyConfig();
             _snapDist = Config.Bind("General", "SnapDistance", 10f,
                 "SnapWindows: how close an edge must come to snap, in pixels (1 - 50).");
             _borderOn = Config.Bind("WindowBorder", "Enabled", true,
@@ -528,7 +528,7 @@ namespace AlternativeGameInterface
                 new ConfigDescription("Background pictures of the main menu and the loading screens. Mods = when mods bring their own (ui/backgrounds), only theirs are shown; " +
                 "Mixed = as the game: one picked at random from the game's and every mod's together; Game = only the game's own.",
                 new AcceptableValueList<string>("Mods", "Mixed", "Game")));
-            _menuBg = Config.Bind("General", "MenuBackground", "Video",
+            _menuBg = Config.Bind("General", "MenuBackground", "Slideshow",
                 new ConfigDescription("Background of the main menu. Video = the game's own looped video; Slideshow = the background pictures (see Backgrounds), changing every SlideshowSeconds; " +
                 "the video is not loaded then, which saves resources.",
                 new AcceptableValueList<string>("Video", "Slideshow")));
@@ -551,6 +551,7 @@ namespace AlternativeGameInterface
             Trace("Alternative Game Interface " + PluginVersion + " build " + BuildId);
 
             ReloadPatterns();      // WindowPatterns -> _patterns, one [Layouts] entry per pattern
+            NewsOwnedAtStart();    // News window placed / styled by the user before: FitNewsWindow off at once (also its check box)
             ReloadOpenPatterns();  // RememberOpenWindows -> _osPatterns, one [OpenWindows] entry per pattern
 
             DropRetiredEntries();
@@ -687,6 +688,8 @@ namespace AlternativeGameInterface
             if (__instance == null || ReferenceEquals(_loadIter.Target, __instance)) return;
             _loadIter = new WeakReference(__instance);
             Generation++;
+            // the screen the settings window is on goes away: it closes (its unapplied changes dropped, as Cancel)
+            try { if (SettingsWindow.Exists) { Trace("settings window: closed by a new load screen (changes not applied are dropped)"); SettingsWindow.Discard(); } } catch { }
         }
 
         // MoveNext() returns false when the coroutine is finished
@@ -704,6 +707,7 @@ namespace AlternativeGameInterface
         void RefreshEnabled()
         {
             ModsChanged = false;
+            RefreshCamMod();   // the Camera Offset mod ticked / unticked meanwhile
             bool? state = ModState.Read();
             if (state == null) Logger.LogWarning("Could not read the game's mod list; Alternative Game Interface stays on.");
             bool now = state != false;
@@ -777,6 +781,8 @@ namespace AlternativeGameInterface
                 catch (Exception e) { Trace("patch ResizeCommand: " + e.Message); }
 
                 PatchReserveSubmarines(harmony, asm);
+                PatchVersionMark(harmony, asm);
+                PatchCameraShift(harmony, asm);
 
                 // The game keeps a dragged window completely inside the viewport (HeaderDragDelta): relax that.
                 // (always patched: AllowDragOutside can be switched in the game; the postfix checks it)
@@ -981,6 +987,7 @@ namespace AlternativeGameInterface
         static void DragPostfix(object __instance, object e, float[] __state)
         {
             _dragFrame = UnityEngine.Time.frameCount; _dragWin = new WeakReference(__instance);
+            if ((object)Active != null) Active.NewsUserChanged(__instance, "moved");
             if ((object)Active != null && __state != null && (Active._dragOutside.Value || Active._snapOn.Value)) Active.AfterDrag(__instance, e, __state);
         }
 
@@ -2467,6 +2474,7 @@ namespace AlternativeGameInterface
             if (w == null || _hookFailed) return;
             Trace("window loaded: '" + TextOf(Get(w, "Header")) + "'" + WindowInfo(w));
             if (_borderOn.Value) AddBorder(w);
+            try { NewsFitLoaded(w); } catch (Exception e) { TraceOnce("news fit", e); }
             if (_toFront.Value) BringToFront(w, "opened");
             HookHeader(w); // the double-click checks MaximizeOnDoubleClick itself
             try { MonitorCheck(w); } catch (Exception e) { TraceOnce("monitor check", e); }
@@ -3194,7 +3202,7 @@ namespace AlternativeGameInterface
                     TrackOpenState(t, w, now); q = Prof.Lap(Prof.Open, q);
                     if (t.WasActive || t.Settled) { FitMaximized(w, now); }          // a closed window has nothing to fit
                     q = Prof.Lap(Prof.Fit, q);
-                    PinStep(t, w, now); q = Prof.Lap(Prof.Pin, q);
+                    PinStep(t, w, now); NewsFitStep(t, w, now); q = Prof.Lap(Prof.Pin, q);
                     if (t.WasActive) LookStep(w);                     // a closed window is not looked at (it kept the screen capture for its texts going)
                     q = Prof.Lap(Prof.Look, q);
                     MapModeStep(w, now); q = Prof.Lap(Prof.MapMode, q);

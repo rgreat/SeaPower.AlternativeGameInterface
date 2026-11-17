@@ -35,6 +35,7 @@ namespace AlternativeGameInterface
         static void ResizePostfix(object __instance, object parameter, float[] __state)
         {
             var a = Active;
+            try { if ((object)a != null && a._resizeParent != null) a.NewsUserChanged(a._resizeParent.GetValue(__instance), "resized"); } catch { }
             if ((object)a == null || __state == null || !(parameter is Thickness)) return;
             var w = a._resizeParent.GetValue(__instance);
             try { if (a._removeLimitsAll.Value) a.ResizeBeyondScreen(w, (Thickness)parameter, __state); }

@@ -181,6 +181,7 @@ namespace AlternativeGameInterface
                 return;
             }
             LogHooked.Add(w, this);
+            LogCompactHook(w);
             el.AddHandler(Hyperlink.ClickEvent, new RoutedEventHandler(OnLogLinkClick));
             Trace("event log: clicks on links centre the map");
         }

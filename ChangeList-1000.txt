@@ -1,5 +1,7 @@
-Version 2.3.2
-- Campaign: a submarine sent for rearming or repair no longer vanishes from your fleet (a game bug). While away it is shown on the Submarines tab, like the ships in the Reserve. A submarine already lost in a save comes back when the campaign map loads (option "Fix submarines sent for service", on).
-- Campaign, "Upgrade ship...": ships in the Reserve and in other task forces can be upgraded too. The button is grey when the chosen version is already in your fleet. The sold ship can be bought again at once. The window's close button works.
-- Fixed: the compass tape in the World View window (desktop mode).
-- Text contrast: the texts and the compass tape follow the backdrop at once, more accurately and without flicker; new Event Log rows are coloured at once.
+Version 2.4.0
+- Main menu: the News window fills the free area right of the menu, transparent, with larger text (option, on).
+- Main menu: the slideshow of background pictures is now the default background.
+- World View: camera offset for the follow cameras, set on a sight, like the Camera Offset mod (when that mod is not installed).
+- Option to show or hide the game's version watermark.
+- Event Log: "Compact layout" option: smaller margins and row spacing, more rows fit.
+- Text contrast: coloured texts and the ship links in the Event Log now change with the backdrop too, keeping their colour; link highlight under the mouse works again.
