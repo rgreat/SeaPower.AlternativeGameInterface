@@ -48,19 +48,19 @@ namespace AlternativeGameInterface
             return -1;
         }
 
-        /// <summary>Before SwitchUnit: the tab of the unit the window is leaving is noted; the result is the key of that unit (the postfix compares it).</summary>
-        object TabNote(object status)
-        {
-            var key = TabKey(status);
-            if (key == null) return null;
-            int kind = SelectedKind(status);
-            if (kind >= 0) { TabMemory.Remove(key); TabMemory.Add(key, kind); NoteLastTab(kind); }
-            return key;
-        }
+        sealed class TabSeen { public object Key; public int Kind; }
+        static readonly ConditionalWeakTable<object, TabSeen> TabSeenBy = new ConditionalWeakTable<object, TabSeen>();   // status -> the unit and tab seen at the last step
+
+        /// <summary>Before SwitchUnit: the key of the unit the window is leaving (the postfix compares it). Nothing is noted here: a tab is a unit's own
+        /// (and the preferred one) only when the user changed it while that unit was shown (TabTrackStep); the tab the game falls back to on a unit
+        /// that lacks the preferred one (a weapon has no Sensors tab) is neither.</summary>
+        object TabNote(object status) { return TabKey(status); }
 
         void NoteLastTab(int kind) { if (_lastTab != null && _lastTab.Value != kind) _lastTab.Value = kind; }
 
-        /// <summary>Every frame of a Unit Status window: the tab that is open now is the unit's tab and the last one (the game switches tabs without any call of ours).</summary>
+        /// <summary>A few times a second for a Unit Status window: a tab that changed while the same unit stayed shown is the user's choice - the unit's own
+        /// tab and the preferred one (LastTab). A tab seen right after the unit changed is the restore's or the game's fallback: not noted, so a
+        /// unit that lacks the preferred tab does not take it over, and the next unit gets the preferred tab again.</summary>
         void TabTrackStep(object w)
         {
             WeakReference r;
@@ -73,9 +73,14 @@ namespace AlternativeGameInterface
             if (key == null) return;
             int kind = SelectedKind(status);
             if (kind < 0) return;
-            object boxed;
-            if (!TabMemory.TryGetValue(key, out boxed) || (int)boxed != kind) { TabMemory.Remove(key); TabMemory.Add(key, kind); }
+            TabSeen seen;
+            if (!TabSeenBy.TryGetValue(status, out seen)) { seen = new TabSeen(); TabSeenBy.Add(status, seen); seen.Key = null; seen.Kind = -1; }
+            if (!ReferenceEquals(seen.Key, key)) { seen.Key = key; seen.Kind = kind; return; }   // another unit (or the first look): what is open is not the user's choice
+            if (seen.Kind == kind) return;
+            seen.Kind = kind;
+            TabMemory.Remove(key); TabMemory.Add(key, kind);
             NoteLastTab(kind);
+            Trace("remember tab: the user's tab " + kind + " for this unit and as the preferred one");
         }
 
         /// <summary>After SwitchUnit (and the mod's own tab hooks): another unit is shown - its remembered tab is put back, now or at the next Refresh.</summary>
@@ -105,10 +110,10 @@ namespace AlternativeGameInterface
                 if (k != kind) continue;
                 if (GetB(t, "IsAvailable"))
                 {
-                    if (!GetB(t, "IsSelected")) SelectOnly(status, t);
+                    if (!GetB(t, "IsSelected")) { SelectOnly(status, t); Trace("remember tab: tab " + kind + " put back (" + (TabMemory.TryGetValue(key, out boxed) ? "the unit's own" : "the preferred one") + ")"); }
                     TabPending.Remove(status);
                 }
-                else if (final) TabPending.Remove(status);   // not available for this unit (any more): the game's choice stays
+                else if (final) { TabPending.Remove(status); Trace("remember tab: tab " + kind + " is not available for this unit - the game's choice stays"); }   // not available for this unit (any more)
                 return;
             }
             TabPending.Remove(status);
