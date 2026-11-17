@@ -1,2 +1,5 @@
-Version 2.3.1
-- Option "Double click opens a file or scenario" (Settings / Game Menus / Save and load, off by default): a double click on a file in Load game and other file-opening windows opens it, like the Open button; a double click on a scenario in the main menu starts it, like the Play button. Save windows are not changed.
+Version 2.3.2
+- Campaign: a submarine sent for rearming or repair no longer vanishes from your fleet (a game bug). While away it is shown on the Submarines tab, like the ships in the Reserve. A submarine already lost in a save comes back when the campaign map loads (option "Fix submarines sent for service", on).
+- Campaign, "Upgrade ship...": ships in the Reserve and in other task forces can be upgraded too. The button is grey when the chosen version is already in your fleet. The sold ship can be bought again at once. The window's close button works.
+- Fixed: the compass tape in the World View window (desktop mode).
+- Text contrast: the texts and the compass tape follow the backdrop at once, more accurately and without flicker; new Event Log rows are coloured at once.

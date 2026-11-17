@@ -35,6 +35,7 @@ namespace AlternativeGameInterface
                 EventManager.RegisterClassHandler(typeof(Slider), loaded, new RoutedEventHandler(OnSliderLoaded));
                 EventManager.RegisterClassHandler(typeof(ComboBox), loaded, new RoutedEventHandler(OnComboLoaded));
                 EventManager.RegisterClassHandler(typeof(Button), UIElement.MouseEnterEvent, new MouseEventHandler(OnButtonEnter));
+                EventManager.RegisterClassHandler(typeof(TextBlock), loaded, new RoutedEventHandler(OnTextBlockLoaded));
                 EventManager.RegisterClassHandler(typeof(TreeViewItem), Control.MouseDoubleClickEvent, new MouseButtonEventHandler(OnTreeItemDoubleClick));
                 Trace("view capture: Loaded / MouseEnter class handlers registered");
                 // a view that is up already (the mod was switched on later)

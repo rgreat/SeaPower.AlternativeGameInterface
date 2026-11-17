@@ -112,11 +112,13 @@ namespace AlternativeGameInterface
                 Add(TCampaign, "Task Force", p._sortLoadouts, 'b', "Sort loadouts by date", "own versions first");
                 Add(TCampaign, "Task Force", p._fixSwapPrice, 'b', "Fix version swap price", "roster price");
                 Add(TCampaign, "Task Force", p._upgradeShip, 'b', "Upgrade ship button in the Builder", "crew -1 level");
+                Add(TCampaign, "Task Force", p._fixSubs, 'b', "Fix submarines sent for service", "");
                 Add(TCampaign, "Task Force", p._eventState, 'b', "Ship state on briefing and newspaper events", "after the latest mission");
                 Add(TDebug, "Game logs", p._deleteLogs, 'b', "Delete old game logs at start", "");
                 Add(TDebug, "Mod log", p._debugEntry, 'b', "Debug trace", "");
                 Add(TDebug, "Diagnostics", p._snapshot, 'a', "Take a snapshot now", "");
                 Add(TDebug, "Diagnostics", p._collectGarbage, 'a', "Collect garbage now", "");
+                Add(TDebug, "Diagnostics", p._shotTabs, 'a', "Screenshot all tabs now", "");
                 if (!IsWorkshopInstall()) Add(TDebug, "Game UI", p._dumpXaml, 'a', "Dump XAML now", "");   // a development tool: not for the Steam Workshop copy
 
                 Add(TRemembered, "Position and size", p._windows, 'w', "Remembered windows", "'*' = any text");
@@ -722,6 +724,38 @@ namespace AlternativeGameInterface
             }
 
             // ------------------------------------------------------------ tabs and rows
+
+            // ---- screenshots of every tab (SettingsShots.cs)
+            static int _shotTab, _shotSub; static bool _shotAll;
+            internal static bool ShotBegin()
+            {
+                if (_root == null || _body == null || !_root.IsVisible) return false;
+                _shotTab = _tab; _shotSub = _mapSub; _shotAll = _showAll;
+                _showAll = true; UpdateShowAll();
+                return true;
+            }
+            internal static int ShotTabCount() { return Tabs.Length; }
+            internal static int ShotPages(int tab)
+            {
+                if (Tabs[tab] != TMap) return 1;
+                bool on = _mapField != null && Get(_mapField) is bool && (bool)Get(_mapField);
+                return on ? 3 : 2;
+            }
+            internal static void ShotShow(int tab, int page) { _mapSub = page; ShowTab(tab); }
+            internal static string ShotName(int tab, int page) { return TabOf(Tabs[tab]) + (Tabs[tab] == TMap ? "_p" + (page + 1) : ""); }
+            internal static bool ShotRect(out float x, out float y, out float w, out float h)
+            {
+                x = y = w = h = 0f;
+                if (_root == null || _root.ActualWidth <= 0f) return false;
+                var a = _root.PointToScreen(new Point(0f, 0f)); var b = _root.PointToScreen(new Point((float)_root.ActualWidth, (float)_root.ActualHeight));
+                x = Math.Min(a.X, b.X); y = Math.Min(a.Y, b.Y); w = Math.Abs(b.X - a.X); h = Math.Abs(b.Y - a.Y);
+                return w > 4f && h > 4f;
+            }
+            internal static void ShotEnd()
+            {
+                _showAll = _shotAll; _mapSub = _shotSub; UpdateShowAll();
+                if (_body != null) ShowTab(_shotTab);
+            }
 
             static void ShowTab(int t)
             {

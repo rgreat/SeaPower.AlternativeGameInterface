@@ -26,7 +26,7 @@ namespace AlternativeGameInterface
                 "Campaign Task Force Builder: an \"Upgrade ship\" button replaces a ship of the task force by the selected one (sold at the Dismiss / Decommission price, the crew loses one skill level).");
         }
 
-        sealed class UpState { public Button Btn; public float Next; public string Tip; }
+        sealed class UpState { public Button Btn; public float Next; public string Tip; public object LastSel; }
         static readonly ConditionalWeakTable<object, UpState> UpStates = new ConditionalWeakTable<object, UpState>();
 
         const BindingFlags UpAll = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -70,7 +70,7 @@ namespace AlternativeGameInterface
             throw new MissingMethodException(typeName + "." + method);
         }
 
-        sealed class UpCandidate { public object Item; public string Name; public int Refund; public int RefundBase; public bool Decommission; public int OldSkill, NewSkill; public string Why; public int Cost, Sur, OldCap, NewCap, Avail, Proj, Cap, Aircraft, Slots, RepairCost; }
+        sealed class UpCandidate { public object Item, Force; public string ForceName; public string Name; public int Refund; public int RefundBase; public bool Decommission; public int OldSkill, NewSkill; public string Why; public int Cost, Sur, OldCap, NewCap, Avail, Proj, Cap, Aircraft, Slots, RepairCost; }
 
         static string SkillName(int skill)
         {
@@ -94,18 +94,25 @@ namespace AlternativeGameInterface
             if ((bool)UpStatic("LinearCampaignTaskForceModeRules", "CountsAgainstFleetCap", sel))
                 newCap = (int)UpStatic("LinearCampaignTaskForceModeRules", "GetFleetCapValue", sel) + (int)UpStatic("LinearCampaignTaskForceModeRules", "GetAppliedLoadoutCapValue", ini, sel)
                          + (int)UpStatic("LinearCampaignTaskForceModeRules", "GetScarcitySurchargeCapValue", sel);
-            foreach (var it in items)
+            // the ships of the Status window (the selected force) and those of the other forces (their own preview Status, as the game's
+            // Task Force Manager builds it for each card): the Reserve and the other task forces can be upgraded too
+            var pool = new List<object[]>();   // item, its Status view model, its force entry (null: the selected force)
+            foreach (var it in items) pool.Add(new object[] { it, status, null });
+            foreach (var other in UpOtherForceShips(status)) pool.Add(other);
+            foreach (var entry in pool)
             {
+                var it = entry[0]; var owner = entry[1];
                 if (it == null || GetB(it, "IsAirUnit")) continue;
                 if (!string.Equals(Get(it, "Category") as string, selCat, StringComparison.OrdinalIgnoreCase)) continue;
                 if (string.Equals(Get(it, "UnitType") as string, selType, StringComparison.OrdinalIgnoreCase) && string.Equals(Get(it, "VariantReference") as string, selVar, StringComparison.OrdinalIgnoreCase)) continue;
-                var c = new UpCandidate { Item = it, Name = Get(it, "InspectionTitle") as string ?? (Get(it, "UnitType") as string) };
-                bool dismiss = (bool)UpCall(status, "CanDismiss", it), decom = !dismiss && (bool)UpCall(status, "CanDecommission", it);
+                var c = new UpCandidate { Item = it, Force = entry[2], Name = Get(it, "InspectionTitle") as string ?? (Get(it, "UnitType") as string) };
+                if (entry[2] != null) { c.ForceName = Get(entry[2], "Name") as string; if (!string.IsNullOrEmpty(c.ForceName)) c.Name += " (" + c.ForceName + ")"; }
+                bool dismiss = (bool)UpCall(owner, "CanDismiss", it), decom = !dismiss && (bool)UpCall(owner, "CanDecommission", it);
                 if (!dismiss && !decom) continue;
                 c.Decommission = decom;
-                c.RefundBase = (int)(decom ? UpCall(status, "CalculateDecommissionRefund", it) : UpCall(status, "CalculateDismissRefund", it, 1));
-                c.Refund = (int)(decom ? UpCall(status, "CalculateDecommissionRefundTotal", it) : UpCall(status, "CalculateDismissRefundTotal", it, 1));
-                try { bool rep; int rc; if (!decom && _dismissDamaged.Value && RepairInfo(status, it, out rep, out rc)) c.RepairCost = rc; } catch { }
+                c.RefundBase = (int)(decom ? UpCall(owner, "CalculateDecommissionRefund", it) : UpCall(owner, "CalculateDismissRefund", it, 1));
+                c.Refund = (int)(decom ? UpCall(owner, "CalculateDecommissionRefundTotal", it) : UpCall(owner, "CalculateDismissRefundTotal", it, 1));
+                try { bool rep; int rc; if (!decom && _dismissDamaged.Value && RepairInfo(owner, it, out rep, out rc)) c.RepairCost = rc; } catch { }
                 c.OldSkill = Convert.ToInt32(Get(it, "CrewSkill"), CultureInfo.InvariantCulture);
                 c.NewSkill = Math.Max(0, c.OldSkill - 1);
                 int oldCap = 0;
@@ -121,6 +128,58 @@ namespace AlternativeGameInterface
                 }
                 res.Add(c);
             }
+            return res;
+        }
+
+        static object UpMap()
+        {
+            var t = GameAssembly().GetType(string.Join(".", "SeapowerUI", "ViewModels", "LinearCampaignMapViewModel"));
+            var p = t == null ? null : t.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            return p == null ? null : p.GetValue(null, null);
+        }
+
+        static int UpMissionIndex(object map)
+        {
+            var m = map == null ? null : UpField(map, "_selectedMission");
+            var i = m == null ? null : UpField(m, "_index");
+            return i is int ? (int)i : 0;
+        }
+
+        // the ships of the surface forces other than the selected one, each with a preview Status view model (logistics state, refunds),
+        // without those away for service (not available)
+        List<object> _upOtherKey; List<object[]> _upOther;
+        List<object[]> UpOtherForceShips(object status)
+        {
+            var res = new List<object[]>();
+            try
+            {
+                var map = UpMap();
+                if (map == null) return res;
+                var selected = Get(map, "SelectedStandardTaskForce");
+                int mi = UpMissionIndex(map);
+                // cached while the forces' snapshots, the selection and the mission stay the same (the button state asks every 0.4 s)
+                var key = new List<object> { selected, mi, status };
+                foreach (var f in (IEnumerable)Get(map, "StandardTaskForces")) { key.Add(f); key.Add(f == null ? null : Get(f, "Snapshot")); }
+                if (_upOtherKey != null && _upOtherKey.Count == key.Count)
+                {
+                    bool same = true;
+                    for (int i = 0; i < key.Count && same; i++) same = Equals(_upOtherKey[i], key[i]);
+                    if (same) return _upOther;
+                }
+                _upOtherKey = key; _upOther = res;
+                foreach (var f in (IEnumerable)Get(map, "StandardTaskForces"))
+                {
+                    if (f == null || ReferenceEquals(f, selected) || !GetB(f, "IsSurfaceTaskForce")) continue;
+                    foreach (var row in (IEnumerable)UpCall(status, "CreateManagerRosterPreview", Get(f, "Snapshot"), mi))
+                    {
+                        var it = Get(row, "Item");
+                        if (it == null || GetB(it, "IsAirUnit")) continue;
+                        try { if ((bool)UpStatic("LinearCampaignTaskForceRepairs", "IsUnavailable", Get(it, "InstanceId") as string, mi)) continue; } catch { }
+                        res.Add(new object[] { it, UpField(row, "_owner"), f });
+                    }
+                }
+            }
+            catch (Exception e) { Trace("UpgradeShip (other forces): " + (e.InnerException ?? e).Message); }
             return res;
         }
 
@@ -146,6 +205,12 @@ namespace AlternativeGameInterface
                 st.Btn = b;
                 Trace("Task Force Builder: Upgrade ship button added");
             }
+            try
+            {
+                var selNow = Get(vm, "SelectedRosterItem");
+                if (selNow != null && !ReferenceEquals(selNow, st.LastSel)) { st.LastSel = selNow; TraceRosterItem(vm, selNow); }
+            }
+            catch (Exception e) { Trace("Builder (selected item): " + e.Message); }
             string why = null;
             try
             {
@@ -153,6 +218,7 @@ namespace AlternativeGameInterface
                 if (sel == null || GetB(sel, "IsAirUnit")) why = Loc.T("up.noSel");
                 else if (UpField(vm, "_statusViewModel") == null) why = Loc.T("up.noStatus");
                 else if (GetB(UpField(vm, "_statusViewModel"), "UsesHistoricalReinforcements")) why = Loc.T("up.hist");
+                else if ((bool)UpCall(vm, "IsVariantAlreadyInTaskForce", sel)) why = Loc.T("up.owned");
                 else if (((System.Collections.ICollection)Get(vm, "PendingPurchaseItems")).Count > 0 || GetB(vm, "HasPendingTransactions")) why = Loc.T("up.pending");
                 else
                 {
@@ -274,21 +340,19 @@ namespace AlternativeGameInterface
             col.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             
 
-            var title = new Grid { Background = UB(Color.FromArgb(1, 0, 0, 0)), Height = 24f };
+            // the header as in the game's windows (Window.xaml): 20 px, the theme's header brush, the title at 2.5 px, a 20 px wide "X" button
+            var title = new Grid { Background = UB(UTitle), Height = 20f };
             title.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1f, GridUnitType.Star) });
             title.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var tt = UT(Loc.T("up.title") + " — " + newName, UDim, 12f); tt.Margin = new Thickness(8f, 0f, 0f, 0f); tt.VerticalAlignment = VerticalAlignment.Center;
+            var tt = new TextBlock { Text = Loc.T("up.title") + " — " + newName, Margin = new Thickness(2.5f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false };
             title.Children.Add(tt);
-            // the game's windows have a plain "X" at the right of the header
-            var x = UT("X", UDim, 12f); x.Margin = new Thickness(8f, 0f, 10f, 0f); x.VerticalAlignment = VerticalAlignment.Center; x.Background = UB(Color.FromArgb(1, 0, 0, 0));
-            x.MouseEnter += (o, e) => x.Foreground = UB(UText);
-            x.MouseLeave += (o, e) => x.Foreground = UB(UDim);
-            x.MouseLeftButtonUp += (o, e) => { CloseUpgradeWindow(); e.Handled = true; };
+            var x = new Button { Width = 20f, Padding = new Thickness(0f), Margin = new Thickness(0f), Focusable = false, Content = new TextBlock { Text = "X", FontWeight = FontWeight.Bold } };
+            x.Click += (o, e) => CloseUpgradeWindow();
             Grid.SetColumn(x, 1); title.Children.Add(x);
             col.Children.Add(title);
             {
                 bool down = false; Point st0 = new Point(); float x0 = 0f, y0 = 0f;
-                title.MouseLeftButtonDown += (o, e) => { down = true; st0 = e.GetPosition(root); x0 = move.X; y0 = move.Y; title.CaptureMouse(); e.Handled = true; };
+                title.MouseLeftButtonDown += (o, e) => { if (x.IsMouseOver || IsInside(e.Source as DependencyObject, x)) return; down = true; st0 = e.GetPosition(root); x0 = move.X; y0 = move.Y; title.CaptureMouse(); e.Handled = true; };
                 title.MouseMove += (o, e) => { if (!down) return; var q = e.GetPosition(root); move.X = x0 + (q.X - st0.X); move.Y = y0 + (q.Y - st0.Y); _upX = move.X; _upY = move.Y; };
                 title.MouseLeftButtonUp += (o, e) => { if (!down) return; down = false; title.ReleaseMouseCapture(); e.Handled = true; };
             }
@@ -403,9 +467,61 @@ namespace AlternativeGameInterface
             _upRoot = root; _upHost = panel;
         }
 
+        // diagnostics: the ships of the Status window roster (the submarines are marked), to see where a unit is lost during the swap
+        string UpRoster(object status)
+        {
+            var sb = new System.Text.StringBuilder();
+            try
+            {
+                foreach (var it in (IEnumerable)UpField(status, "_items"))
+                {
+                    if (it == null || GetB(it, "IsAirUnit")) continue;
+                    if (sb.Length > 0) sb.Append(", ");
+                    string id = Get(it, "InstanceId") as string ?? "";
+                    sb.Append(Get(it, "UnitType")).Append(Get(it, "Category") as string == "Submarine" ? "[sub]" : "").Append('#').Append(id.Length > 6 ? id.Substring(0, 6) : id);
+                }
+            }
+            catch (Exception e) { sb.Append("? ").Append(e.Message); }
+            return sb.ToString();
+        }
+
         void DoUpgrade(object vm, UpCandidate c)
         {
             var status = UpField(vm, "_statusViewModel");
+            var sel = Get(vm, "SelectedRosterItem");
+            string selName = Get(sel, "InspectionTitle") as string;
+            if ((bool)UpCall(vm, "IsVariantAlreadyInTaskForce", sel)) { Trace("UpgradeShip: " + selName + " is already in the fleet - nothing sold"); return; }
+            // a ship of another force: that force is selected first (the game's own selection: the Status window then holds its ships, the
+            // sale is written to that force and the new ship joins it), the previous selection comes back afterwards
+            object map = null, prevForce = null;
+            if (c.Force != null)
+            {
+                map = UpMap();
+                prevForce = map == null ? null : Get(map, "SelectedStandardTaskForce");
+                if (map == null || !UpSelectForce(map, c.Force)) { Trace("UpgradeShip: could not select the force of " + c.Name); return; }
+                string oid = Get(c.Item, "InstanceId") as string;
+                c.Item = null;
+                foreach (var it in (IEnumerable)UpField(status, "_items"))
+                    if (it != null && string.Equals(Get(it, "InstanceId") as string, oid, StringComparison.OrdinalIgnoreCase)) c.Item = it;
+                if (c.Item == null) { Trace("UpgradeShip: " + c.Name + " is not in the Status window after selecting its force"); if (prevForce != null) UpSelectForce(map, prevForce); return; }
+            }
+            try { DoUpgradeCore(vm, c, status); }
+            finally { if (prevForce != null && !ReferenceEquals(prevForce, c.Force)) UpSelectForce(map, prevForce); }
+        }
+
+        static bool UpSelectForce(object map, object force)
+        {
+            try
+            {
+                foreach (var m in map.GetType().GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
+                    if (m.Name == "SelectStandardTaskForce" && m.GetParameters().Length == 2) { m.Invoke(map, new object[] { force, true }); break; }
+                return ReferenceEquals(UpField(map, "_selectedStandardTaskForce"), force);
+            }
+            catch (Exception e) { Trace("UpgradeShip (select force): " + (e.InnerException ?? e).Message); return false; }
+        }
+
+        void DoUpgradeCore(object vm, UpCandidate c, object status)
+        {
             var sel = Get(vm, "SelectedRosterItem");
             string selName = Get(sel, "InspectionTitle") as string;
             Trace("UpgradeShip: " + c.Name + " (" + SkillName(c.OldSkill) + ", " + (c.Decommission ? "decommission" : "dismiss") + " +" + c.RefundBase + ") -> " + selName);
@@ -417,9 +533,11 @@ namespace AlternativeGameInterface
                 var asg = a == null || !GetB(a, "IsAirUnit") ? null : Get(a, "AircraftAssignments") as IDictionary<string, int>;
                 int n; if (asg != null && asg.TryGetValue(oldId, out n) && n > 0) moves.Add(new KeyValuePair<string[], int>(new[] { Get(a, "UnitType") as string, Get(a, "VariantReference") as string }, n));
             }
+            Trace("UpgradeShip: roster before: " + UpRoster(status));
             // 1. sell the old ship through the Status window (points, snapshot, aircraft assignments, the game's events)
             if (c.Decommission) UpCall(status, "RemoveFromTaskForce", c.Item, c.RefundBase, false, true);
             else UpCall(status, "DismissFromTaskForce", c.Item, c.RefundBase, 1);
+            Trace("UpgradeShip: roster after sale: " + UpRoster(status));
             // 2. buy the selected ship through the Builder
             UpCall(vm, "RefreshCurrentTaskForceOwnershipKeys");
             var pending = (IList)Get(vm, "PendingPurchaseItems");
@@ -436,8 +554,10 @@ namespace AlternativeGameInterface
                 SetBacking(p, "CrewSkillSurvivalCredits", UpStatic("LinearCampaignTaskForceCrewSkillRules", "GetMinimumSurvivalCreditsForSkill", Enum.ToObject(GameAssembly().GetType("SeaPower.ObjectBase+CrewSkill"), c.NewSkill)));
             }
             UpCall(vm, "ConfirmTaskForceSelection");
+            Trace("UpgradeShip: roster after confirm: " + UpRoster(status));
             if (pending.Count > 0) Trace("UpgradeShip: the purchase was not confirmed (" + pending.Count + " item(s) stay in the Builder's list to confirm by hand)");
             else Trace("UpgradeShip: done");
+            FreeOldHull(vm, c.Item);
             if (moves.Count > 0 && newId != null)
             {
                 try
@@ -465,6 +585,66 @@ namespace AlternativeGameInterface
                 }
                 catch (Exception e) { Trace("UpgradeShip (aircraft): " + e.Message); }
             }
+        }
+
+        // The sold ship goes back to the roster and can be bought again (as after the game's own Dismiss). The Builder that is open during the
+        // upgrade marks owned hulls when it builds its roster and is not rebuilt after the sale: its ownership and affordability are
+        // refreshed here, then the old hull's state is traced.
+        void FreeOldHull(object vm, object oldItem)
+        {
+            string type = Get(oldItem, "UnitType") as string, variant = Get(oldItem, "VariantReference") as string;
+            try
+            {
+                UpCall(vm, "RefreshCurrentTaskForceOwnershipState");
+                UpCall(vm, "LoadCampaignTaskForceData", true);
+                UpCall(vm, "NotifyPurchaseStateChanged");
+            }
+            catch (Exception e) { Trace("UpgradeShip (free old hull): " + e.Message); }
+            try
+            {
+                var owned = UpStatic("LinearCampaignTaskForceSaveManager", "ReadCampaignOwnedHullKeys") as ICollection<string>;
+                string key = (type ?? "").Trim() + ":" + (string.IsNullOrWhiteSpace(variant) ? "Default" : variant.Trim());
+                string state = "not in the roster";
+                foreach (var g in (IEnumerable)UpCall(vm, "AllRosterGroups"))
+                    foreach (var v in (IEnumerable)Get(g, "Variants"))
+                        if (string.Equals(Get(v, "UnitType") as string, type, StringComparison.OrdinalIgnoreCase) && string.Equals(Get(v, "VariantReference") as string, variant, StringComparison.OrdinalIgnoreCase))
+                            state = "in the roster, owned " + GetB(v, "IsCurrentTaskForceUnit") + ", already in task force " + (bool)UpCall(vm, "IsVariantAlreadyInTaskForce", v) + ", affordable " + GetB(v, "IsAffordable");
+                Trace("UpgradeShip: old hull " + key + ": owned in the save " + (owned != null && owned.Contains(key)) + "; " + state);
+            }
+            catch (Exception e) { Trace("UpgradeShip (old hull state): " + e.Message); }
+        }
+
+        // diagnostics: why the Builder lets a roster item be bought or not (the game shows "already owned" and "too expensive" alike)
+        void TraceRosterItem(object vm, object it)
+        {
+            var sb = new System.Text.StringBuilder("Builder: selected ");
+            string type = Get(it, "UnitType") as string, variant = Get(it, "VariantReference") as string;
+            sb.Append(type).Append(':').Append(variant);
+            Action<string, Func<object>> add = (name, f) => { sb.Append(", ").Append(name).Append(' '); try { sb.Append(f()); } catch (Exception e) { sb.Append("? ").Append((e.InnerException ?? e).Message); } };
+            add("cost", () => Get(it, "Cost"));
+            add("surcharge", () => UpStatic("LinearCampaignTaskForceBuilderViewModel", "GetItemScarcitySurcharge", it));
+            add("available", () => Get(vm, "AvailablePoints"));
+            add("pending", () => Get(vm, "PendingPurchaseCost"));
+            add("fleet value", () => Get(vm, "ProjectedFleetValue"));
+            add("cap", () => Get(vm, "PointCap"));
+            add("its cap value", () => UpStatic("LinearCampaignTaskForceModeRules", "GetFleetCapValue", it));
+            add("owned flag", () => GetB(it, "IsCurrentTaskForceUnit"));
+            add("owned in the save", () =>
+            {
+                var owned = UpStatic("LinearCampaignTaskForceSaveManager", "ReadCampaignOwnedHullKeys") as ICollection<string>;
+                return owned != null && owned.Contains((type ?? "").Trim() + ":" + (string.IsNullOrWhiteSpace(variant) ? "Default" : variant.Trim()));
+            });
+            add("destroyed", () => UpStatic("LinearCampaignTaskForceSaveManager", "IsDestroyedPlayerUnit", Get(it, "UnitFolder"), type, variant));
+            add("already in task force", () => UpCall(vm, "IsVariantAlreadyInTaskForce", it));
+            add("can afford", () => UpCall(vm, "CanAffordRosterItem", it));
+            add("affordable flag", () => GetB(it, "IsAffordable"));
+            Trace(sb.ToString());
+        }
+
+        static bool IsInside(DependencyObject d, DependencyObject parent)
+        {
+            for (; d != null; d = VisualTreeHelper.GetParent(d)) if (ReferenceEquals(d, parent)) return true;
+            return false;
         }
 
         static int AssignedTo(object air, string shipId)

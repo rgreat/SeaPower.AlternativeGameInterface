@@ -12,10 +12,10 @@ namespace AlternativeGameInterface
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
-        WeakReference _tapeCanvas, _tapeHome, _tapeStyled;      // the tape, its original panel
+        static WeakReference _tapeCanvas; WeakReference _tapeHome, _tapeStyled;      // the tape, its original panel
         int _tapeHomeIndex;
         readonly List<Action> _tapeUndo = new List<Action>();
-        float _tapeNext; bool _tapeReady;
+        float _tapeNext; bool _tapeReady, _tapeNoHost;
         readonly List<TextBlock> _tapeTexts = new List<TextBlock>();
         readonly List<Path> _tapePaths = new List<Path>();
         UnityEngine.RenderTexture _lumRt; float _lumNext; bool _lumBusy; bool _tapeWhite = true, _lumKnown; float _lum;
@@ -38,7 +38,8 @@ namespace AlternativeGameInterface
                 }
                 var ww = _wvWin == null ? null : _wvWin.Target;
                 var host = ww == null || !GetB(ww, "IsLoaded") ? null : WvContentGrid(ww);
-                if (host == null) return;
+                if (host == null) { if (!_tapeNoHost) { _tapeNoHost = true; Trace("compass tape: no World View content grid yet (window " + (ww == null ? "unknown" : "loaded " + GetB(ww, "IsLoaded")) + ")"); } return; }
+                _tapeNoHost = false;
                 if (tape == null || !tape.IsLoaded)
                 {
                     var view = MainGameViewInstance() as FrameworkElement;
@@ -82,17 +83,20 @@ namespace AlternativeGameInterface
             return pip == null ? null : VisualTreeHelper.GetParent(pip) as Panel;
         }
 
+        static bool _tapeLost;
         static Canvas FindTape(FrameworkElement view)
         {
-            var stack = new Stack<DependencyObject>(); stack.Push(view);
-            int budget = 4000;
-            while (stack.Count > 0 && --budget > 0)
+            // breadth first: the tape is one of the first levels of the HUD (a depth first search with a budget of 4000 used it up in the first big branch of the game's HUD)
+            var queue = new Queue<DependencyObject>(); queue.Enqueue(view);
+            int budget = 60000;
+            while (queue.Count > 0 && --budget > 0)
             {
-                var e = stack.Pop();
+                var e = queue.Dequeue();
                 var cv = e as Canvas;
-                if (cv != null && Math.Abs(cv.Width - 480f) < 0.5f && Math.Abs(cv.Height - 64f) < 0.5f && cv.OpacityMask != null && cv.ClipToBounds) return cv;
-                for (int k = VisualTreeHelper.GetChildrenCount(e) - 1; k >= 0; k--) { var c = VisualTreeHelper.GetChild(e, k); if (c != null) stack.Push(c); }
+                if (cv != null && Math.Abs(cv.Width - 480f) < 0.5f && Math.Abs(cv.Height - 64f) < 0.5f && cv.OpacityMask != null && cv.ClipToBounds) { _tapeLost = false; return cv; }
+                for (int k = 0, n = VisualTreeHelper.GetChildrenCount(e); k < n; k++) { var c = VisualTreeHelper.GetChild(e, k); if (c != null) queue.Enqueue(c); }
             }
+            if (!_tapeLost) { _tapeLost = true; Trace("compass tape: not found in the HUD (searched " + (60000 - budget) + " elements)"); }
             return null;
         }
 
@@ -191,7 +195,7 @@ namespace AlternativeGameInterface
         {
             _lum = _lumKnown ? _lum * 0.5f + y * 0.5f : y;
             bool first = !_lumKnown; _lumKnown = true;
-            bool white = _tapeWhite ? _lum < 0.55f : _lum < 0.42f;
+            bool white = _tapeWhite ? _lum < TextUp : _lum <= TextDown;   // the same thresholds as the texts: dark from TextUp, white again at TextDown
             if (first || white != _tapeWhite) PaintTape(white);
         }
     }

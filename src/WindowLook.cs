@@ -352,9 +352,12 @@ namespace AlternativeGameInterface
         /// <summary>The backdrop brightness 'sl' switches the window's texts between two states, no gradations: t = 0 (the texts as they are, black halo on light
         /// ones) and t = 1 (darkened, white halo). Up at 0.66 and down at 0.58 (a hysteresis; white text with a black halo stays until the backdrop is really
         /// light). True when t changed.</summary>
+        const float TextUp = 0.54f, TextDown = 0.52f;   // the backdrop brightness at which a text turns dark (up) and white again (down); the estimate no longer depends on the text's own colour (TextGlyph / TextHalo), so a small gap is enough; white comes early
+        static int _flipLog;
+        const float TextGlyph = 0.14f, TextHalo = 0.065f;
         const float TextCover = 0.25f;   // the share of a text's box that its own glyphs and halo cover in the screen capture
         static int _owDisp;
-        sealed class TBox { public float T; public float Ema = -1f, Last, CandT = -1f, CandSince; }
+        sealed class TBox { public float T; public float Ema = -1f, Last, CandT = -1f, CandSince; public int FlipSeq = -100; }
         static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TextBlock, TBox> _txtT = new System.Runtime.CompilerServices.ConditionalWeakTable<TextBlock, TBox>();
         static float TextTOf(TextBlock t) { TBox b; return _txtT.TryGetValue(t, out b) ? b.T : 0f; }
         /// <summary>The state (0 / 1) of one text by the brightness right under it (same hysteresis); without a picture: the window's state.</summary>
@@ -363,35 +366,43 @@ namespace AlternativeGameInterface
             TBox b;
             if (!_txtT.TryGetValue(t, out b)) { b = new TBox { T = fallback }; _txtT.Add(t, b); }
             float sl;
+            // a text that has just changed colour waits for two pictures taken after the change: the one in hand still shows its old colour (the estimate would be off by ~0.1 and flip it back)
+            if (disp >= 0 && SceneLumSeq(disp) < b.FlipSeq + 2) return b.T;
             if (disp >= 0 && SceneLumUnder(t, disp, out sl))
             {
                 // the capture is the finished screen: the text itself (glyphs and halo, about a quarter of its box) is in the brightness under it. A white text
                 // lifts it over the threshold, the text turns dark, the brightness falls, the text turns white... (4 times a second on a still picture).
                 // The text's own part is taken out, so the decision no longer depends on the colour it has now.
+                float rawSl = sl, lumNow = 0f;
                 var fg = t.Foreground as SolidColorBrush;
                 if (fg != null)
                 {
                     float fr, fgn, fb, fa; Rgb01(fg, out fr, out fgn, out fb, out fa);
                     float lt = 0.2126f * fr + 0.7152f * fgn + 0.0722f * fb;
-                    sl = Math.Max(0f, Math.Min(1f, (sl - TextCover * lt) / (1f - TextCover)));
+                    lumNow = lt;
+                    // measured in a trace (the same backdrop read under a white and under a dark text): the glyphs cover 14 % of the box, the halo 6.5 %
+                    // (white behind a dark text, black behind a light one); B = (picture - glyphs - halo) / the rest
+                    sl = Math.Max(0f, Math.Min(1f, (sl - TextGlyph * lt - TextHalo * (lt < 0.5f ? 1f : 0f)) / (1f - TextGlyph - TextHalo)));
                 }
-                // the picture moves even on a pause (smoke, water, particles): the brightness is smoothed (about 0.3 s) and a new state has to hold for
-                // 0.4 s before the text switches, so a backdrop near the threshold does not make the text flicker
+                // no smoothing and no hold: the text follows the picture at once (the hysteresis band keeps it from flickering)
                 float now = UnityEngine.Time.unscaledTime;
-                if (b.Ema < 0f) { b.Ema = sl; b.Last = now; b.T = sl >= 0.62f ? 1f : 0f; return b.T; }   // the first look: at once
-                float dt = Math.Max(0f, Math.Min(1f, now - b.Last)); b.Last = now;
-                b.Ema += (sl - b.Ema) * Math.Min(1f, dt / 0.3f);
-                float want = b.Ema >= 0.66f ? 1f : b.Ema <= 0.58f ? 0f : b.T;
-                if (want == b.T) b.CandT = -1f;
-                else if (b.CandT != want) { b.CandT = want; b.CandSince = now; }
-                else if (now - b.CandSince >= 0.4f) { b.T = want; b.CandT = -1f; }
+                b.Ema = sl; b.Last = now; b.CandT = -1f;
+                float was = b.T;
+                if (b.Ema >= TextUp) b.T = 1f; else if (b.Ema <= TextDown) b.T = 0f;
+                if (b.T != was) b.FlipSeq = SceneLumSeq(disp);
+                if (b.T != was && _flipLog < 400)
+                {
+                    _flipLog++;
+                    string tx = t.Text ?? ""; if (tx.Length > 14) tx = tx.Substring(0, 14);
+                    Trace("text flip: '" + tx + "' " + (was > 0.5f ? "dark" : "light") + " -> " + (b.T > 0.5f ? "dark" : "light") + " at " + sl.ToString("0.000") + " (raw " + rawSl.ToString("0.000") + ", text " + (t.Foreground is SolidColorBrush ? "lum " + lumNow.ToString("0.00") : "?") + ", " + t.ActualWidth.ToString("0") + "x" + t.ActualHeight.ToString("0") + ")");
+                }
             }
             return b.T;
         }
 
         static bool AutoStep(LookState st, float sl)
         {
-            float nt = sl >= 0.66f ? 1f : sl <= 0.58f ? 0f : st.AutoT;
+            float nt = sl >= TextUp ? 1f : sl <= TextDown ? 0f : st.AutoT;
             if (nt == st.AutoT) return false;
             st.AutoT = nt;
             return true;
@@ -465,6 +476,7 @@ namespace AlternativeGameInterface
         void OutlineWalk(DependencyObject e, bool on, object skip, ref int budget, float auto = -1f, List<TextBlock> sink = null)
         {
             if (ReferenceEquals(e, skip) || --budget < 0) return;
+            if (_tapeCanvas != null && e is Canvas && ReferenceEquals(e, _tapeCanvas.Target)) return;   // the compass tape has its own colour (CompassTape.cs), the look must not repaint its texts
             var t = e as TextBlock;
             if (t != null && !FgForeign(t))
             {
@@ -889,6 +901,36 @@ namespace AlternativeGameInterface
         }
 
         /// <summary>Every tracked window with a remembered look: once a second, content built later (tabs, lists) is dimmed / scaled too.</summary>
+        /// <summary>A text appeared (a new row of the Event Log...) in a window whose texts follow the look: that window's tree is walked again at the next
+        /// step (within 0.1 s) instead of at the next regular one, so the new text gets its colour and halo at once.</summary>
+        static void OnTextBlockLoaded(object sender, RoutedEventArgs e)
+        {
+            var a = Active;
+            if ((object)a == null || !Enabled) return;
+            try
+            {
+                var tb = sender as TextBlock;
+                if (tb == null) return;
+                float now = UnityEngine.Time.unscaledTime;
+                foreach (var tr in a._tracked)
+                {
+                    var w = tr.Ref == null ? null : tr.Ref.Target;
+                    LookState st;
+                    if (w == null || !Looks.TryGetValue(w, out st) || !st.Applied || !st.Outline) continue;
+                    var panel = st.Panel == null ? null : st.Panel.Target as Panel;
+                    if (panel == null || !panel.IsLoaded) continue;
+                    DependencyObject d = tb;
+                    int depth = 0;
+                    while (d != null && !ReferenceEquals(d, panel) && depth++ < 80) d = VisualTreeHelper.GetParent(d);
+                    if (!ReferenceEquals(d, panel)) continue;
+                    st.Dirty = true;
+                    if (st.Next > now + 0.1f) st.Next = now + 0.1f;
+                    return;
+                }
+            }
+            catch { }
+        }
+
         void LookStep(object w)
         {
             FlushRedim();

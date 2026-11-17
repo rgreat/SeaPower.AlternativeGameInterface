@@ -10,27 +10,29 @@ namespace AlternativeGameInterface
     /// Text by background (WindowLook, look[2] = 3): the brightness of what the screen shows where a window is - the 3D view, the map, the menu
     /// background, other windows, whatever is there. Up to ten times a second, and only while a window asked for it in the last 3 seconds, a coroutine
     /// (at the end of the frame) has Unity copy the finished screen into a texture (ScreenCapture.CaptureScreenshotIntoRenderTexture, found by
-    /// reflection), shrinks it to 64 x 36 points with two blits and reads that back asynchronously (about 9 KB). A window averages the points
+    /// reflection), shrinks it to 640 x 360 points with halving blits and reads that back asynchronously (about 0.9 MB). A window averages the points
     /// under it. Nothing runs while no window uses the option. Every display with a window that uses it is captured: the main one in a coroutine at
     /// the end of the frame, the others (Monitors.cs, one camera each) in Camera.onPostRender of that monitor's camera; a monitor without a capture
-    /// (yet) is taken as its flat clear colour. The capture texture is 10 times smaller than the
+    /// (yet) is taken as its flat clear colour. The capture texture is 8 times smaller than the
     /// screen when Unity scales the picture into it (checked once against a full-size capture); otherwise it is screen sized.
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
-        const int SlW = 64, SlH = 36;
+        const int SlW = 640, SlH = 360;   // the points of the brightness map (was 64 x 36: ten times more on each side)
 
         /// <summary>What is known about the picture of one display.</summary>
         sealed class SlDisplay
         {
             public RenderTexture Full, Small, Rt, RtB;
             public readonly float[] Lum = new float[SlW * SlH];    // luminance 0..1, in the order of the readback
+            public readonly double[] Sat = new double[(SlW + 1) * (SlH + 1)];   // summed-area table of Lum: the mean under any rectangle in four reads
             public readonly float[] LumB = new float[SlW * SlH];   // the same from the small capture, while the mode is being found out
             public bool Valid;
             public int Pend;                                        // readbacks in flight
-            public int Mode;                                        // 0 = not known yet (both captures are compared), 1 = a capture 10 times smaller than the screen works, 2 = only the full one
+            public int Mode;                                        // 0 = not known yet (both captures are compared), 1 = a capture 8 times smaller than the screen works, 2 = only the full one
             public float Asked, Next;
             public int Index;
+            public int Seq;                                         // pictures read back so far (a text that has just changed colour waits for two new ones)
         }
         static readonly Dictionary<int, SlDisplay> SlDisplays = new Dictionary<int, SlDisplay>();
         static bool _slRunning, _slTopFirst, _slOrientKnown, _slNoCapture, _slHooked;
@@ -67,8 +69,8 @@ namespace AlternativeGameInterface
 
         static bool SlDue(SlDisplay d, float now) { return now - d.Asked <= 3f && now >= d.Next && d.Pend == 0; }
 
-        // ten times a second with the small capture, four with the full one; a new capture starts only when the last readback is in
-        static float SlGap(SlDisplay d) { float g = d.Mode == 1 ? 0.2f : 0.5f; return InMission() ? g : g * 4f; }   // the menus: the picture behind changes slowly, and a full capture costs the GPU a frame
+        // in a mission ten times a second with the small capture, four with the full one; in the menus (the slideshow behind changes in a second or two) five and two; a new capture starts only when the last readback is in
+        static float SlGap(SlDisplay d) { float g = d.Mode == 1 ? 0.1f : 0.15f; return InMission() ? g : g * 1.7f; }
 
         // the main display: at the end of the frame
         IEnumerator SceneLumLoop()
@@ -116,18 +118,21 @@ namespace AlternativeGameInterface
 
         static void SlDrop(ref RenderTexture rt) { if (rt != null) { rt.Release(); UnityEngine.Object.Destroy(rt); rt = null; } }
 
-        /// <summary>The screen (or a smaller copy of it) into the 64 x 36 texture 'to', read back into 'dst'.</summary>
+        /// <summary>The screen (or a smaller copy of it) into the 640 x 360 texture 'to', read back into 'dst'.</summary>
         static void SlShrink(SlDisplay d, RenderTexture src, RenderTexture to, float[] dst)
         {
-            if (src.width > 256)
+            // halved while the picture is more than twice as wide as the target (bilinear blits average 2 x 2 each time, so no point is skipped)
+            RenderTexture cur = src, prev = null;
+            while (cur.width > SlW * 2)
             {
-                var tmp = RenderTexture.GetTemporary(256, 144, 0, RenderTextureFormat.ARGB32);
+                var tmp = RenderTexture.GetTemporary(Math.Max(SlW, cur.width / 2), Math.Max(SlH, cur.height / 2), 0, RenderTextureFormat.ARGB32);
                 tmp.filterMode = FilterMode.Bilinear;
-                Graphics.Blit(src, tmp);
-                Graphics.Blit(tmp, to);
-                RenderTexture.ReleaseTemporary(tmp);
+                Graphics.Blit(cur, tmp);
+                if (prev != null) RenderTexture.ReleaseTemporary(prev);
+                prev = cur = tmp;
             }
-            else Graphics.Blit(src, to);
+            Graphics.Blit(cur, to);
+            if (prev != null) RenderTexture.ReleaseTemporary(prev);
             d.Pend++;
             UnityEngine.Rendering.AsyncGPUReadback.Request(to, 0, TextureFormat.RGBA32, req =>
             {
@@ -156,13 +161,24 @@ namespace AlternativeGameInterface
                     int n = Math.Min(SlW * SlH, data.Length / 4);
                     for (int i = 0; i < n; i++) dst[i] = (0.2126f * data[i * 4] + 0.7152f * data[i * 4 + 1] + 0.0722f * data[i * 4 + 2]) / 255f;
                     ok = n == SlW * SlH;
+                    if (ok && ReferenceEquals(dst, d.Lum)) SlBuildSat(d);
                 }
-                if (ReferenceEquals(dst, d.Lum)) { d.Valid = ok; if (ok) AutoLookRefresh(d.Index); }   // the texts follow at once, not at the next window step
+                if (ReferenceEquals(dst, d.Lum)) { d.Valid = ok; if (ok) { d.Seq++; AutoLookRefresh(d.Index); } }   // the texts follow at once, not at the next window step
                 if (d.Pend == 0 && d.Mode == 0) SlDecideMode(d, ok);
             }
         }
 
-        // the first captures of a display: the full one and the one 10 times smaller are compared; if the small one shows the same picture, only it is used from then on
+        static void SlBuildSat(SlDisplay d)
+        {
+            int w = SlW + 1;
+            for (int y = 0; y < SlH; y++)
+            {
+                double row = 0.0;
+                for (int x = 0; x < SlW; x++) { row += d.Lum[y * SlW + x]; d.Sat[(y + 1) * w + x + 1] = d.Sat[y * w + x + 1] + row; }
+            }
+        }
+
+        // the first captures of a display: the full one and the one 8 times smaller are compared; if the small one shows the same picture, only it is used from then on
         static void SlDecideMode(SlDisplay d, bool ok)
         {
             if (!ok) return;
@@ -188,7 +204,7 @@ namespace AlternativeGameInterface
 
         static void SceneLumCaptureCore(SlDisplay d, int sw, int sh, int display)
         {
-            int smw = Mathf.Max(16, sw / 10), smh = Mathf.Max(9, sh / 10);
+            int smw = Mathf.Max(16, sw / 8), smh = Mathf.Max(9, sh / 8);   // the small capture is an eighth of the screen (320 x 180 on a 2560 one)
             if (d.Rt == null) d.Rt = SlMake(SlW, SlH);
             if (d.Mode != 1)
             {
@@ -215,6 +231,8 @@ namespace AlternativeGameInterface
             }
         }
 
+        static int SceneLumSeq(int display) { SlDisplay d; return SlDisplays.TryGetValue(display, out d) ? d.Seq : 0; }
+
         /// <summary>The mean brightness of the screen of 'display' under the panel, false when it is not known.</summary>
         static bool SceneLumUnder(Noesis.FrameworkElement panel, int display, out float lum)
         {
@@ -236,14 +254,12 @@ namespace AlternativeGameInterface
                 if (display > 0) { var disp = Display.displays[display]; sw = Math.Max(1, disp.renderingWidth); sh = Math.Max(1, disp.renderingHeight); }
                 int x0 = Mathf.Clamp((int)(Math.Min(a.X, b.X) / sw * SlW), 0, SlW - 1), x1 = Mathf.Clamp((int)(Math.Max(a.X, b.X) / sw * SlW), 0, SlW - 1);
                 int yt = Mathf.Clamp((int)(Math.Min(a.Y, b.Y) / sh * SlH), 0, SlH - 1), yb = Mathf.Clamp((int)(Math.Max(a.Y, b.Y) / sh * SlH), 0, SlH - 1);
-                float sum = 0f; int cnt = 0;
-                for (int y = yt; y <= yb; y++)
-                {
-                    int row = _slTopFirst ? y : SlH - 1 - y;
-                    for (int x = x0; x <= x1; x++) { sum += d.Lum[row * SlW + x]; cnt++; }
-                }
+                int r0 = _slTopFirst ? yt : SlH - 1 - yb, r1 = _slTopFirst ? yb : SlH - 1 - yt;   // rows of the readback
+                int w = SlW + 1;
+                double sum = d.Sat[(r1 + 1) * w + x1 + 1] - d.Sat[r0 * w + x1 + 1] - d.Sat[(r1 + 1) * w + x0] + d.Sat[r0 * w + x0];
+                int cnt = (x1 - x0 + 1) * (r1 - r0 + 1);
                 if (cnt == 0) return false;
-                lum = sum / cnt;
+                lum = (float)(sum / cnt);
                 return true;
             }
             catch { return false; }

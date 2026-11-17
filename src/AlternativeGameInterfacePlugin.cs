@@ -45,7 +45,7 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
-        public const string PluginVersion = "2.3.1"; // also <Version> in AlternativeGameInterface.csproj
+        public const string PluginVersion = "2.3.2"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
         const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
@@ -478,6 +478,7 @@ namespace AlternativeGameInterface
             BindMonitorConfig();
             BindBinocularViewConfig();
             BindUpgradeConfig();
+            BindReserveSubsConfig();
             BindLoadoutsOrderConfig();
             BindCampaignEventsConfig();
             BindContactEllipseConfig();
@@ -487,6 +488,7 @@ namespace AlternativeGameInterface
             BindCursorConfig();
             BindXamlDumpConfig();
             BindSnapshotConfig();
+            BindSettingsShotsConfig();
             CleanLogsOnce();   // as early as possible: before the game starts this session's files
             BindLinkHelpConfig();
             _armOnly = Config.Bind("UnitReference", "ArmedOnly", false, "The \"Armed only\" check box the mod adds to the Unit Reference search panel (with ImprovedUnitReferenceUI): when ticked, units without weapons (decoys, sonobuoys, fuel tanks do not count) are left out of the tree.");
@@ -773,6 +775,8 @@ namespace AlternativeGameInterface
                     else Trace("ResizeCommand.Execute not found: no snapping while resizing");
                 }
                 catch (Exception e) { Trace("patch ResizeCommand: " + e.Message); }
+
+                PatchReserveSubmarines(harmony, asm);
 
                 // The game keeps a dragged window completely inside the viewport (HeaderDragDelta): relax that.
                 // (always patched: AllowDragOutside can be switched in the game; the postfix checks it)
@@ -3150,7 +3154,7 @@ namespace AlternativeGameInterface
             if (!_hooked || _hookFailed) return;
 
             pp = Prof.T();
-            FpsLimitStep(Time.unscaledTime); AdaptiveVSyncStep(Time.unscaledTime, Time.unscaledDeltaTime); ScanStep(Time.unscaledTime); XamlDumpStep(Time.unscaledTime); SnapshotStep(Time.unscaledTime);
+            FpsLimitStep(Time.unscaledTime); AdaptiveVSyncStep(Time.unscaledTime, Time.unscaledDeltaTime); ScanStep(Time.unscaledTime); XamlDumpStep(Time.unscaledTime); SnapshotStep(Time.unscaledTime); SettingsShotsStep();
             Prof.Lap(Prof.Fps, pp);
             for (; _registered < Created.Count; _registered++)
                 _tracked.Add(new Tracked { Ref = Created[_registered] });

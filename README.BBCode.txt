@@ -1,4 +1,4 @@
-[b]Version 2.3.1[/b]
+[b]Version 2.3.2[/b]
 
 Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several monitors, windows that remember their place and state, transparency, a richer interface for missions and campaigns.
 
@@ -7,7 +7,7 @@ Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several m
 [h1]Features[/h1]
 [olist]
 [*]Remembers the position and size of chosen windows and restores them when a window is opened again.
-[*]Double-click a window's title bar to maximize it, double-click again to restore it. A window closed maximized opens maximized next time.
+[*]Double-click a window's title bar to maximize it, double-click again to restore it. A window closed maximized opens maximized.
 [*]Clicking a window brings it to the front. Mission briefings and scripted messages always stay on top; a maximized Tactical Display or World View stays at the back.
 [*]Windows snap to the screen edges and to each other.
 [*]Several windows of one kind (e.g. Weapon Reference) open slightly shifted.
@@ -26,7 +26,7 @@ A tidier unit tree: classes sorted by service date, a unit's loadout variants (E
 The tree scrolls to the selected unit; the wheel scrolls it only over the tree.
 A click on a class selects its earliest variant (optional).
 The unit the window was opened for stays in the tree, even if the filters would hide it.
-The country list shows only countries that have units for the current search.
+The country list shows only countries with units for the current search.
 Without "Search by name only" the search also looks into descriptions and unit ids (<Id>.ini).
 Tooltips on the links to weapons, sensors and systems.
 Loadout selector for ships, submarines and land units too, not only aircraft.
@@ -40,11 +40,11 @@ The window title and the name beside the tabs show the unit's name, class or typ
 [*]Right click on the flag or name in the unit panel opens the unit's context menu.
 [*]Campaign "Strict loadouts" (optional): a check box on the start screen; the Task Force Builder offers ship versions only for ships available in the mission or owned.
 [*]Localization: settings window and hints in the 9 languages of the game; the texts can be edited (lang folder).
-[*]Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the place, size, look and open state of the windows; the active desktop is remembered. Edit them on the "Desktops" page of the settings. A key (Insert by default) opens and closes the World View. A replaceable backdrop picture (AlternativeGameInterface_Backdrop.jpg) is behind them. Backspace shows the 3D view full screen. The compass tape moves into the World View window.
+[*]Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the place, size, look and open state of the windows; the active desktop is remembered. Edit them in settings ("Desktops"). A key (Insert by default) opens and closes the World View. A replaceable backdrop picture (AlternativeGameInterface_Backdrop.jpg) is behind them. Backspace shows the 3D view full screen. The compass tape moves into the World View window.
 [*]A small arrow next to the gear of a window opens its look menu: opacity, scale, text contrast and level. The Tactical Display and World View start at the bottom level.
 [*]The mission's time panel and the mission timer under it can be dragged; double-click puts them back. The place is kept per desktop.
 [*]Unit Status: a "Track State" tab for a selected contact of another side, in an optional compact layout.
-[*]Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); loadouts are sorted by date; a hull swap is priced from the roster. At a briefing or newspaper event the Task Force shows ships as after the last mission.
+[*]Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); loadouts are sorted by date; a hull swap is priced from the roster. At a briefing or newspaper event the Task Force shows ships as after the last mission. A submarine away for service stays in the Reserve and is shown on the Submarines tab.
 [*]Main menu: the News window gets the mod's gear, frame and remembered position; "_Custom Mission" is hidden in SCENARIOS; the game's resize cursors work outside a mission.
 [*]Optional "Keep map view on resize": the Tactical Display's zoom follows its window size, so the visible area stays.
 [*]Event Log: every track number is a link; a repeated click on the same link centres the Tactical Display on it (both optional).
@@ -53,7 +53,7 @@ The window title and the name beside the tabs show the unit's name, class or typ
 [*]Moving or resizing a window over the 3D view no longer turns the camera; IMGUI windows of other mods (Camera Offset) can be grabbed over the game's windows.
 [*]Desktop mode: the other monitors work like the main one for windows (Monitor in the window's menu).
 [*]Tactical Display: a contact's position ellipse never reaches nearer than the sensor; with many sonobuoys visible their icons shrink and lose their text.
-[*]Video options: the Frame Rate Limit slider goes up to 250, with a "Remove frame rate limit" check box; the V-Sync list gets "Adaptive V-Sync" (on while the frames keep up with the screen).
+[*]Video options: the Frame Rate Limit slider goes up to 250, with a "Remove frame rate limit" check box; the V-Sync list gets "Adaptive V-Sync".
 [/olist]
 
 [h1]Compatibility[/h1]

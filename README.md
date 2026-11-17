@@ -2,7 +2,7 @@
 
 A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows").
 
-**Version 2.3.1**
+**Version 2.3.2**
 
 Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several monitors, windows that remember their place and state, transparency, a richer interface for missions and campaigns.
 
@@ -44,11 +44,11 @@ Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several m
 15. Right click on the flag or name in the unit panel opens the unit's context menu.
 16. Campaign, "Strict loadouts" (optional): a check box on the campaign start screen; the Task Force Builder offers ship versions only for ships available in the mission or owned.
 17. Localization: settings window and hints in the 9 languages of the game; the texts can be edited (lang folder).
-18. Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the place, size, look and open state of the windows; the active desktop is remembered. The "Desktops" page of the settings window shows what each desktop keeps for each window; edit or reset it. A key (Insert by default) opens and closes the World View. A replaceable backdrop picture (AlternativeGameInterface_Backdrop.jpg) is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
+18. Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the place, size, look and open state of the windows; the active desktop is remembered. The "Desktops" settings page shows and edits what each desktop keeps. A key (Insert by default) opens and closes the World View. A replaceable backdrop picture (AlternativeGameInterface_Backdrop.jpg) is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
 19. A small arrow next to the gear of a window opens its look menu: opacity, scale, text contrast and level. The Tactical Display and World View start at the bottom level.
 20. The mission's time panel and the mission timer under it can be dragged; double-click puts them back. The place is kept per desktop.
 21. Unit Status: a "Track State" tab for a selected contact of another side, in an optional compact layout.
-22. Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); loadouts are sorted by date; a hull swap is priced from the roster. At a briefing or newspaper event the Task Force shows ships as after the last mission.
+22. Campaign: the "Upgrade ship..." button in the Task Force Builder; a damaged ship can be dismissed (the repair cost is deducted); loadouts are sorted by date; a hull swap is priced from the roster. At a briefing or newspaper event the Task Force shows ships as after the last mission. A submarine away for service stays in the Reserve and is shown on the Submarines tab.
 23. Main menu: the News window gets the mod's gear, frame and remembered position; "_Custom Mission" is hidden in SCENARIOS; the game's resize cursors work outside a mission.
 24. Optional "Keep map view on resize": the Tactical Display's zoom follows its window size, so the visible area stays.
 25. Event Log: every track number is a link; a repeated click on the same link centres the Tactical Display on it (both optional).
@@ -57,7 +57,7 @@ Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several m
 28. Moving or resizing a window over the 3D view no longer turns the camera; other mods' IMGUI windows (Camera Offset) can be grabbed over the game's windows.
 29. Desktop mode: the other monitors work like the main one for windows (Monitor in the window's menu).
 30. Tactical Display: a contact's position ellipse never reaches nearer than the sensor; with many sonobuoys visible their icons shrink and lose their text.
-31. Video options: the Frame Rate Limit slider goes up to 250, with a "Remove frame rate limit" check box; the V-Sync list gets "Adaptive V-Sync" (on while the frames keep up with the screen).
+31. Video options: the Frame Rate Limit slider goes up to 250, with a "Remove frame rate limit" check box; the V-Sync list gets "Adaptive V-Sync".
 
 ## Compatibility
 
