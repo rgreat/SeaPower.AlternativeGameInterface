@@ -93,10 +93,21 @@ namespace AlternativeGameInterface
                 Add(TLog, "Links", p._logLinks, 'b', "All contacts in the log are links", "track numbers");
                 Add(TLog, "Links", p._logCenter, 'b', "Center map on repeated click", "Tactical Display");
                 Add(TLog, "Layout", p._logCompact, 'b', "Compact layout", "less spacing");
+                Add(TTact, "Map", p._fineZoom, 'b', "Fine zoom with Shift", "wheel steps 5 times smaller");
                 Add(TTact, "Map", p._keepMapView, 'b', "Keep map view on resize", "zoom follows the window size");
-                Add(TTact, "Map", p._clipEllipse, 'b', "Cut contact ellipses", "behind the sensor");
-                Add(TTact, "Map", p._sonoOn, 'b', "Compact sonobuoys", "half size, no text");
-                Add(TTact, "Map", p._sonoMax, 'f', "Sonobuoys threshold", "visible at once", 1f, 5f, 300f);
+                Add(TTact, "Map drawing", p._clipEllipse, 'b', "Cut contact ellipses", "behind the sensor");
+                Add(TTact, "Map drawing", p._mapImp, 'b', "Improved drawing of units and labels", "master switch");
+                Add(TTact, "Map drawing", p._sonoOn, 'b', "Compact sonobuoys", "half size, no text");
+                Add(TTact, "Map drawing", p._sonoMax, 'f', "Sonobuoys threshold", "visible at once", 1f, 5f, 300f);
+                Add(TTact, "Map drawing", p._glPlace, 'm', "Label position", "");
+                Add(TTact, "Map drawing", p._glSpread, 'f', "Formation spread limit: ships, ground", "nm from the leader", 0.5f, 0.5f, 100f);
+                Add(TTact, "Map drawing", p._glSpreadAir, 'f', "Formation spread limit: aircraft", "nm from the leader", 0.1f, 0.1f, 100f);
+                Add(TTact, "Map drawing", p._lead, 'b', "Formation update by the leader", "aircraft move together");
+                Add(TTact, "Map drawing", p._glLines, 'b', "Formation lines", "leader to units, on selection");
+                Add(TTact, "Map drawing", p._glGroup, 'b', "Formation name only", "until selected");
+                Add(TTact, "Map drawing", p._glAirInfo, 'b', "Aircraft formation: distance and altitude", "under the name");
+                Add(TTact, "Map drawing", p._glBadge, 'b', "FRND badge in the label", "a line of its own");
+                Add(TTact, "Map drawing", p._glOverlap, 'b', "Filter overlapping labels", "keep the biggest unit");
 
                 Add(TMap, "Desktop mode", p._windowedMap, 'b', "Enable desktop mode", "free move and size");
                 Add(TMap, "Desktop mode", p._deskCount, 'f', "Number of desktops", "2 - 5", 1f, 2f, 5f);
@@ -114,6 +125,9 @@ namespace AlternativeGameInterface
                 Add(TFiles, "Main menu", p._newsFit, 'b', "News window fills the free area", "");
                 Add(TFiles, "Scenarios", p._hideCustom, 'b', "Hide _Custom Mission", "");
                 Add(TFiles, "Save and load", p._rememberSave, 'b', "Remember last folder", "");
+                Add(TFiles, "Save and load", p._autoLoad, 'b', "Open Load game on entering Scenarios and Campaign", "");
+                Add(TFiles, "Save and load", p._menuAside, 'b', "Menu windows beside the buttons", "Load game ... not over the menu");
+                Add(TFiles, "Save and load", p._pickerTall, 'b', "File picker without a height limit", "");
                 Add(TFiles, "Save and load", p._dblOpen, 'b', "Double click opens a file or scenario", "");
                 Add(TFiles, "Mods", p._modCreateFill, 'b', "Fill in Create Mod", "Update Existing");
                 Add(TFiles, "Backgrounds", p._realPhotos, 'b', "Real photos as backgrounds", "");
@@ -173,6 +187,9 @@ namespace AlternativeGameInterface
                 var wk = Fields.Find(f => ReferenceEquals(f.Entry, p._wvKey));
                 if (wm != null && wk != null) wk.Needs = wm;
                 if (wm != null && dc != null) dc.Needs = wm;       // the desktops exist only in this mode
+
+                var mi = Fields.Find(f => ReferenceEquals(f.Entry, p._mapImp));
+                foreach (var f in Fields) if (mi != null && f != mi && f.Tab == TTact && f.Group == "Map drawing") f.Needs = mi;      // the children are hidden while the master switch is off
 
                 var sl = Fields.Find(f => ReferenceEquals(f.Entry, p._strictLoadouts));
                 if (sl != null) sl.TfbOnly = true;

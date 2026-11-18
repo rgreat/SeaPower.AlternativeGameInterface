@@ -790,10 +790,11 @@ namespace AlternativeGameInterface
         const string MonitorXaml =
             "<Grid xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\">" +
             "<Grid.LayoutTransform><ScaleTransform x:Name=\"Sc\" ScaleX=\"1\" ScaleY=\"1\"/></Grid.LayoutTransform>" +
+            "<UserControl>" +   // the windows' own bindings look for a second UserControl above them (Formation Manager's right click: AncestorLevel=2, the main view): here this one, with the main view model as its DataContext
             "<ItemsControl x:Name=\"Items\">" +
             "<ItemsControl.ItemsPanel><ItemsPanelTemplate><Grid/></ItemsPanelTemplate></ItemsControl.ItemsPanel>" +
             "<ItemsControl.ItemTemplate><DataTemplate><ContentControl Content=\"{Binding}\" HorizontalAlignment=\"Stretch\" VerticalAlignment=\"Stretch\"/></DataTemplate></ItemsControl.ItemTemplate>" +
-            "</ItemsControl></Grid>";
+            "</ItemsControl></UserControl></Grid>";
 
         void BuildMonitor(int index)
         {
@@ -1017,6 +1018,37 @@ namespace AlternativeGameInterface
             int want = WantedDisplay(w);
             try { var e = EntryOf(w); if (e != null) _vmDisp[e.GetType().Name] = want; } catch { }
             if (want != DisplayOf(w)) QueueMove(w, want);
+        }
+
+        /// <summary>The Tactical Display's XAML asks the main view (FindAncestor MainGameView) for DataContext.MapClosable (the X button) and ShowPip3D (the draw
+        /// toolbar is hidden while the World View overlay shows the same tools); on a monitor there is no such ancestor and the fallbacks (closable, toolbar
+        /// shown) win. The same two values are bound here, with the main view model as the source.</summary>
+        void MonitorMapBindings(object w)
+        {
+            if (DisplayOf(w) <= 0 || TypeName(Get(w, "DataContext")) != "SceneMapViewModel") return;
+            var vm = MainVm(); if (vm == null) return;
+            var dw = w as DependencyObject; if (dw == null) return;
+            try
+            {
+                var cf = w.GetType().GetField("ClosableProperty", BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy);
+                var cdp = cf == null ? null : cf.GetValue(null) as DependencyProperty;
+                if (cdp != null) BindingOperations.SetBinding(dw, cdp, new Binding("MapClosable") { Source = vm, Mode = BindingMode.OneWay });
+                // the toolbar: Visibility = not ShowPip3D (the game's InverseCollapsedConverter)
+                DependencyObject bar = null;
+                var stack = new Stack<DependencyObject>(); stack.Push(dw);
+                for (int budget = 20000; stack.Count > 0 && --budget > 0;)
+                {
+                    var e = stack.Pop();
+                    if (e.GetType().Name == "MapDrawToolbarView") { bar = e; break; }
+                    int n = VisualTreeHelper.GetChildrenCount(e);
+                    for (int k = n - 1; k >= 0; k--) { var c = VisualTreeHelper.GetChild(e, k); if (c != null) stack.Push(c); }
+                }
+                var conv = (w as FrameworkElement) == null ? null : ((FrameworkElement)w).TryFindResource("InverseCollapsedConverter") as IValueConverter;
+                if (bar != null && conv != null)
+                    BindingOperations.SetBinding(bar, UIElement.VisibilityProperty, new Binding("ShowPip3D") { Source = vm, Converter = conv, Mode = BindingMode.OneWay });
+                Trace("monitors: Tactical Display on display " + (DisplayOf(w) + 1) + ": closable / toolbar bound to the main view model" + (bar == null ? " (toolbar not found)" : conv == null ? " (converter not found)" : ""));
+            }
+            catch (Exception e) { TraceOnce("monitor map bindings", e); }
         }
 
         void QueueMove(object w, int display)

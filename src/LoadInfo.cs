@@ -42,29 +42,31 @@ namespace AlternativeGameInterface
                 a.RerollFirstBackground();   // the very first loading screen is running: its picture is replaced as soon as the mod can act
                 if (a._loadInfo == null || !a._loadInfo.Value) return;
                 string text = ModsLine();
-                var tb = _loadInfoBlock.Target as TextBlock;
-                if (tb != null && text == _loadInfoText) return;
-                if (tb == null)
+                var box = _loadInfoBlock.Target as Border;
+                if (box != null && text == _loadInfoText) return;
+                if (box == null)
                 {
                     var inst = _lsViewType.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy);
                     var view = inst == null ? null : inst.GetValue(null, null) as UserControl;
                     var grid = view == null ? null : view.Content as Grid;
                     if (grid == null) { if (!_loadInfoWarned) { _loadInfoWarned = true; Trace("loading screen info: no view yet (view " + (view != null) + ")"); } return; }
-                    tb = new TextBlock
+                    // the look of the game's loading tip (dark grey panel, thin border, 14 pt light text), but made of opaque solid colours: the tip's own translucent
+                    // background / border brush and Opacity gave coloured dashes along the edges and a brighter, denser panel when copied (screenshots of 2.4.0 builds)
+                    var tb = new TextBlock { FontSize = 14f, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, IsHitTestVisible = false, Foreground = new SolidColorBrush(Color.FromRgb(214, 216, 220)), UseLayoutRounding = true };
+                    box = new Border
                     {
-                        FontSize = 14f, Opacity = 1f, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center,
-                        Margin = new Thickness(0f, 10f, 0f, 0f), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top,
-                        Foreground = new SolidColorBrush(Color.FromRgb(190, 190, 190)), IsHitTestVisible = false,
-                        Effect = new DropShadowEffect { Color = Color.FromRgb(0, 0, 0), BlurRadius = 0f, ShadowDepth = 1f, Direction = 315f, Opacity = 1f }   // a hard black shadow: sharp text over any picture
+                        Child = tb, Background = new SolidColorBrush(Color.FromRgb(44, 48, 52)), BorderBrush = new SolidColorBrush(Color.FromRgb(70, 74, 80)), BorderThickness = new Thickness(1f),
+                        Padding = new Thickness(10f, 6f, 10f, 6f), Margin = new Thickness(0f, 12f, 0f, 0f), UseLayoutRounding = true,
+                        HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false
                     };
-                    Grid.SetRow(tb, 2); Grid.SetColumn(tb, 1);
-                    grid.Children.Add(tb);
-                    _loadInfoBlock = new WeakReference(tb);
+                    Grid.SetRow(box, 2); Grid.SetColumn(box, 1);
+                    grid.Children.Add(box);
+                    _loadInfoBlock = new WeakReference(box);
                     Trace("loading screen info: line added");
                 }
                 _loadInfoText = text;
-                tb.Text = text;
-                tb.Visibility = text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+                ((TextBlock)box.Child).Text = text;
+                box.Visibility = text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
             }
             catch (Exception e) { Trace("loading screen info: " + e.Message); }
         }

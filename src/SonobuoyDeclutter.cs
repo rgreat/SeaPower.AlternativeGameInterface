@@ -72,8 +72,9 @@ namespace AlternativeGameInterface
             Trace("patched MapUnitViewModel.ContactInfoLine1-4 getters (CompactSonobuoys): " + n);
         }
 
-        static void SonoLinePostfix(object __instance, ref string __result)
+        static void SonoLinePostfix(object __instance, MethodBase __originalMethod, ref string __result)
         {
+            if (__result != null && _glHooked && (__result.IndexOf('\n') >= 0 || __result.IndexOf('\r') >= 0) && MapImp) __result = GlNoEmptyLines(__result);      // an empty line inside the text of a label line
             if (_sonoHidden <= 0) return;                    // nothing is compact: no lookup per call (the getters are read for every unit all the time)
             SonoFlag f;
             if (SonoFlags.TryGetValue(__instance, out f) && f.Hide) __result = "";
@@ -105,7 +106,7 @@ namespace AlternativeGameInterface
             if (now < st.Next) return;
             if (!IsMapWindow(w)) { st.Next = now + 5f; return; }       // not a map window (the header may not be set yet: asked again)
             st.Next = now + 0.5f;
-            if (!_sonoOn.Value && !st.Crowded) return;
+            if (!(_sonoOn.Value && MapImp) && !st.Crowded) return;
             try
             {
                 // the tree is walked every two seconds (it is the expensive part); between the walks the icons of the last walk are counted
@@ -142,7 +143,7 @@ namespace AlternativeGameInterface
                 }
                 st.Count = count;
                 float thr = Math.Max(1f, _sonoMax.Value);
-                bool crowded = _sonoOn.Value && (st.Crowded ? count > thr * 0.9f : count > thr);
+                bool crowded = _sonoOn.Value && MapImp && (st.Crowded ? count > thr * 0.9f : count > thr);
                 if (crowded != st.Crowded) { st.Crowded = crowded; _sonoCrowdWins += crowded ? 1 : -1; Trace("sonobuoys: " + count + " on the map, " + (crowded ? "compact" : "usual")); }
                 foreach (var c in icons) SonoApply(c, crowded);
                 icons.Clear();

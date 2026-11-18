@@ -16,13 +16,16 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin
     {
         ConfigEntry<int> _lastTab;   // the tab (Kind) that was open last: opened for a unit that has no tab of its own yet (kept between sessions); -1 = none
+        ConfigEntry<int> _lastTabContact;   // the same for contacts (a contact has other tabs than a unit of the player: Track State, Reference); -1 = none
         static readonly ConditionalWeakTable<object, object> TabMemory = new ConditionalWeakTable<object, object>();     // unit / contact -> tab Kind (boxed int)
         static readonly ConditionalWeakTable<object, object> TabPending = new ConditionalWeakTable<object, object>();    // status -> unit / contact whose tab is to be put back
 
         void BindTabMemoryConfig()
         {
             _lastTab = Config.Bind("UnitStatus", "LastTab", -1,
-                "Unit Status window: the tab that was open last (Kind). A unit (contact) with no tab of its own yet opens with it, if it is available. Written by the mod.");
+                "Unit Status window: the tab that was open last (Kind). A unit with no tab of its own yet opens with it, if it is available. Written by the mod.");
+            _lastTabContact = Config.Bind("UnitStatus", "LastTabContact", -1,
+                "Unit Status window: the tab that was open last for a contact (Kind). A contact with no tab of its own yet opens with it, if it is available. Written by the mod.");
         }
 
         void HookTabMemory(Harmony harmony, Type usvm)
@@ -56,7 +59,21 @@ namespace AlternativeGameInterface
         /// that lacks the preferred one (a weapon has no Sensors tab) is neither.</summary>
         object TabNote(object status) { return TabKey(status); }
 
-        void NoteLastTab(int kind) { if (_lastTab != null && _lastTab.Value != kind) _lastTab.Value = kind; }
+        void NoteLastTab(object status, int kind)
+        {
+            var e = StatusUnit(status) == null ? _lastTabContact : _lastTab;   // a contact: no unit of the player in the window
+            if (e != null && e.Value != kind) e.Value = kind;
+        }
+
+        static readonly ConditionalWeakTable<object, object> TabPendingAt = new ConditionalWeakTable<object, object>();   // status -> when the put-back began (boxed float)
+        const float TabWait = 1.5f;   // seconds a tab that is not available yet (a contact's Reference tab, once its class is known) is waited for
+
+        void TabBaseline(object status, object key)
+        {
+            TabSeen seen;
+            if (!TabSeenBy.TryGetValue(status, out seen)) { seen = new TabSeen(); TabSeenBy.Add(status, seen); }
+            seen.Key = key; seen.Kind = SelectedKind(status);
+        }
 
         /// <summary>A few times a second for a Unit Status window: a tab that changed while the same unit stayed shown is the user's choice - the unit's own
         /// tab and the preferred one (LastTab). A tab seen right after the unit changed is the restore's or the game's fallback: not noted, so a
@@ -68,7 +85,7 @@ namespace AlternativeGameInterface
             var usv = r.Target as Noesis.DependencyObject;
             if (usv == null) return;
             var status = Get(usv, "DataContext");
-            if (status == null || TabPending.TryGetValue(status, out _)) return;   // a restore is under way: the game's own choice is not the user's
+            if (status == null) return;
             var key = TabKey(status);
             if (key == null) return;
             int kind = SelectedKind(status);
@@ -78,9 +95,10 @@ namespace AlternativeGameInterface
             if (!ReferenceEquals(seen.Key, key)) { seen.Key = key; seen.Kind = kind; return; }   // another unit (or the first look): what is open is not the user's choice
             if (seen.Kind == kind) return;
             seen.Kind = kind;
+            TabPending.Remove(status);   // the tab was changed (by the user: a put-back moves the baseline itself): nothing is put back over it
             TabMemory.Remove(key); TabMemory.Add(key, kind);
-            NoteLastTab(kind);
-            Trace("remember tab: the user's tab " + kind + " for this unit and as the preferred one");
+            NoteLastTab(status, kind);
+            Trace("remember tab: the user's tab " + kind + " for this " + (StatusUnit(status) == null ? "contact" : "unit") + " and as the preferred one");
         }
 
         /// <summary>After SwitchUnit (and the mod's own tab hooks): another unit is shown - its remembered tab is put back, now or at the next Refresh.</summary>
@@ -89,7 +107,9 @@ namespace AlternativeGameInterface
             var key = TabKey(status);
             if (key == null || ReferenceEquals(key, oldKey)) return;
             TabPending.Remove(status); TabPending.Add(status, key);
+            TabPendingAt.Remove(status); TabPendingAt.Add(status, UnityEngine.Time.unscaledTime);
             TabApply(status, final: false);
+            TabBaseline(status, key);   // what is open now (the put-back or the game's choice) is not the user's
         }
 
         void TabApply(object status, bool final)
@@ -100,7 +120,8 @@ namespace AlternativeGameInterface
             if (!ReferenceEquals(key, TabKey(status))) { TabPending.Remove(status); return; }   // the window has moved on to another unit
             int kind;
             if (TabMemory.TryGetValue(key, out boxed)) kind = (int)boxed;
-            else if (_lastTab != null && _lastTab.Value >= 0) kind = _lastTab.Value;   // no tab of its own: the one of the previous unit
+            else if ((StatusUnit(status) == null ? _lastTabContact : _lastTab) != null && (StatusUnit(status) == null ? _lastTabContact : _lastTab).Value >= 0)
+                kind = (StatusUnit(status) == null ? _lastTabContact : _lastTab).Value;   // no tab of its own: the one of the previous unit (contact)
             else { TabPending.Remove(status); return; }
             var tabs = Get(status, "Tabs") as IList;
             if (tabs == null) { TabPending.Remove(status); return; }
@@ -110,10 +131,15 @@ namespace AlternativeGameInterface
                 if (k != kind) continue;
                 if (GetB(t, "IsAvailable"))
                 {
-                    if (!GetB(t, "IsSelected")) { SelectOnly(status, t); Trace("remember tab: tab " + kind + " put back (" + (TabMemory.TryGetValue(key, out boxed) ? "the unit's own" : "the preferred one") + ")"); }
+                    if (!GetB(t, "IsSelected")) { SelectOnly(status, t); TabBaseline(status, key); Trace("remember tab: tab " + kind + " put back (" + (TabMemory.TryGetValue(key, out boxed) ? "the unit's own" : "the preferred one") + ")"); }
                     TabPending.Remove(status);
                 }
-                else if (final) { TabPending.Remove(status); Trace("remember tab: tab " + kind + " is not available for this unit - the game's choice stays"); }   // not available for this unit (any more)
+                else if (final)
+                {
+                    object at;
+                    if (TabPendingAt.TryGetValue(status, out at) && UnityEngine.Time.unscaledTime - (float)at < TabWait) return;   // may become available (a contact's class is found out)
+                    TabPending.Remove(status); Trace("remember tab: tab " + kind + " is not available for this " + (StatusUnit(status) == null ? "contact" : "unit") + " - the game's choice stays");
+                }
                 return;
             }
             TabPending.Remove(status);

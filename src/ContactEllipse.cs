@@ -216,7 +216,7 @@ namespace AlternativeGameInterface
         static void VehicleTransferCore(object __instance)
         {
             var a = Active;
-            if ((object)a == null || a._clipEllipse == null || !a._clipEllipse.Value) return;
+            if ((object)a == null || a._clipEllipse == null || !a._clipEllipse.Value || !MapImp) return;
             try
             {
                 var d = _gDetected != null ? _gDetected(__instance) : _fDetected.GetValue(__instance);

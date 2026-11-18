@@ -1,7 +1,5 @@
-Version 2.4.0
-- Main menu: the News window fills the free area right of the menu, transparent, with larger text (option, on).
-- Main menu: the slideshow of background pictures is now the default background.
-- World View: camera offset for the follow cameras, set on a sight, like the Camera Offset mod (when that mod is not installed).
-- Option to show or hide the game's version watermark.
-- Event Log: "Compact layout" option: smaller margins and row spacing, more rows fit.
-- Text contrast: coloured texts and the ship links in the Event Log now change with the backdrop too, keeping their colour; link highlight under the mouse works again.
+Version 2.5.0
+- Tactical Display: a readable map instead of a heap of overlapping text. Unit labels no longer cover each other or the icons: a label that does not fit moves to another side of its unit, then shows fewer lines, and only then is hidden; the selected unit always keeps its full label. A formation shows one name for the whole group (a flight also its distance and altitude) until it is selected. All of it can be tuned or switched off (Settings / Tactical Display / Map drawing).
+- Tactical Display: Shift + mouse wheel zooms 5 times finer, for precise framing.
+- Main menu: quicker way back into a game: entering Scenarios or Campaign opens Load game at once, beside the menu instead of over it.
+- Unit Status: a unit without a tab of its own opens on the tab you chose last; the tab the game falls back to on a unit that lacks it no longer replaces your choice.

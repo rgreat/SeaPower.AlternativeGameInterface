@@ -45,7 +45,7 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
-        public const string PluginVersion = "2.4.0"; // also <Version> in AlternativeGameInterface.csproj
+        public const string PluginVersion = "2.5.0"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
         const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
@@ -483,6 +483,12 @@ namespace AlternativeGameInterface
             BindCampaignEventsConfig();
             BindContactEllipseConfig();
             BindSonobuoyConfig();
+            BindLabelFilterConfig();
+            BindLabelPlaceConfig();
+            BindFormationLinesConfig();
+            BindMenuLoadConfig();
+            BindLeaderUpdateConfig();
+            BindFineZoomConfig();
             BindLookConfig();
             BindTrackStateConfig();
             BindCursorConfig();
@@ -812,12 +818,16 @@ namespace AlternativeGameInterface
                     HookPropulsion(harmony, asm);
                     HookTreeSearch(harmony, asm);
                     HookPickers(harmony, asm);
+                    HookMenuLoad(harmony, asm);
+                    HookLeaderUpdate(harmony, asm);
+                    HookFineZoom(harmony, asm);
                     HookModCreate(harmony, asm);
                     HookCampaignLoadouts(harmony, asm);
                     HookLoadoutsOrder(harmony, asm);
                     HookCampaignEvents(harmony, asm);
                     HookContactEllipse(harmony, asm);
                     HookSonobuoys(harmony, asm);
+                    HookLabelFilter(harmony, asm);
                     HookCampaignDismiss(harmony, asm);
                     HookPipScene(harmony, asm);
                     HookMapFullscreen(harmony, asm);
@@ -2474,10 +2484,13 @@ namespace AlternativeGameInterface
             if (w == null || _hookFailed) return;
             Trace("window loaded: '" + TextOf(Get(w, "Header")) + "'" + WindowInfo(w));
             if (_borderOn.Value) AddBorder(w);
+            try { PickerLoaded(w); } catch (Exception e) { TraceOnce("picker height", e); }
+            try { MenuAsideLoaded(w); } catch (Exception e) { TraceOnce("menu aside", e); }
             try { NewsFitLoaded(w); } catch (Exception e) { TraceOnce("news fit", e); }
             if (_toFront.Value) BringToFront(w, "opened");
             HookHeader(w); // the double-click checks MaximizeOnDoubleClick itself
             try { MonitorCheck(w); } catch (Exception e) { TraceOnce("monitor check", e); }
+            try { MonitorMapBindings(w); } catch (Exception e) { TraceOnce("monitor map bindings", e); }
             if (_dblClickMax.Value) OpenMaximized(w, "on Loaded"); // windows not recognisable yet before OnInitialized (content set later)
             EnsureGear(w);
             if (_removeLimitsAll.Value)
@@ -3160,6 +3173,7 @@ namespace AlternativeGameInterface
             if (!_hooked && LoadScreenDone) TryHook();
             Prof.Lap(Prof.Pre, pp);
             if (!_hooked || _hookFailed) return;
+            try { AutoLoadStep(); } catch (Exception e) { TraceOnce("auto load", e); }
 
             pp = Prof.T();
             FpsLimitStep(Time.unscaledTime); AdaptiveVSyncStep(Time.unscaledTime, Time.unscaledDeltaTime); ScanStep(Time.unscaledTime); XamlDumpStep(Time.unscaledTime); SnapshotStep(Time.unscaledTime); SettingsShotsStep();
@@ -3213,6 +3227,7 @@ namespace AlternativeGameInterface
                     if (t.WasActive) PickerStep(w, now);
                     q = Prof.Lap(Prof.Picker, q);
                     if (t.WasActive) SonobuoyStep(w, now);
+                    if (t.WasActive) GlExtStep(w, now);
                     q = Prof.Lap(Prof.Sono, q);
                     // the Unit Status helpers (title, remembered tab, Reference / Track State tabs): twenty times a second is plenty (they ran every frame)
                     if (t.WasActive && now >= t.UsNext)
