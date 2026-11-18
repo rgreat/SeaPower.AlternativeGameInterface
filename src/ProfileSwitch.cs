@@ -13,7 +13,8 @@ namespace AlternativeGameInterface
     /// writes the live settings into the active desktop's slot, reads the next slot and applies it to the windows. An empty slot starts as the
     /// built-in arrangement of that desktop (PresetSet). The active desktop is remembered ([WindowSets] Active). The settings window has a
     /// "Desktops" tab with the saved position, size and open / closed of the windows of each desktop (edit, reset to the built-in arrangement).
-    /// Record format (separated by ";;"): L|pattern|x,y,w,h[,max]   O|pattern|open / closed   K|WindowLooks   V|WindowLevels   W|open / closed (World View).
+    /// Record format (separated by ";;"): L|pattern|x,y,w,h[,max]   O|pattern|open / closed   K|WindowLooks   V|WindowLevels   W|open / closed (World View)
+    /// C|on / off,x,y (the World View camera offset, [WorldView] CameraOffset*: each desktop has its own).
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
@@ -28,7 +29,7 @@ namespace AlternativeGameInterface
         {
             _deskCount = Config.Bind("General", "DesktopCount", 2f,
                 "Desktop mode: the number of desktops (2 - 5). The game's Toggle fullscreen minimap key (Controls - General, Tab by default) switches between them: " +
-                "each desktop keeps the position and size, open / closed, opacity, scale and level of the windows, and whether the World View is open. " +
+                "each desktop keeps the position and size, open / closed, opacity, scale and level of the windows, whether the World View is open, and its camera offset. " +
                 "The desktops start as the mod's built-in arrangements (1: the World View (3D) on top, 2: the Tactical Display (map) on top, 3: the map on the whole screen, 4: the 3D view on the whole screen, 5: the map and the 3D view side by side).");
             _setActive = Config.Bind("WindowSets", "Active", 1, "The active desktop (1 - 5); it is used again at the next start. Written by the plugin.");
             for (int i = 1; i <= MaxDesktops; i++)
@@ -48,7 +49,7 @@ namespace AlternativeGameInterface
         {
             public readonly Dictionary<string, Layout> L = new Dictionary<string, Layout>(StringComparer.Ordinal);
             public readonly Dictionary<string, string> O = new Dictionary<string, string>(StringComparer.Ordinal);
-            public string K, V, W, N;                                           // looks, levels, World View open / closed (null: not kept)
+            public string K, V, W, N, C;                                           // looks, levels, World View open / closed (null: not kept)
             public readonly HashSet<string> Removed = new HashSet<string>(StringComparer.Ordinal);    // saved layouts forgotten by a reset
 
             public static DeskData Parse(string text)
@@ -76,6 +77,7 @@ namespace AlternativeGameInterface
                         case 'V': d.V = rest; break;
                         case 'W': d.W = rest; break;
                         case 'N': d.N = rest; break;
+                        case 'C': d.C = rest; break;
                     }
                 }
                 return d;
@@ -91,6 +93,7 @@ namespace AlternativeGameInterface
                 if (V != null) add("V|" + V);
                 if (W != null) add("W|" + W);
                 if (N != null) add("N|" + N);
+                if (C != null) add("C|" + C);
                 return sb.ToString();
             }
         }
@@ -228,9 +231,31 @@ namespace AlternativeGameInterface
             LevelMap();
             d.V = _levels == null ? "" : (_levels.Value ?? "");
             d.N = _winMonitors == null ? "" : (_winMonitors.Value ?? "");
+            d.C = CamText();
             var w = WorldViewOpenNow();
             if (w.HasValue) d.W = w.Value ? "open" : "closed";
             return d.ToText();
+        }
+
+        /// <summary>The camera offset as the record of a desktop: "1,x,y" (on) or "0,x,y".</summary>
+        string CamText()
+        {
+            if (_camOn == null || _camX == null || _camY == null) return null;
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            return (_camOn.Value ? "1," : "0,") + _camX.Value.ToString("0.##", ci) + "," + _camY.Value.ToString("0.##", ci);
+        }
+
+        void CamFromText(string text)
+        {
+            try
+            {
+                if (_camOn == null || _camX == null || _camY == null) return;
+                var p = (text ?? "").Split(',');
+                float x, y; var ci = System.Globalization.CultureInfo.InvariantCulture;
+                if (p.Length != 3 || !float.TryParse(p[1], System.Globalization.NumberStyles.Float, ci, out x) || !float.TryParse(p[2], System.Globalization.NumberStyles.Float, ci, out y)) return;
+                _camOn.Value = p[0] == "1"; _camX.Value = x; _camY.Value = y;       // the glide in CameraShiftPostfix does the rest
+            }
+            catch (Exception e) { Trace("desktop, camera offset: " + e.Message); }
         }
 
         bool? WorldViewOpenNow()
@@ -307,6 +332,9 @@ namespace AlternativeGameInterface
                 catch (Exception ex) { Trace("desktop, open/close '" + kv.Key + "': " + ex.Message); }
                 finally { OsSoft = false; }
             }
+
+            // 5b. the camera offset of this desktop (a desktop without the record keeps the live one)
+            if (d.C != null) CamFromText(d.C);
 
             // 6. the World View
             if (d.W != null)

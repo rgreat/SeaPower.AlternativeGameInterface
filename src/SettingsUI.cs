@@ -101,6 +101,7 @@ namespace AlternativeGameInterface
             else if (ReferenceEquals(e, _strictLoadouts)) SaveStrictFromProxy();
             else if (ReferenceEquals(e, _removeLimitsAll)) RefreshSizeLimits();
             else if (ReferenceEquals(e, _secMin)) ReapplyDamageControl();
+            else if (ReferenceEquals(e, _debugAllEntry)) _debugAll = _debugAllEntry.Value;
             else if (ReferenceEquals(e, _debugEntry))
             {
                 _debug = _debugEntry.Value;

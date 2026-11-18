@@ -36,7 +36,7 @@ namespace AlternativeGameInterface
         void BindCameraShiftConfig()
         {
             RefreshCamMod();
-            _camOn = Config.Bind("WorldView", "CameraOffset", false, "World View: the 3D picture is shifted by the offsets below (as the Camera Offset mod; not used when that mod is loaded).");
+            _camOn = Config.Bind("WorldView", "CameraOffset", false, "World View: the 3D picture is shifted by the offsets below (as the Camera Offset mod; not used when that mod is loaded). In desktop mode each desktop keeps its own switch and offsets.");
             _camX = Config.Bind("WorldView", "CameraOffsetFollowX", 0f, new ConfigDescription("Follow cameras: where the followed object is on the screen, sideways from the centre, % of the view.", new AcceptableValueRange<float>(-25f, 25f)));
             _camY = Config.Bind("WorldView", "CameraOffsetFollowY", 0f, new ConfigDescription("Follow cameras: where the followed object is on the screen, up / down from the centre, % of the view.", new AcceptableValueRange<float>(-25f, 25f)));
         }

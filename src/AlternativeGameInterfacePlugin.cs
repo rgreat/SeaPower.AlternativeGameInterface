@@ -206,11 +206,14 @@ namespace AlternativeGameInterface
         /// <summary>The plugin while it is enabled; null otherwise - every hook body goes through this.</summary>
         static AlternativeGameInterfacePlugin Active { get { return Enabled ? _inst : null; } }
         static bool _debug;
+        /// <summary>[Debug] TracePeriodic: the diagnostics that write again and again (label passes, leader update, snapping, profiler); needs Debug too.</summary>
+        static bool _debugAll;
+        static bool Periodic { get { return _debug && _debugAll; } }
         static string _traceFile;
 
         ConfigEntry<string> _windows;
         ConfigEntry<string> _language;
-        ConfigEntry<bool> _debugEntry, _dragOutside, _improvedUI, _dblClickMax, _removeLimitsAll, _toFront;
+        ConfigEntry<bool> _debugEntry, _debugAllEntry, _dragOutside, _improvedUI, _dblClickMax, _removeLimitsAll, _toFront;
         Type _uiElementType;
         ConfigEntry<float> _secMin;
         // DamageControlView set up: the minimums changed in it, { element / row definition, the game's value } - set again from these
@@ -322,6 +325,9 @@ namespace AlternativeGameInterface
             }
         }
 
+        const long TraceCap = 40L * 1048576;
+        static long _traceBytes;
+
         static void TraceFlush()
         {
             try
@@ -332,6 +338,9 @@ namespace AlternativeGameInterface
                     var sb = new StringBuilder();
                     string line;
                     while (_traceQ.TryDequeue(out line)) sb.Append(line);
+                    if (_traceBytes >= TraceCap) return;                                    // the file is at its limit: one note, then silence until the game restarts
+                    _traceBytes += sb.Length;
+                    if (_traceBytes >= TraceCap) sb.Append(DateTime.Now.ToString("HH:mm:ss.fff") + "  trace stopped: the file reached " + (TraceCap / 1048576) + " MB (restart the game to continue)" + Environment.NewLine);
                     File.AppendAllText(_traceFile, sb.ToString());
                 }
             }
@@ -545,6 +554,9 @@ namespace AlternativeGameInterface
             _debugEntry = Config.Bind("General", "Debug", false,
                 "Enables verbose logging and BepInEx/AlternativeGameInterface.trace.txt.");
             _debug = _debugEntry.Value;
+            _debugAllEntry = Config.Bind("Debug", "TracePeriodic", false,
+                "With the debug trace on: also the diagnostics that write all the time (every label of the Tactical Display every 2 s, the formation update by the leader, window snapping, the profiler and its frame stamps). Off: the trace has only events, a small file. Turn it on for a short test: the file grows by megabytes.");
+            _debugAll = _debugAllEntry.Value;
             _language = Config.Bind("General", "Language", "",
                 "Language of the mod's texts: a code of a game language (en, ru ...); empty = the game's own language. The texts are in the files lang/<code>.ini in the mod folder - edit them to translate.");
             Loc.Trace = Trace;
@@ -3145,9 +3157,9 @@ namespace AlternativeGameInterface
 
         void Update()
         {
-            Prof.On = _debug;
+            Prof.On = Periodic;
             Prof.MarkUpdateStart();
-            if (_debug && !_phaseLoop) { _phaseLoop = true; StartCoroutine(PhaseLoop()); gameObject.AddComponent<FrameStampFirst>(); gameObject.AddComponent<FrameStampLast>(); }
+            if (Periodic && !_phaseLoop) { _phaseLoop = true; StartCoroutine(PhaseLoop()); gameObject.AddComponent<FrameStampFirst>(); gameObject.AddComponent<FrameStampLast>(); }
             long pu = Prof.T();
             try { UpdateCore(); }
             finally { Prof.Lap(Prof.Update, pu); Prof.Frame(Time.unscaledTime, Time.unscaledDeltaTime); }

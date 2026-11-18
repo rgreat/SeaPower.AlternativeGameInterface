@@ -921,7 +921,7 @@ namespace AlternativeGameInterface
                 idx.Sort((p, q) => { int c = tier[p].CompareTo(tier[q]); if (c != 0) return c; c = size[q].CompareTo(size[p]); return c != 0 ? c : p.CompareTo(q); });     // the biggest first; the same size: the order of the list
                 bool fixedSide = GlFixed();
                 var gboxes = fixedSide ? GlGroupBoxes(active, px) : null;                    // the name label of a formation sits around the whole formation
-                bool dbg = _debug && UnityEngine.Time.unscaledTime - _glDbgAt > 2f; if (dbg) { _glDbgAt = UnityEngine.Time.unscaledTime; Trace("labels: pass, active " + n + ", place " + (_inst._glPlace == null ? "" : _inst._glPlace.Value)); }
+                bool dbg = Periodic && UnityEngine.Time.unscaledTime - _glDbgAt > 2f; if (dbg) { _glDbgAt = UnityEngine.Time.unscaledTime; Trace("labels: pass, active " + n + ", place " + (_inst._glPlace == null ? "" : _inst._glPlace.Value)); }
                 var kept = new List<float[]>();
                 var icons = new List<float[]>();                                       // the drawn icons (a selected one with its frame) are places already taken
                 bool badgeIn = _glBadgeTplOn;

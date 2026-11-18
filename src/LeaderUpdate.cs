@@ -134,7 +134,7 @@ namespace AlternativeGameInterface
                     }
                 }
                 finally { _leadBusy = false; }
-                if (_debug && UnityEngine.Time.unscaledTime - _leadDbgAt > 2f) { _leadDbgAt = UnityEngine.Time.unscaledTime; Trace("formation update by leader: members blocked " + _leadBlocked + ", positions given " + _leadSent + ", members without a view model " + _leadNoVm + ", stations " + sts.Count); }
+                if (Periodic && UnityEngine.Time.unscaledTime - _leadDbgAt > 2f) { _leadDbgAt = UnityEngine.Time.unscaledTime; Trace("formation update by leader: members blocked " + _leadBlocked + ", positions given " + _leadSent + ", members without a view model " + _leadNoVm + ", stations " + sts.Count); }
             }
             catch (Exception e) { _leadFailed = true; Trace("formation update by leader: " + e.Message + " (switched off until the game is restarted)"); }
         }

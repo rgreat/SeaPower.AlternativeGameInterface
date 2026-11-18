@@ -125,7 +125,7 @@ namespace AlternativeGameInterface
             float dsw, dsh; DisplaySize(mp, out dsw, out dsh);
             sp.R = x0 + (dsw - s0.X) / kx;
             sp.B = y0 + (BottomLimit(mp) - s0.Y) / ky;
-            if (_debug && UnityEngine.Time.unscaledTime > _snapTraceAt)
+            if (Periodic && UnityEngine.Time.unscaledTime > _snapTraceAt)
             {
                 _snapTraceAt = UnityEngine.Time.unscaledTime + 1f;
                 Trace("snap: '" + TextOf(Get(w, "Header")) + "' X,Y " + Fmt(x0) + "," + Fmt(y0) + " at screen " + Fmt(s0.X) + "," + Fmt(s0.Y) + ", " +

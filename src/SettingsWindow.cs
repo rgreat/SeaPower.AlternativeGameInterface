@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using BepInEx.Configuration;
 using Noesis;
+using Rgreat.Kit;
 
 namespace AlternativeGameInterface
 {
@@ -75,6 +76,8 @@ namespace AlternativeGameInterface
                 Add(TWindows, "Moving, sizing and snapping", p._snapDist, 'f', "Snap distance", "px", 1f, 1f, 50f);
                 Add(TWindows, "Moving, sizing and snapping", p._dockReach, 'b', "Resize docked windows", "zone reaches inside at screen edges");
                 Add(TWindows, "Order and title bars", p._toFront, 'b', "Clicked window to front", "");
+                Add(TWindows, "Text by background", p._textUpE, 'f', "Text turns dark above", "brightness 0 - 1", 0.01f, 0.05f, 0.95f);
+                Add(TWindows, "Text by background", p._textDownE, 'f', "Text turns light below", "brightness 0 - 1", 0.01f, 0.05f, 0.95f);
                 Add(TWindows, "Order and title bars", p._cascade, 'f', "Cascade shift", "px · 0 = off", 5f, 0f, 500f);
                 Add(TWindows, "Performance", p._vsyncItem, 'b', "Add Adaptive V-Sync", "in the V-Sync list");
                 Add(TWindows, "Performance", p._fpsNone, 'b', "Remove frame rate limit", "slider off");
@@ -146,6 +149,7 @@ namespace AlternativeGameInterface
                 Add(TDebug, "Game logs", p._deleteLogs, 'b', "Delete old game logs at start", "");
                 Add(TDebug, "Game", p._showVersion, 'm', "Game version watermark", "");
                 Add(TDebug, "Mod log", p._debugEntry, 'b', "Debug trace", "");
+                Add(TDebug, "Mod log", p._debugAllEntry, 'b', "Trace of periodic data", "");
                 Add(TDebug, "Diagnostics", p._snapshot, 'a', "Take a snapshot now", "");
                 Add(TDebug, "Diagnostics", p._collectGarbage, 'a', "Collect garbage now", "");
                 Add(TDebug, "Diagnostics", p._shotTabs, 'a', "Screenshot all tabs now", "");
@@ -216,6 +220,7 @@ namespace AlternativeGameInterface
             static TranslateTransform _move;
             static TextBlock _help;
             static StackPanel _body;
+            static ScrollViewer _bodyScroll;   // the scroll area of the tab's options
             static readonly List<Border> _tabButtons = new List<Border>();
             static readonly List<Ellipse> _tabDots = new List<Ellipse>();
             static TextBlock _status;
@@ -230,6 +235,7 @@ namespace AlternativeGameInterface
 
             static bool _showAll;              // "Show all settings": the tabs of the other windows too (until the window closes)
             static Button _showAllButton;
+            static TabScroll _tabScroll;   // the one-line strip of tabs (Rgreat.Kit)
 
             static Field _mapField;
             static bool TabShown(int i) { return _showAll || (Tabs[i] == TRef ? _unitRef : (Tabs[i] == TStatus || Tabs[i] == TTrack) ? _unitStatus : Tabs[i] == TCampaign ? _tfb : Tabs[i] == TTact ? _tact : Tabs[i] == TLog ? _log : Tabs[i] == TWorld ? _world : true); }
@@ -346,7 +352,7 @@ namespace AlternativeGameInterface
                 if (P != null) P.SetTyping(false, null);
                 try { var pp = _root == null ? null : SafeParent(_root) as Panel; if (pp != null) pp.Children.Remove(_root); } catch { }
                 try { if (_host != null && _root != null) _host.Children.Remove(_root); } catch { }
-                _host = null; _root = null; _body = null; _help = null; _status = null; _commitFocused = null; _showAllButton = null; _showAll = false;
+                _host = null; _root = null; _body = null; _help = null; _status = null; _commitFocused = null; _showAllButton = null; _tabScroll = null; _bodyScroll = null; _showAll = false;
             }
 
             // ------------------------------------------------------------ building
@@ -401,7 +407,7 @@ namespace AlternativeGameInterface
                 parts.Add(title);
 
                 // tabs
-                var tabs = new WrapPanel { Orientation = Orientation.Horizontal };
+                var tabs = new StackPanel { Orientation = Orientation.Horizontal };   // one line, scrolled sideways (wheel / bar)
                 _tabButtons.Clear(); _tabDots.Clear();
                 for (int i = 0; i < Tabs.Length; i++)
                 {
@@ -419,11 +425,13 @@ namespace AlternativeGameInterface
                     tabs.Children.Add(tb);
                 }
                 // the empty part of the last row is filled too
-                parts.Add(new Border { Child = tabs, Background = B(Color.FromRgb(34, 38, 44)), BorderBrush = B(CLine), BorderThickness = new Thickness(1f, 1f, 1f, 0f), CornerRadius = new CornerRadius(3f, 3f, 0f, 0f),
+                _tabScroll = new TabScroll(tabs, B(CPanel), B(CLine), B(CText));   // one line, scrolled by the arrows at its ends / the wheel; the chosen tab is kept in view
+                parts.Add(new Border { Child = _tabScroll.Root, Background = B(Color.FromRgb(34, 38, 44)), BorderBrush = B(CLine), BorderThickness = new Thickness(1f, 1f, 1f, 0f), CornerRadius = new CornerRadius(3f, 3f, 0f, 0f),
                                        Margin = new Thickness(12f, 10f, 12f, 0f), Padding = new Thickness(4f, 4f, 4f, 0f) });
 
                 _body = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 6f, 0f, 6f) };
                 var scroll = new ScrollViewer { Content = _body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+                _bodyScroll = scroll;
                 var settingsArea = new Border { Child = scroll, Background = B(CCard), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 0f) };
                 parts.Add(settingsArea);
 
@@ -795,18 +803,31 @@ namespace AlternativeGameInterface
             }
             internal static void ShotShow(int tab, int page) { _mapSub = page; ShowTab(tab); }
             internal static string ShotName(int tab, int page) { return TabOf(Tabs[tab]) + (Tabs[tab] == TMap ? "_p" + (page + 1) : ""); }
-            internal static bool ShotRect(out float x, out float y, out float w, out float h)
-            {
-                x = y = w = h = 0f;
-                if (_root == null || _root.ActualWidth <= 0f) return false;
-                var a = _root.PointToScreen(new Point(0f, 0f)); var b = _root.PointToScreen(new Point((float)_root.ActualWidth, (float)_root.ActualHeight));
-                x = Math.Min(a.X, b.X); y = Math.Min(a.Y, b.Y); w = Math.Abs(b.X - a.X); h = Math.Abs(b.Y - a.Y);
-                return w > 4f && h > 4f;
-            }
+            internal static bool ShotRect(out float x, out float y, out float w, out float h) { return ShotFit.Rect(_root, out x, out y, out w, out h); }
+            internal static void ShotFitMax() { ShotFit.Max(_root, _move); }
+            internal static void ShotFitWidth() { ShotFit.Width(_root, _body, _bodyScroll, _move, 520f); }
+            internal static void ShotFitHeight() { ShotFit.Height(_root, _bodyScroll, _move, 420f); }
             internal static void ShotEnd()
             {
                 _showAll = _shotAll; _mapSub = _shotSub; UpdateShowAll();
+                ShotFit.Restore(_root, _move, _winW, _winH);
                 if (_body != null) ShowTab(_shotTab);
+            }
+
+            /// <summary>The window for the screenshot tool of the settings kit.</summary>
+            internal sealed class ShotAdapter : IShotWindow
+            {
+                public bool Begin() { return ShotBegin(); }
+                public int TabCount { get { return ShotTabCount(); } }
+                public bool TabUsable(int tab) { return true; }   // every tab is shown (ShotBegin: "show all")
+                public int Pages(int tab) { return ShotPages(tab); }
+                public void Show(int tab, int page) { ShotShow(tab, page); }
+                public string Name(int tab, int page) { return ShotName(tab, page); }
+                public bool Rect(out float x, out float y, out float w, out float h) { return ShotRect(out x, out y, out w, out h); }
+                public void FitMax() { ShotFitMax(); }
+                public void FitWidth() { ShotFitWidth(); }
+                public void FitHeight() { ShotFitHeight(); }
+                public void End() { ShotEnd(); }
             }
 
             static void ShowTab(int t)
@@ -823,6 +844,7 @@ namespace AlternativeGameInterface
                     var label = row != null && row.Children.Count > 0 ? row.Children[0] as TextBlock : null;
                     if (label != null) label.Foreground = B(on ? CText : CDim);
                 }
+                if (_tabScroll != null && _tab < _tabButtons.Count) _tabScroll.Reveal(_tabButtons[_tab]);   // the chosen tab is kept in view in the scrolled strip
                 _commitFocused = null;
                 _body.Children.Clear();
                 string group = null;

@@ -47,7 +47,7 @@ namespace AlternativeGameInterface
                 float step = dir * _fzNotch / 255f / 5f;
                 float z = (float)_fzZoom.GetValue(map, null);
                 _fzZoomTo.Invoke(map, new object[] { args.GetPosition(map), z + step });
-                if (_debug && UnityEngine.Time.unscaledTime - _fzDbgAt > 1f) { _fzDbgAt = UnityEngine.Time.unscaledTime; Trace("fine zoom: delta " + args.Delta + " with Shift, notch " + _fzNotch + ", zoom " + z.ToString("0.000") + " + " + step.ToString("0.0000") + " (the game: " + (args.Delta * -3f / 255f).ToString("0.000") + ")"); }
+                if (Periodic && UnityEngine.Time.unscaledTime - _fzDbgAt > 1f) { _fzDbgAt = UnityEngine.Time.unscaledTime; Trace("fine zoom: delta " + args.Delta + " with Shift, notch " + _fzNotch + ", zoom " + z.ToString("0.000") + " + " + step.ToString("0.0000") + " (the game: " + (args.Delta * -3f / 255f).ToString("0.000") + ")"); }
                 args.Handled = true;
                 return false;
             }
