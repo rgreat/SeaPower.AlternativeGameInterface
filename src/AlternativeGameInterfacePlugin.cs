@@ -45,7 +45,7 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
-        public const string PluginVersion = "2.5.0"; // also <Version> in AlternativeGameInterface.csproj
+        public const string PluginVersion = "2.5.1"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
         const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
@@ -428,7 +428,7 @@ namespace AlternativeGameInterface
             _dblClickMax = Config.Bind("General", "MaximizeOnDoubleClick", true,
                 "Double-click a window's title bar to maximize it to the full screen, double-click again to restore it " +
                 "(windows that can be resized). A window closed maximized opens maximized (',max' after its layout in [Layouts]).");
-            _windowedMap = BindRenamed("General", "MapWindowsNotMaximized", "WindowedMapAndWorldView", false,
+            _windowedMap = BindRenamed("General", "MapWindowsNotMaximized", "WindowedMapAndWorldView", true,
                 "Desktop mode. Tactical Display and World View work only as ordinary windows that can be moved and sized freely (like the other windows): " +
                 "they are not remembered as maximized (no ',max' in [Layouts]), both are always shown (the game is put into its map fullscreen + World View state once), " +
                 "they stay below every other window and change places only between themselves. The Toggle fullscreen minimap key (Tab by default) no longer toggles the map (it switches between the desktops, DesktopCount), the maximize / restore buttons act on the window only, " +

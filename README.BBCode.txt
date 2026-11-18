@@ -1,4 +1,4 @@
-[b]Version 2.5.0[/b]
+[b]Version 2.5.1[/b]
 
 Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several monitors, windows that remember their place and state, transparency, a richer interface for missions and campaigns.
 
@@ -39,7 +39,7 @@ The window title and the name beside the tabs show the unit's name, class or typ
 [*]Right click on the flag or name in the unit panel opens the unit's context menu.
 [*]Campaign "Strict loadouts" (optional): a check box on the start screen; the Task Force Builder offers ship versions only for ships available in the mission or owned.
 [*]Localization: settings window and hints in the 9 languages of the game; the texts can be edited (lang folder).
-[*]Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops: each keeps the place, size, look and open state of the windows; the active desktop is remembered. A key (Insert by default) opens and closes the World View. A replaceable backdrop picture is behind them. Backspace shows the 3D view full screen. The compass tape moves into the World View window.
+[*]Desktop mode (on by default) ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops: each keeps the place, size, look and open state of the windows; the active desktop is remembered. A key (Insert by default) opens and closes the World View. A replaceable backdrop picture is behind them. Backspace shows the 3D view full screen. The compass tape moves into the World View window.
 [*]A small arrow next to the gear of a window opens its look menu: opacity, scale, text contrast and level; World View: camera offset (as the Camera Offset mod). The Tactical Display and World View start at the bottom level.
 [*]The mission's time panel and the mission timer under it can be dragged; double-click puts them back. The place is kept per desktop.
 [*]Unit Status: a "Track State" tab for a selected contact of another side, in an optional compact layout.

@@ -1,5 +1,3 @@
-Version 2.5.0
-- Tactical Display: a readable map instead of a heap of overlapping text. Unit labels no longer cover each other or the icons: a label that does not fit moves to another side of its unit, then shows fewer lines, and only then is hidden; the selected unit always keeps its full label. A formation shows one name for the whole group (a flight also its distance and altitude) until it is selected. All of it can be tuned or switched off (Settings / Tactical Display / Map drawing).
-- Tactical Display: Shift + mouse wheel zooms 5 times finer, for precise framing.
-- Main menu: quicker way back into a game: entering Scenarios or Campaign opens Load game at once, beside the menu instead of over it.
-- Unit Status: a unit without a tab of its own opens on the tab you chose last; the tab the game falls back to on a unit that lacks it no longer replaces your choice.
+Version 2.5.1
+- Fixed: Optical View (Z) with the World View window closed: the camera ignored the mouse after the first release of the button. It turns again with the mouse, as in the game.
+- Desktop mode is on by default for new installations.

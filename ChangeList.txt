@@ -1,3 +1,7 @@
+Version 2.5.1
+- Fixed: Optical View (Z) with no World View window open: the camera did not follow the mouse (it moved only while a button pressed before the view opened was held). The game hides the whole interface in that state; the mod now leaves the mouse to the game there.
+- Desktop mode is on by default (Settings / Desktop). A saved setting is kept.
+
 Version 2.5.0
 - Tactical Display: improved drawing of units and labels (Settings / Tactical Display / Map drawing; master switch "Improved drawing of units and labels", on by default; off: the game's own drawing, also for the compact sonobuoys and the cut contact ellipses):
   - "Label position" (Bottom by default; Game: the game's own placement): the text of a unit is put on the chosen side of its icon, centred on it, just outside the drawn icon (and the selection frame). The lines are aligned by the side: centred above and below, right on the left side, left on the right side.

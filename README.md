@@ -2,7 +2,7 @@
 
 A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows").
 
-**Version 2.5.0**
+**Version 2.5.1**
 
 Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several monitors, windows that remember their place and state, transparency, a richer interface for missions and campaigns.
 
@@ -43,7 +43,7 @@ Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several m
 15. Right click on the flag or name in the unit panel opens the unit's context menu.
 16. Campaign, "Strict loadouts" (optional): a check box on the campaign start screen; the Task Force Builder offers ship versions only for ships available in the mission or owned.
 17. Localization: settings window and hints in the 9 languages of the game; the texts can be edited (lang folder).
-18. Optional desktop mode ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the place, size, look and open state of the windows; the active desktop is remembered. A key (Insert by default) opens and closes the World View. A replaceable backdrop picture is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
+18. Desktop mode (on by default) ("Enable desktop mode"): Tactical Display and World View work as ordinary windows (free move and size, snapping, levels). The "Toggle fullscreen minimap" key (Tab by default) switches between 2 - 5 desktops (the number is a setting): each keeps the place, size, look and open state of the windows; the active desktop is remembered. A key (Insert by default) opens and closes the World View. A replaceable backdrop picture is behind them. Backspace (photo mode) shows the 3D view on the whole screen. The compass tape is moved into the World View window and is white or black by the picture behind it.
 19. A small arrow next to the gear of a window opens its look menu: opacity, scale, text contrast and level; for the World View also the camera offset (the followed object off the centre, as the Camera Offset mod; off while that mod works). The Tactical Display and World View start at the bottom level.
 20. The mission's time panel and the mission timer under it can be dragged; double-click puts them back. The place is kept per desktop.
 21. Unit Status: a "Track State" tab for a selected contact of another side, in an optional compact layout.

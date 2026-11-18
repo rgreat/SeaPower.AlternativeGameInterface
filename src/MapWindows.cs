@@ -68,6 +68,21 @@ namespace AlternativeGameInterface
             catch { return false; }
         }
 
+        static PropertyInfo _opticHideProp;
+        /// <summary>Optical View (Z) with no World View picture on the screen: the game hides the whole HUD (every window with it), the 3D view fills the screen
+        /// and nothing of the interface is left to take the mouse: the game's own mouse state is the right one.</summary>
+        static bool OpticalFullscreen()
+        {
+            try
+            {
+                var vm = MainVm();
+                if (vm == null) return false;
+                if (_opticHideProp == null) _opticHideProp = vm.GetType().GetProperty("HideHudForOpticalView");
+                return _opticHideProp != null && (bool)_opticHideProp.GetValue(vm, null);
+            }
+            catch { return false; }
+        }
+
         static PropertyInfo _mapProp;
         static bool MapMissionOn()
         {
@@ -695,6 +710,7 @@ namespace AlternativeGameInterface
 
         static void MapMouseStateCore(object __instance)
         {
+            if (OpticalFullscreen()) { _mapDownInside = false; _fixDownNoes = false; return; }      // Optical View over the whole screen: the HUD is gone, the game decides
             if (!MapOn()) { try { GameMouseFix(__instance); } catch { } return; }
             if (WorldDisplayMouse()) return;      // the mouse is on the monitor with the game's World View: the game decides
             if (Monitors.Count > 0) { int md = MouseDisplay(); if (md > 0 && md != _wvDisp) { ForceUi(__instance); return; } }      // another monitor of ours: only windows are there

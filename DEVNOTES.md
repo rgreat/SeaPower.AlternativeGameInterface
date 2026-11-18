@@ -1143,3 +1143,12 @@ The game zooms the map in `MapDragger.MapZoom` (Thumb over the map, CommonMap.xa
 
 ## Version 2.5.0 (2026-11-18)
 Version bumped in the csproj, `PluginVersion`, README.md, README.BBCode.txt; ChangeList.txt / ChangeList-1000.txt have the 2.5.0 entry (map labels, fine zoom, menu Load / file picker, Unit Status tab fix, monitors, loading screen panel). README sizes after the update: README.md 8090 bytes, README.BBCode.txt 7785 (the Show/Hide tree line, the Desktops page line, the briefing line and the binoculars desktop-mode sentence were dropped to make room).
+
+## Optical View (Z) without a World View picture: the camera did not follow the mouse (bug report, 2.5.0)
+
+Z with the World View window closed: the game hides the whole HUD (`MainGameViewModel.HideHudForOpticalView` = IsOpticalViewActive && !ShowPip3D && !WorldViewDetached; `DisplayAreaGrid` collapsed, the windows with it) and the 3D view fills the screen. `MapMouseStateCore` saw no picture (`_wvAlive` stale, `IsPipActive` false) and forced the UI state, so after the button was released the camera never got a drag again; a drag that began before Z (`_mapDownInside` still true) worked while held - exactly the report. Fix: `OpticalFullscreen()` at the top of `MapMouseStateCore` - the game's own state is left alone. Trace had no mouse lines, so the cause was found by reading the code; not verified in game, the build could not be run here (no game references in this workspace).
+
+Desktop mode (`[General] WindowedMapAndWorldView`) is on by default now (was off). A user cfg that already stores the value keeps it.
+
+## Version 2.5.1
+Optical View (Z) mouse fix, desktop mode on by default. Version bumped in the csproj, `PluginVersion`, README.md, README.BBCode.txt; ChangeList.txt / ChangeList-1000.txt have the 2.5.1 entry.
