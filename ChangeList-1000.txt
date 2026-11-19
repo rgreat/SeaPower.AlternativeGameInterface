@@ -1,3 +1,10 @@
-Version 2.5.1
-- Fixed: Optical View (Z) with the World View window closed: the camera ignored the mouse after the first release of the button. It turns again with the mouse, as in the game.
-- Desktop mode is on by default for new installations.
+Version 2.6.0
+- One settings window for all four Alternative mods:
+  - Find any option by typing its name in the search box.
+  - Switch between the mods' settings with one click; your edits are kept.
+  - Choose the language once for all mods.
+  - Undo changes you have not applied yet.
+- Long settings tabs (Windows, Game Menus) are split into pages, so options are easier to find.
+- The settings window opens with only the settings of the window you came from; "Show all settings" is remembered until you quit the game.
+- Each desktop remembers the World View camera offset.
+- Text-by-background switching thresholds are now options.

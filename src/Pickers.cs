@@ -37,7 +37,7 @@ namespace AlternativeGameInterface
             _lastMissionDir = Config.Bind("MissionEditor", "LastMissionFolder", "", "The folder of the mission opened last in the mission editor (kept by the mod).");
             _rememberSave = Config.Bind("General", "RememberSaveFolder", true,
                 "Save game and Load game windows (pause menu, main menu, campaign) open in the folder used last time; campaign and mission saves keep their own folders.");
-            _dblOpen = Config.Bind("General", "DoubleClickOpen", false,
+            _dblOpen = Config.Bind("General", "DoubleClickOpen", true,
                 "A double click on a file in the Load game and other file-opening windows opens it (like the Open button) and on a scenario in the main menu starts it (like the Play button); save windows are not changed.");
             _lastSaveMissions = Config.Bind("General", "LastSaveFolderMissions", "", "The last folder of the mission Save / Load game windows (kept by the mod).");
             _lastSaveCampaigns = Config.Bind("General", "LastSaveFolderCampaigns", "", "The last folder of the campaign Save / Load game windows (kept by the mod).");

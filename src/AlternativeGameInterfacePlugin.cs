@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -45,7 +45,7 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
-        public const string PluginVersion = "2.5.1"; // also <Version> in AlternativeGameInterface.csproj
+        public const string PluginVersion = "2.6.0"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
         const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
@@ -402,7 +402,7 @@ namespace AlternativeGameInterface
                 Logger.LogWarning("The old 'Window Memory' plugin is still installed: delete SeaPowerWindowMemory.dll from BepInEx/plugins, two copies conflict.");
 
             _windows = Config.Bind("General", "WindowPatterns",
-                "News,Tactical Display,World View,Unit Reference*,Unit Status*,Event Log,Formation Manager,Task Force Builder,Weapon Reference",
+                "News,Tactical Display,World View,Unit Reference*,Unit Status*,Event Log,Formation Manager,Task Force Builder,Weapon Reference,Sensor Reference",
                 "Comma-separated names of the windows to remember. Case-insensitive, spaces are ignored when comparing " +
                 "('Unit Status*' also matches 'UnitStatusView'), '*' matches any text (also nothing). " +
                 "A pattern is compared with the window's name, header text, content type and view-model type and must " +
@@ -562,6 +562,7 @@ namespace AlternativeGameInterface
             Loc.Trace = Trace;
             Loc.GameAsm = () => GameAssembly();
             Loc.Forced = () => _language == null ? "" : _language.Value;
+            Rgreat.Hub.SettingsHub.JoinLanguage(_language.Value, v => { _language.Value = v; Loc.Refresh(); });   // one language for all the rgreat mods
             SettingsWindow.RegisterTexts(this);
 
             _traceFile = Path.Combine(Paths.BepInExRootPath, "AlternativeGameInterface.trace.txt");
@@ -684,7 +685,8 @@ namespace AlternativeGameInterface
                 try
                 {
                     Rgreat.Hub.SettingsHub.Register("alternative-game-interface", () => Loc.T("menu.button"), PluginVersion, 10,
-                        anchor => OpenSettingsFromMenu(anchor as Noesis.UIElement), () => Enabled);
+                        anchor => OpenSettingsFromMenu(anchor as Noesis.UIElement), () => Enabled,
+                        SettingsWindow.IsDirty, SettingsWindow.CommitKept, SettingsWindow.DiscardKept, SettingsWindow.Hide, SettingsWindow.Kept, SettingsWindow.ShotsRun);
                     Rgreat.Hub.SettingsHub.Install(lsHarmony, asm, Trace, () => Loc.Language);
                 }
                 catch (Exception e) { Logger.LogWarning("Settings entry in the menus: " + e.Message); Trace("SettingsHub: " + e); }

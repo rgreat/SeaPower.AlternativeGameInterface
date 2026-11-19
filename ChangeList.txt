@@ -1,3 +1,19 @@
+Version 2.6.0
+- Settings window (the same window and rules in all four Alternative mods):
+  - One-line tab strip with arrows; the mouse wheel scrolls it.
+  - Search box: finds options by their names (not by descriptions); the X clears it; the text stays when you switch to another mod's window.
+  - The tab and every group have a back button (undo the edits not applied yet).
+  - The row of the installed mods at the top of the window: a click opens that mod's window (the edits are kept). Language is now one drop-down at its right for all mods ("Default" = the game's language).
+  - Ctrl+C copies the help text of the option under the mouse.
+  - The settings window opens on the mod used last: the menu button, and the gear of the World View window (it opened Alternative Game Interface only).
+  - The window grows when a language needs more room for the row of the mods.
+- Windows and Game Menus tabs are split into pages (Windows: General, Moving and snapping, Order and look; Game Menus: Menus, Save and load, Backgrounds).
+- The window opens with fewer settings (the tabs of the window it was opened from); "Show all settings" is remembered until the game is closed.
+- The World View tab is hidden while desktop mode is on (the camera offset is in the World View window's menu).
+- Text by background: the switching thresholds are options (Windows / Order and look).
+- Debug: "Screenshot all tabs now" takes the windows of all installed Alternative mods (BepInEx/<Mod>_screens).
+- All texts are translated into all 8 languages; game terms are written as in the game's own language files.
+
 Version 2.5.1
 - Fixed: Optical View (Z) with no World View window open: the camera did not follow the mouse (it moved only while a button pressed before the view opened was held). The game hides the whole interface in that state; the mod now leaves the mouse to the game there.
 - Desktop mode is on by default (Settings / Desktop). A saved setting is kept.

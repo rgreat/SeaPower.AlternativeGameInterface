@@ -14,7 +14,7 @@
     <DebugType>none</DebugType>
     <Deterministic>true</Deterministic>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Version>2.5.1</Version>
+    <Version>2.6.0</Version>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <!-- build number written to the log (UTC time of the build): tells which dll is actually running -->
     <BuildStamp Condition="'$(BuildStamp)' == ''">$([System.DateTime]::UtcNow.ToString("yyyyMMdd.HHmm"))</BuildStamp>
@@ -42,6 +42,7 @@
     <Reference Include="0Harmony"><HintPath>$(BepInExCore)\0Harmony.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="AnchorChain"><HintPath>$(AnchorChainDll)</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(ManagedDir)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.IMGUIModule"><HintPath>$(ManagedDir)\UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <!-- Noesis: the settings window is built in code (as in Alternative Damage Model) -->
     <Reference Include="Noesis.NoesisGUI"><HintPath>$(ManagedDir)\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>

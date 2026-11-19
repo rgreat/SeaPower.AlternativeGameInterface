@@ -20,7 +20,7 @@ namespace AlternativeGameInterface
 
         void BindKeepMapViewConfig()
         {
-            _keepMapView = Config.Bind("General", "KeepMapView", false,
+            _keepMapView = Config.Bind("General", "KeepMapView", true,
                 "When the size of the Tactical Display window changes, the map zoom changes with it so that the area that was visible stays visible (the map keeps its proportions). " +
                 "Off: the zoom stays, a bigger window shows more of the map and a smaller one less.");
         }

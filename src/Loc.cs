@@ -56,6 +56,7 @@ namespace AlternativeGameInterface
             D("val.open", "open");
             D("val.closed", "closed");
             D("val.gameLang", "(the game's language)");
+            D("lang.default", "Default"); D("lang.caption", "Language");
             D("val.default", "default: {0}");
             D("val.defaultCap", "Default: {0}");
             D("val.gamePx", "game: \u2248 {0} px");

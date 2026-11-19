@@ -5,6 +5,156 @@ UI игры — NoesisGUI (XAML), окна — `SeapowerUI.Window`. Доступ
 Seapower-Scripts), Harmony-хуки ставятся по именам методов. Noesis: основной код — через рефлексию, окно настроек и шестерёнка
 (1.3.0) — напрямую (ссылка на Noesis.NoesisGUI в csproj, как в Alternative Damage Model).
 
+
+## Как работать с этими заметками (для Claude: не раздувать контекст)
+- Этот файл — только основное (сборка, правила, архитектура, подводные камни). **Не читать целиком чужие разделы**: подробная история функций — в `DEVNOTES-ARCHIVE.md`.
+- Нужная тема: `grep -n "ключевое слово" DEVNOTES-ARCHIVE.md`, затем `sed -n 'N,Mp'` по номерам строк из индекса ниже (читать только этот раздел).
+- Общий код окон настроек (SettingsKit/Hub, вкладки, поиск, Ctrl+C, язык) описан в `seapower.alternativebase/README.md`, не здесь.
+- В чате: большие файлы только через `grep`/`sed -n`/`Read` с offset+limit; логи — `grep`/`tail`, не целиком; вывод команд ограничивать (`| cut -c1-200 | head`).
+- Новые записи: основное — сюда (коротко); подробности и история отладки — в архив, в конец, отдельным разделом.
+
+
+## Состояние релиза
+- 2026-11-19: версия 2.6.0 подготовлена (csproj, PluginVersion, ChangeList.txt, ChangeList-1000.txt = текст Change Log для Steam, README). Не выложена в Steam, пока пользователь не скажет; не закоммичена.
+
+## Последний активный мод (шестерёнка World View и меню)
+- Окно настроек любого мода при построении (`ModRow`) помечает свой мод последним (`SettingsHub.MarkLast`). Меню открывает его окно; шестерёнка окна World View — `SettingsHub.OpenLastOther` (другой активный мод, иначе своё). `ModChooser.cs` (список «Game Interface / Special Effects») убран: `ShowList` в хабе давно нет. Не проверено в игре.
+
+## Индекс архива (строка в DEVNOTES-ARCHIVE.md — раздел; размер в символах)
+- 3 — Дерево Unit Reference (как устроено в игре, 0.8.5) (3682)
+- 37 — Оптимизация дерева Unit Reference (OptimizeTree, 1.4.0, `src/TreeTweaks.cs`) (2529)
+- 62 — Прокрутка к выбранному (ScrollToSelected, 1.4.0, `src/TreeScroll.cs`) (1108)
+- 73 — Дерево Unit Reference: опции 1.6.0 (`src/TreeSearch.cs`, `src/HoverHelp.cs`, все в [UnitReferen (2163)
+- 94 — Меню и файлы (1.6.0, `src/Pickers.cs`) (1383)
+- 106 — Колесо только над деревом ([UnitReference] TreeWheelOnlyOver, 1.5.3, `src/TreeScroll.cs`) (599)
+- 112 — Список loadout'ов для всех юнитов (ShowLoadoutList, 1.4.0, `src/TreeTweaks.cs`) (2219)
+- 133 — Armed only (при ImprovedUnitReferenceUI, состояние — ArmedOnly, 1.4.0, `src/ArmedFilter.cs`) (1681)
+- 148 — Фильтр по источникам — выпадающий список «Source» (при ImprovedUnitReferenceUI, 1.9.0, `src/Sou (1649)
+- 156 — Вкладка Reference в Unit Status (UnitReferenceTab, 1.5.0, `src/StatusReference.cs`) (2880)
+- 180 — Вкладка Weapons — теперь отдельный мод Alternative Weapons Control (515)
+- 186 — Окна Weapon Reference для установок (1.5.1) (377)
+- 191 — Фоновые картинки ([General] Backgrounds = Mods|Mixed|Game, was bool ModBackgroundsOnly since 1. (1849)
+- 208 — Settings window left open across a screen change (2.3.3) (827)
+- 216 — Окно настроек: зависимые строки (395)
+- 221 — Минимум панелей секций Damage Control ([UnitStatus] SectionsMinHeight, 1.3.0) (1045)
+- 231 — Рамка окон ([WindowBorder]: Enabled, Thickness 0,5–10, Color #RRGGBB/#AARRGGBB, по умолчанию #A (684)
+- 239 — Рамка подсказок ([WindowBorder] ToolTips, 1.5.2, `src/TooltipFrame.cs`) (689)
+- 246 — Порядок окон и Weapon Reference (проверено в игре) (1997)
+- 263 — Окно настроек (1.3.0) (4901)
+- 305 — Без ограничений размера (RemoveSizeLimits, «No size limits»; 1.3.0) (714)
+- 313 — Подписи формы (257)
+- 317 — Притягивание окон (SnapWindows, 1.3.0, `src/Snap.cs`) (3354)
+- 347 — Развёрнутое окно в пределах экрана (1.5.3, `src/MaxFit.cs`) (557)
+- 353 — Unit Reference: панель поиска (RememberSearchPanel, 1.3.0) (716)
+- 361 — Окна, открываемые в начале миссии (форма) (264)
+- 365 — UnitMenu.cs, GameFixes.cs, CampaignLoadouts.cs (1.6.0) (3591)
+- 375 — Файл настроек в user (1.6.0) (858)
+- 379 — Производительность (1.6.0, аудит Update и хуков) (1727)
+- 394 — Сообщения в правом нижнем углу (1.6.0, `src/AlertsFix.cs`, без опции — всегда включено) (590)
+- 400 — Захват элементов вместо обходов (1.6.0, `src/ViewCapture.cs`) (1421)
+- 411 — Sea Power 0.8.7 (beta 261026) — совместимость с 0.8.6 сохраняется (1.6.2) (985)
+- 419 — Strict loadouts в Builder: закрытые лоадауты (1.6.2) (1847)
+- 426 — WindowedMapAndWorldView (1.7.0, `src/MapWindows.cs`, `src/PipScene.cs`, `src/CompassTape.cs`; [ (4586)
+- 441 — Рабочие столы (desktops) по клавише «Toggle fullscreen minimap» (по умолчанию Tab) (1.7.0, `src (3383)
+- 448 — Клавиша World View (1.7.0, `src/WorldViewKey.cs`; [General] WorldViewKey, по умолчанию Insert) (1102)
+- 454 — Прочее в 1.7.0 (3769)
+- 469 — Propulsion cell in Unit Reference (`src/Propulsion.cs`, `[UnitReference] ShowPropulsion`) (1377)
+- 472 — Window opacity and state-driven backgrounds (`WindowLook.StateDriven`, `HookState`) (1505)
+- 475 — IMGUI windows of other mods over Noesis (`src/ImguiOrder.cs`) (1253)
+- 478 — Optical view (binoculars) in WindowedMapAndWorldView (1.8.0, `src/BinocularFrame.cs`, `src/MapW (5574)
+- 494 — Damage Control lists: mouse wheel ([UnitStatus] DamageListsWheel, `src/DamageScroll.cs`) (969)
+- 500 — Tactical Display closed by a desktop switch (`RestoreOpenStates`) (630)
+- 504 — Game bug: drawing tool objects doubled after the map window is closed and opened (not the mod) (999)
+- 509 — Reference tab: the tab Kind (`src/StatusReference.cs`) (1446)
+- 517 — Other monitors for windows (desktop mode, `[Monitors] Enabled`, `src/Monitors.cs`) (5956)
+- 537 — Фон главного меню: видео или слайдшоу (`[General] MenuBackground` Video/Slideshow, `SlideshowSe (1165)
+- 541 — Быстродействие: что считается каждый кадр (проверка 1.8.2) (1070)
+- 546 — Unit Status: закладка на юнит (`[UnitStatus] RememberTab`, true, `src/StatusTabMemory.cs`) (2077)
+- 552 — Enabling in the Mods menu needs a restart (2026-11-11) (688)
+- 555 — Sea Power 0.9.0 - compatibility review (2026-11-12, mod 1.9.0, nothing changed in the source ye (4163)
+- 573 — Cleanup after dropping 0.8.x (2026-11-12) (713)
+- 578 — Mission timer draggable by itself (1.9.0, TimePanel.cs) (533)
+- 581 — Text by background and the frame of transparent windows (1.9.0) (3376)
+- 586 — Elements rewritten by other code (flicker, 2026-11-12) (660)
+- 589 — Release 2.0.0 (2026-11-12) (1160)
+- 599 — Mod info on the loading screen (2.0.0, `src/LoadInfo.cs`) (1697)
+- 605 — R.A.T.S. Keel (loader, 2026-11-12; SeaPowerKeel.dll 193 KB checked) (7848)
+- 645 — Encyclopedia Save / Load (src/MuseumSave.cs) (763)
+- 648 — Encyclopedia / Encyclopedia 3D (src/EncyclopediaSplit.cs) (809)
+- 651 — Errors when loading a save (FixSoundOnReload, src/MuseumSave.cs) (659)
+- 654 — Release 2.1.0 (2026-11-13) (490)
+- 657 — Ghost window (0 % opacity, src/WindowLook.cs) (500)
+- 660 — Release 2.2.0 (2026-11-15; 2.1.1 (Unit Reference tree button) was published earlier) (5206)
+- 683 — Campaign: ship state on briefing / newspaper events (Campaign/EventShipState, src/CampaignEvent (1092)
+- 688 — Unit Status header: class (first 2.3.0 build; superseded by the section "window title and label (884)
+- 691 — Release 2.3.1 (minor) (493)
+- 694 — Release 2.3.0 (published) (789)
+- 698 — Unit Status: window title and label (2.3.0, StatusReference.cs `UnitText` / `FullUnitName` / `S (1478)
+- 702 — Track State layout (2.3.0, TrackState.cs `TrackXaml2`) (2205)
+- 708 — Settings: Remembered Windows (2.3.0) (354)
+- 712 — Contact estimate squeeze (2.3.0, `[Map] ClipContactEllipse`, `src/ContactEllipse.cs`) (1897)
+- 715 — Compact sonobuoys (2.3.0, `[Map] CompactSonobuoys`, `SonobuoysThreshold` 20, `src/SonobuoyDeclu (1331)
+- 718 — Анализ быстродействия (2.3.0, по коду, без замеров в игре; код не менялся) (4883)
+- 743 — Аудит утечек (2.3.0, по коду, не проверено в игре) (1656)
+- 748 — Профайлер мода (2.3.0, `src/Profile.cs`) (3835)
+- 757 — Лимит FPS (FrameLimit.cs, OnSliderLoaded в ViewCapture.cs) (23090)
+- 821 — Formation Manager: right click on another monitor (after 2.4.0) (2931)
+- 828 — Map label filters (after 2.4.0, `[Map] GroupNameOnly`, `LabelOverlapFilter`, both default false (5763)
+- 839 — Load screen line without Effect (after 2.4.0, `LoadInfo.cs`) (716)
+- 842 — Formation name around the whole formation (after 2.4.0, `GlGroupAround` in `MapLabelFilter.cs`, (4741)
+- 853 — Formation name as a label of its own (after 2.4.0, `GlNamesSync` in `MapLabelFilter.cs`, only w (4920)
+- 863 — Formation lines (after 2.4.0, `[Map] FormationLines` default true, `src/FormationLines.cs`) (1250)
+- 866 — Icons as taken places (overlap filter) (443)
+- 869 — Master switch `[Map] DrawingImprovements` (default true) (609)
+- 872 — Own units: the 2nd line when 2 lines do not fit (322)
+- 875 — Selected formation name: farther shift (357)
+- 878 — Order of the formation name (corrected) (420)
+- 881 — Empty lines in the label text (718)
+- 884 — Own auto placement of the labels (part of the overlap filter) (1027)
+- 887 — Stale label box after a line is blanked (zoom out) (820)
+- 890 — Line alignment of the label text (461)
+- 893 — Box taller than the text (trace of 2026-11-18) (791)
+- 896 — Empty lines (live) (788)
+- 899 — Empty line in the middle of a text (1050) (404)
+- 902 — Empty line inside the text of one label line (trace 2026-11-18) (611)
+- 905 — Natural line sizes of a cut label (7006) (585)
+- 908 — The game measures every label with all its lines first (666)
+- 911 — Own full measure before the filter (848)
+- 914 — Natural sizes are re-measured when the text changes (595)
+- 917 — Hysteresis of the placement (1 s) (753)
+- 920 — Load on entering Scenarios / Campaign, windows beside the menu (`src/MenuLoad.cs`) (1212)
+- 923 — File picker without a height limit ([General] FilePickerTall, default true) (470)
+- 926 — The 'FRND' badge (friendly unit of another side) (904)
+- 929 — 'FRND' merged into the first line ([Map] FriendlyBadgeInLabel, default true, in the master swit (1127)
+- 934 — The badge is a line of the label with the usual cutting rules (replaces "goes with the first li (755)
+- 937 — FRND badge glued to line 1 (no virtual line) (408)
+- 940 — Text alignment inside a line (429)
+- 943 — The game's own FRND badge (295)
+- 946 — Labels of the units of an unselected formation: last in the order (693)
+- 951 — Formation update by the leader (`[Map] FormationUpdateByLeader`, on by default since 2.5.0, src (1942)
+- 958 — Aircraft formation: distance and altitude under the name (`[Map] AirGroupInfo`, on by default) (1739)
+- 963 — The game's FRND badge stayed on some units until they were selected (634)
+- 966 — Map labels reworked after the review (2026-11-18) (3997)
+- 980 — Fine zoom with Shift (`[General] MapFineZoomShift`, on by default, src/MapFineZoom.cs) (712)
+- 983 — Version 2.5.0 (2026-11-18) (481)
+- 986 — Optical View (Z) without a World View picture: the camera did not follow the mouse (bug report, (1022)
+- 992 — Version 2.5.1 (209)
+- 995 — Trace volume (540)
+- 998 — Game beta 0.9.3-261116b (gamefiles e1571a8) - what changed for the mod (1870)
+- 1004 — Camera offset per desktop (468)
+- 1007 — Settings window: one-line tab strip (after 2.5.1, not committed) (1388)
+- 1010 — Settings screenshots: window fitted to each tab (after 2.5.1, not committed) (750)
+- 1013 — Text-by-background thresholds as options (after 2.5.1, not committed) (505)
+- 1016 — Settings kit: the tab strip and the screenshots moved to shared files (after 2.5.1, not committ (618)
+- 1019 — Settings window frame and row editors (settings kit: SettingsKit.cs, after the last release) (2467)
+- 1027 — Switch between the mods' settings windows (after the last release) (1433)
+- 1033 — Tabs, search, revert (kit) (432)
+- 1037 — Camera offset in the settings window (814)
+- 1040 — "Show all settings": the mode is kept for the game session (533)
+- 1043 — Pages inside a tab (SettingsPages.cs) (1246)
+- 1050 — Ctrl+C copies the text under the mouse (kit) (764)
+- 1053 — One shared Language (hub + kit) (1056)
+
 ## Сборка в песочнице (проверено)
 1. `apt-get update && apt-get install -y dotnet-sdk-8.0` (без `update` пакеты дают 404).
 2. Репозитории проекта Sea Power (все приватные, владелец rgreat; в облачной сессии Claude Code — `add_repo`, клон
@@ -77,224 +227,6 @@ thumbnail.jpg берётся из клона репозитория.
   `CameraControlsWindow`, `MapWindow`) — `ToggleWindowBroker` (WindowContent = VM).
 * Закрытие крестиком окна: `Window.Close` → `CloseAction` или `CloseWindowNow` → Close-команда хоста.
 
-## Дерево Unit Reference (как устроено в игре, 0.8.5)
-* Данные: `EncyclopedicDataManager.MuseumEntries` (строится корутинами при старте сессии, `UnitsLoaded` / `UnitsLoadedEvent`):
-  8 корневых категорий `MuseumEntry` (CategoryKey Vessels / Submarines / Aircrafts / Helicopters / LandUnits / Biologic, плюс
-  Weapons {Guns, Launchers} и Sensors) → тип юнита (`_typeFullName`; сначала военные, потом гражданские, по алфавиту) → класс
-  (`UnitTreeGrouping.GroupClassEntries`: ключ — EncyclopediaTag или имя до «-class»; один юнит — лист, несколько — групповой
-  узел `IsGroupNode` с флагом страны `GroupNation` (если страна одна), годами min/max и детьми с `TreeLabelOverride` =
-  уточнение после имени класса или год) → листья `MuseumObjectEntry` (Surface/SubSurface/Aircraft/Land/Biologic) и
-  Weapon/Sensor/Gun/Launcher. Папка — ровно тип `MuseumEntry`, лист — подкласс. Строка: `TreeIcon`, `TreeLabel`, `TreeYearText`,
-  `CountText` «(N)» (листья под узлом после фильтров).
-* `UnitTreeBrowserViewModel(stateKey, isEntryVisible, canRememberEntry)`: КОПИЯ дерева (`CloneForFiltering`, у каждого окна своя,
-  IsExpanded/IsSelected свои) без скрытых (`HiddenInEncyclopedia`; опустевшие папки выкидываются). Unit Reference: stateKey
-  "Encyclopedia", `UseCategoryTextLabels`, спасательные плоты не запоминаются. Состояние сессии (`_persistedStates[stateKey]`,
-  static, до выхода из игры): раскрытие узлов (`ExpansionKey` = «имя|год» или «grp:имя»), страна, FilterByDate, категория,
-  последний выбранный (IniRef + VariantIndex + DisplayName). Пока `_isInitializing`, сеттеры не пишут в состояние и
-  `UpdateFilteredMuseumEntries` ничего не делает; сбрасывают `RestoreSessionState` / `FinishInitialization`.
-* Что видно: `TreeItems` = дети выбранной категории (`SelectedCategory`; полоса категорий `RootCategories` видна при > 1) из
-  `FilteredMuseumEntries`; при поиске — все категории сразу. Фильтры (`UpdateFilteredMuseumEntries`, через `FilteredMuseumEntries`
-  каждого узла копии; опустевшие папки отпадают): страна (`Nations`: [All] + страны листьев по алфавиту; у оружия/сенсоров — их
-  `Nations`); FilterByDate (год миссии: редактор → Environment → CampaignEnvironment → 1985; лист проходит, если
-  ServiceEntryDate ≤ год ≤ ServiceExitDate или дат нет); поиск (задержка 250 мс; имя, класс; без SearchByNameOnly — ещё оружие,
-  сенсоры, авиагруппа). При поиске всё раскрыто (если строк ≤ 400), без поиска — сохранённое раскрытие; перед сменой фильтра
-  раскрытие запоминается.
-* Выбор: `SelectedEntry` — у группового узла берётся лучший вариант (в строю в год миссии, иначе самый новый) →
-  `SelectedEntryChanged` → `ObjectInformationViewModel.SelectedMuseumEntry`. `RevealEntry` (категория, раскрытие пути,
-  IsSelected), `SelectFirstVisibleEntry`; буквы/цифры в дереве — переход по префиксу TreeLabel (сброс через 1 с); двойной щелчок
-  (не по стрелке) — `EntryActivated` (Unit Reference на него не подписан).
-* Unit Reference (`ObjectInformationViewModel(context, initialIniRef, ..., showTree)`): с деревом и юнитом —
-  `RestoreSessionState(restoreSelection: false)` + `RevealEntry(юнит)`; без юнита — `RestoreSessionState()` и, если ничего не
-  выбрано, первый лист; без дерева — `FinishInitialization`. «<»/«>» — `ToggleTreeCommand` → `MuseumEntriesVisible`. Окна из
-  ссылки на оружие/сенсор — ObjectWeapon/SensorInformationViewModel без дерева.
-* Вид `UnitTreeBrowserView` (XAML в ассетах): TreeView; KeyDown → TypeAheadJump, двойной щелчок → ActivateSelected.
-* Мод: ширина колонки дерева и сплиттер, скрытие дерева вместе с панелью поиска и сужение окна, страна и панель поиска
-  ([UnitReference]) — после методов инициализации браузера (`NationBusyPrefix/Finalizer`).
-
-## Оптимизация дерева Unit Reference (OptimizeTree, 1.4.0, `src/TreeTweaks.cs`)
-* «Варианты» в игре — двух видов:
-  1) loadout-юниты: у военного корабля/ПЛ (папка vessels, не гражданский) с > 1 loadout каждый loadout, кроме Default/Empty/Ferry,
-     — отдельный юнит (`UnitMetadataProvider.AppendLoadoutUnits` → `SimpleObjectParameters.CreateLoadoutUnit`, ключ «ini@loadout»),
-     имя «Класс [Loadout.DisplayName или Name]»; без суффикса, если loadout — Early/Late с годом ввода. В дереве это отдельные
-     классы, их объединяет групповой узел (`GroupClassEntries`), подпись в группе — уточнение («Late») или год;
-  2) корабли класса: секции VariantN ini юнита (`_variants`, `VariantInfo`: ObjectName — имя корабля, годы, страна,
-     LoadoutVariant — какой loadout у этого корабля) — дети записи класса (`GetIndividualVesselFromMetadata`, по годам, потом
-     по имени), лист `MuseumObjectEntry` с `PredefinedLoadoutVariant` = LoadoutVariant. Его loadout в названии игра НЕ показывает.
-* Loadout-юнит в дереве: `IniRef` = ini базового юнита, `IsLoadoutUnit`, `PredefinedLoadoutVariant` = имя loadout; дата — год
-  loadout (через `ApplyLoadoutServiceYear` его корабли получают этот год), иначе как у базы; корабли — те же, что у базы
-  (это корабли, которые можно модернизировать; так и оставлено).
-* Мод (постфикс `UnitTreeBrowserViewModel.set_MuseumEntries` — копия дерева браузера, в конструкторе и после загрузки юнитов;
-  только браузер "Encyclopedia", только категории юнитов, при OptimizeTree (от ImprovedUnitReferenceUI не зависит); повторный вызов безопасен):
-  - классы внутри типа — по ServiceEntryDate (без даты в конце), затем по имени;
-  - групповой узел класса, где есть loadout-юниты: юниты (по IniRef) по дате базы (без базы — min дат вариантов), затем по
-    подписи; под каждым его варианты: по дате, при равной — Early, база (= Default), остальные в порядке `_loadouts` ini;
-  - подпись (`TreeLabelOverride`): уточнение юнита (`GetClassQualifier` от имени базы, или имени варианта без « [..]»; пусто →
-    имя класса) + « [Loadout.DisplayName]» у вариантов; без суффикса у Default и если вариант у юнита один; юниты без
-    loadout-вариантов сохраняют подпись игры;
-  - юнит без loadout «Default» (но с вариантами) — его собственный лист убирается из копии;
-  - пример: Spruance-class: ASROC [Early], ASROC, ABL, ABL [Anti Ship], ABL [Land Attack], VLS; Udaloy-class [Early] 1980,
-    Udaloy-class 1985, Udaloy-class [Late] 1988.
-  Данные игры (EncyclopedicDataManager) не меняются. Всё это есть и в 0.8.4.
-
-## Прокрутка к выбранному (ScrollToSelected, 1.4.0, `src/TreeScroll.cs`)
-* Игра выделяет запись (`RevealEntry`: раскрывает родителей, IsSelected) и ставит `SelectedEntry`, но дерево к ней не
-  прокручивает. В TreeView игры на ScrollViewer висит `SuppressBringIntoViewBehavior` (гасит BringIntoView, если цель хоть
-  частично видна), поэтому мод прокручивает сам.
-* Каждый кадр (Step) для окна Unit Reference с показанным деревом: если сменился `Browser.SelectedEntry`, коллекция
-  `TreeItems` (категория, фильтры) или дерево снова показано — путь к записи по `TreeItems` → `FilteredMuseumEntries`,
-  контейнеры `ItemContainerGenerator.ContainerFromItem` вниз по пути (до свёрнутого узла — тогда к нему), строка — `PART_Header`
-  шаблона (иначе весь TreeViewItem), ScrollViewer — ближайший предок контейнера. При открытии / показе / смене элементов —
-  по центру (если не виден целиком), иначе минимальный сдвиг. `CanContentScroll` → `BringIntoView`. До 60 кадров попыток.
-* Не зависит от ImprovedUnitReferenceUI. Noesis-типы напрямую (TreeView, TreeViewItem, ScrollViewer, VisualTreeHelper); есть и в 0.8.4.
-
-## Дерево Unit Reference: опции 1.6.0 (`src/TreeSearch.cs`, `src/HoverHelp.cs`, все в [UnitReference] / [UnitStatus])
-* Общий механизм: postfix `UpdateFilteredMuseumEntries` (ArmedFilter.cs: `FilteredEntriesPostfix` → `FilterArmed`, затем `AfterFilters`).
-  Все патчи 1.6.0 ставятся через `TryPatch` (отказ одного не ломает остальные). Только браузер Encyclopedia (`IsEncyclopediaBrowser`).
-* EarliestVariantOnClick: postfix `SelectBestGroupEntry(group)` — если включено, `__result` = ребёнок группы с минимальным
-  ServiceEntryDate > 0 (при равных — первый в списке). Игра: в строю в год миссии, иначе новейший.
-* KeepOpenedUnit: ObjectInformationViewModel(…, initialIniRef …) — prefix/finalizer ставят `_openingForUnit`; postfix
-  `RevealEntry` в этот момент запоминает узел (`Pins[browser]`). `InjectPinned` после фильтров вставляет путь категория→тип→класс→
-  юнит в `FilteredMuseumEntries` на нужное место (порядок — по полному списку); вернувшийся узел получает список из одного
-  ребёнка (его `FilteredMuseumEntries` после `ResetFilters` — «полный», остался от прошлого).
-* HideEmptyCountries: master-список `Nations` запоминается postfix'ом `SetupNations`; после фильтров по листьям полного
-  дерева (поиск через игровые `MatchesTextSearch`/`MatchesWeaponTextSearch`/`MatchesSensorTextSearch`, дата, Armed only)
-  собирается множество стран (Nation / Nations / civ_ → Civilian), в `Nations` остаются «All», найденные и выбранная.
-  Вставка/удаление на месте (ObservableCollection), порядок мастера.
-* SearchInDescriptionAndId: postfix `MatchesTextSearch(entry, searchLower, nameOnly)`: при nameOnly=false и отрицательном
-  результате — IniRef (id) или Description без тегов содержит запрос.
-* LinkHelp (HoverHelp.cs): раз в 0,6 с по видимому дереву окна UR и вкладки Reference ищутся Button с CommandParameter —
-  Museum*Entry не-юнит (оружие, сенсор, пушка, пусковая, система); ToolTip = TextBlock (MaxWidth 380) с началом `Description`
-  (теги убраны, ≤ 480 знаков). Entry меняется → тултип обновляется.
-* FullUnitName ([UnitStatus]): postfix `UnitStatusViewModel.SwitchUnit` ставит `UnitName` = `ObjectBase.DisplayNameFull`
-  (игра: DisplayNameShort).
-
-## Меню и файлы (1.6.0, `src/Pickers.cs`)
-* HideCustomMission ([General]): postfix статического `ScenarioMenuViewModel.GetMissions` (рекурсивный) убирает `Mission` с
-  FileName «_Custom Mission.ini» (`Globals._defaultMissionName`).
-* RememberMissionFolder ([MissionEditor] + LastMissionFolder): prefix `MissionEditorViewModel.LoadMission(filename)` пишет папку файла
-  (внутри StreamingAssets, не _temp); postfix `FilePickerViewModel.Initialise()` для режима OpenFile и initialPath …/user/missions
-  ставит `SelectedFolder` на сохранённую (если есть). Окно «Save as» (SaveFile) не трогается.
-* ColorIniFiles ([General]): `PickerStep` (в цикле Update; окно с `FilePickerViewModel` в DataContext, чей `Context` — `MissionEditorView` (только редактор миссий), определяется раз в 0,4 с,
-  дальше каждый кадр — ListView окна, строки появляются при прокрутке): TextBlock'и с Text *.ini получают голубую кисть (прежняя запоминается, возвращается при переиспользовании строки).
-* DeleteOldLogs ([General], по умолчанию ВЫКЛ — удаление): `CleanLogsOnce` в Awake (до того, как игра начнёт сессионные файлы; повтор в Update безвреден) — `Application.dataPath/Logs`, файлы с
-  «_session» в имени (`*_session_N.*`, `*_sessionEventLog_N.html`), кроме `Log.CurrentLogFileName/CurrentEventLogFileName` и
-  изменённых позже старта процесса − 1 мин. Player.log / Player-prev.log (Unity) не трогаются.
-
-## Колесо только над деревом ([UnitReference] TreeWheelOnlyOver, 1.5.3, `src/TreeScroll.cs`)
-* Жалоба: дерево Unit Reference прокручивалось колесом, когда курсор вне дерева (причина в игре не найдена; вероятно, область
-  TreeView/ScrollViewer больше видимой ячейки). Мод (Step, при показанном дереве) один раз на TreeView вешает PreviewMouseWheel:
-  курсор (`e.GetPosition`) вне границ TreeView или любого предка до окна → `Handled`, а колесо отдаётся ScrollViewer'у под
-  курсором (`VisualTreeHelper.HitTest` от окна, вверх до ScrollViewer с ScrollableHeight > 0, не внутри дерева; шаг Delta·0,4).
-
-## Список loadout'ов для всех юнитов (ShowLoadoutList, 1.4.0, `src/TreeTweaks.cs`)
-* `ObjectInformationViewModel.UpdateLoadoutsForEntry` заполняет `AvailableLoadouts` для любого юнита (базовая запись — все
-  loadout'ы ini, loadout-юнит — только свой; выбран: начальный → PredefinedLoadoutVariant → Default (не у самолётов) → первый;
-  у самолётов при > 1 ещё «None» в начале). Видимость селектора — `HasMultipleLoadouts`: > 1 И `MuseumAircraftEntry`.
-* Мод: постфикс `get_HasMultipleLoadouts` → true при `AvailableLoadouts.Count > 1` (не зависит от ImprovedUnitReferenceUI).
-  Loadout-юнит (и его корабли) получил бы только свой loadout: prefix `UpdateLoadoutsForEntry` на время вызова снимает у записи
-  `IsLoadoutUnit` (finalizer возвращает) — в списке все loadout'ы юнита, выбран свой (PredefinedLoadoutVariant).
-* Рядом с селектором — кнопка «Replace» (`TestCommand`: юниту, показанному в сцене, — выбранный loadout; самолёты, корабли,
-  ПЛ, наземные). Смысл только в режиме игры «Энциклопедия» (`IsTestMode` = `Globals._inMuseum`: миссия EncyclopediaMission
-  из главного меню). Мод (при ShowLoadoutList, каждый кадр, Step) вне энциклопедии её прячет: Button с Command, привязанной
-  к …TestCommand, вверх — Panel, где кроме неё только оформление (фигуры, пустые Border/Panel), и Border над ней — подложка;
-  `SetCurrentValue(Visibility, Collapsed)` (привязка игры остаётся); в энциклопедии — UpdateTarget / прежнее значение.
-* Прозрачная шапка / закрепление кнопки Replace при узком окне (1.5.3) пробовали (HeaderStep: фон шапки, фон кнопки, колонка
-  с кнопкой, TranslateTransform) — не сработало, код откачен. Кнопка Replace — Button со стилем темы (Border с
-  TemplateBinding Background). Вернуться позже.
-* Loadout-юнит (`CreateLoadoutUnit`): у записи `_loadouts` — только свой, таблицы LoadoutSensorsToRemove /
-  LoadoutWeaponSystemEntries / LoadoutPodAmmunition — только для него, при смене loadout в списке сенсоры прошлого варианта
-  оставались на «Sensors & EW». 1.5.3: в prefix `UpdateLoadoutsForEntry` — `CompleteLoadoutData`: таблицы дополняются из всех
-  `MuseumObjectEntries` с тем же IniRef (раз на запись).
-  SelectedLoadout обновляет оружие, сенсоры, дальность, стоимость и т. д. Так же в 0.8.4.
-
-## Armed only (при ImprovedUnitReferenceUI, состояние — ArmedOnly, 1.4.0, `src/ArmedFilter.cs`)
-* Вооружён = в `MuseumObjectEntry.WeaponEntries` (боеприпасы всех loadout'ов и систем оружия — то, что на вкладке Weapons)
-  есть тип `Ammunition.Type` кроме Noisemaker, Chaff, None, Sonobuoy, Fueltank, Paratrooper, MOSS. Не юниты (оружие,
-  сенсоры) не трогаются. Сравнение на vessels (255): все 41 «civ_» без оружия; без оружия и не «civ_» — 15 (плоты, капсула,
-  мишени QST-35, test, sea_mine, AGI Okean / Sampan, танкеры Чиликин / Казбек, Algol, Mercur decoy) — тоже скрываются.
-  Биология в справочнике и так скрыта (`IsHiddenInEncyclopedia`). Самолёты без подвесок (ДРЛО, заправщики, транспорт) скрываются.
-* Фильтр: постфикс `UnitTreeBrowserViewModel.UpdateFilteredMuseumEntries` (только браузер "Encyclopedia", не во время
-  `_isInitializing`) — после страны / даты / текста, тем же способом: новые коллекции `FilteredMuseumEntries` у папок
-  (пустые убираются), у браузера — новый корень (сеттер уведомляет TreeItems). Лист юнита с кораблями решается целиком.
-* Галочка: каждый кадр (Step) для окна Unit Reference, пока не найдена (до 120 кадров): CheckBox игры с DataContext = браузер
-  и IsChecked, привязанным к FilterByDate / SearchByNameOnly; новая «Armed only» — после последней из них в том же
-  родителе (Panel — Insert; Grid — новая Auto-колонка/строка по направлению, в котором идут галочки игры), стиль, поля, шрифт
-  — с неё. Click → [UnitReference] ArmedOnly, SaveExpansionState (если не поиск) и UpdateFilteredMuseumEntries.
-* Отдельного переключателя нет: галочка и фильтр — при Layout Improvements; строка «Armed only» в «Kept by the mod». Всё есть и в 0.8.4.
-
-## Фильтр по источникам — выпадающий список «Source» (при ImprovedUnitReferenceUI, 1.9.0, `src/SourceFilter.cs`)
-* Источник юнита — `MuseumEntry.ModSource` (игра ставит из папки ini юнита, `FileManager.GetModSourceForFile`; у базовой игры пусто; есть и в 0.8.6, и в 0.8.7; `CloneForFiltering` = MemberwiseClone, поле сохраняется). Только `MuseumObjectEntry`; оружие/сенсоры — не трогаются.
-* Список источников — один обход `MuseumEntries` браузера (кэш на браузер, не кэшируется пока дерево пусто): база первой, потом моды по имени. Меньше двух — кнопка скрыта.
-* Состояние — `[UnitReference] SourcesOff`: ВЫКЛЮЧЕННЫЕ источники через `|` (`<base>` = базовая игра), чтобы новый мод появлялся включённым. Пусто = все. Если выключены все присутствующие — фильтра нет (рассинхрон с установленными модами); в меню последний включённый снять нельзя.
-* Фильтр — тот же постфикс `UpdateFilteredMuseumEntries`, что у Armed only, после него: `FilterBy(browser, SourcePredicate, …)` (Armed only переписан на общий `FilterBy`/`KeepBy`). `SyncNations` учитывает фильтр (`_collectSrc`): страны без оставшихся юнитов уходят из списка.
-* Кнопка — `SourceBoxStep` рядом с `ArmedBoxStep` (раз в 0.12 с на окно): вставляется в тот же StackPanel сразу после Grid с TextBox поиска; подпись «Source: all ▾» / «Source: 2/5 ▾» обновляется по изменению. Меню — Popup как у меню вида окна (☑/☐, StaysOpen, закрывается при уходе мыши или повторном клике), строка «all» сбрасывает фильтр; клик по строке → SourcesOff, `SaveExpansionState` (если не поиск), `UpdateFilteredMuseumEntries`.
-* Тексты: `ui.sources`, `ui.sourcesAll`, `ui.baseGame`, `tip.sources` во всех lang/*.ini.
-
-## Вкладка Reference в Unit Status (UnitReferenceTab, 1.5.0, `src/StatusReference.cs`)
-* Игра: `UnitStatusViewModel.Tabs` — `UnitStatusTabViewModel(owner, UnitStatusTab kind, header)` с Header / IsAvailable /
-  IsSelected (сеттер → `OnTabSelected` → `EnsureContent`) / Content / ContentError. `SwitchUnit` (смена выбранного юнита:
-  `DisposeOwnedContent`, доступность вкладок, при недоступной выбранной — `SelectFirstAvailableTab`); `Refresh` (каждое
-  обновление окна) → `EnsureContent(выбранная)`; контент создаётся лениво, при ошибке — ContentError. Так же в 0.8.4.
-* Мод: postfix конструктора — вкладка kind = 5 (за пределами enum), заголовок «Reference», последней; postfix `SwitchUnit` —
-  IsAvailable = UnitReferenceTab и у юнита есть `_obp` (ракеты и торпеды тоже: «Information» игры открывается для любого ObjectBase) (иначе, если выбрана, — SelectFirstAvailableTab);
-  postfix `EnsureContent` — для нашей вкладки без контента: `new ObjectInformationViewModel(MainGameView.Instance,
-  getObjectIniName(), GetReferenceVariantIndex(unit), showTree: false, GetReferenceLoadoutVariant(unit))` (как «Information»
-  контекстного меню) в новом `ObjectInformationView` (DataContext) — Content вкладки (UIElement: шаблон не нужен);
-  prefix `DisposeOwnedContent` — запомнить `SelectedTabIndex` (внутренняя вкладка переносится на следующий юнит,
-  затем `EnsureSelectedTabAvailable`), Content = null, Dispose модели.
-* Показ: Content новой вкладки игра НЕ отображает. UnitStatusView (по дампу дерева из trace, 0.8.5): строка вкладок —
-  ItemsControl {Tabs} → WrapPanel → RadioButton {Header}/{IsAvailable} на вкладку (наша там появляется сама); ниже Border →
-  Grid → Grid {HasUnit}, в нём на каждую вкладку Grid с Visibility {EngagementTab.IsSelected} / {FlightDeckTab.IsSelected} /
-  {DamageControlTab.IsSelected} / {SensorsTab.IsSelected} / {SeekerTab.IsSelected} и видом внутри (EngagementBoardView,
-  FlightDeckContentView, DamageControlView, SensorInfoContentView, SeekerStatusView), все в одной ячейке.
-  Мод (каждый кадр, Step, окно с UnitStatusView): первый элемент с Visibility, привязанной к «…Tab.IsSelected», его Panel —
-  туда свой Border (та же ячейка, Margin), Child = наш вид, виден, пока вкладка Reference выбрана. Если вид уже в
-  визуальном дереве (игра показала сама) — ничего не добавляется. Запасной путь — ContentControl/ContentPresenter с Content
-  вкладки игры; не найдено — дамп дерева UnitStatusView в trace (один раз).
-* Оружие (ракета, торпеда): `ResolveUnitEntry` ищет только `MuseumObjectEntry`, для ini оружия вид был пустым; для него — запись из `EncyclopedicDataManager.WeaponMuseumEntries` (IniRef) и `ObjectWeaponInformationViewModel(context, entry)` (`WeaponEntryOf`). У контакта-оружия `Vehicle.Class` = `getObjectIniName()` сразу.
-* Replace в этой вкладке — тем же `ReplaceStep` (каждый кадр по живым видам вкладки), вне энциклопедии скрыт.
-
-## Вкладка Weapons — теперь отдельный мод Alternative Weapons Control
-Вкладка Weapons (бывшая 1.6.0 в разработке) вынесена в мод Alternative Weapons Control (репозиторий
-rgreat/SeaPower.AlternativeWeaponsControl). Его вкладка — kind 6, наша Reference — kind 5; моды ставят хуки на одни и те же
-методы UnitStatusViewModel и свои хосты рядом с вкладками игры — друг другу не мешают. Ключи [UnitStatus] WeaponsTab,
-ClickVolume, GunOneDirector, GunChannelLimit тестовых сборок удаляются из .cfg (`DropRetiredEntries`).
-
-## Окна Weapon Reference для установок (1.5.1)
-* Окно Unit Reference, открытое на установке (без дерева, страница не MuseumObjectEntry — `IsSystemReference`), мод
-  считает окном Weapon Reference: `Candidates` → «Weapon Reference» (шаблон, раскладка как у окон боеприпасов),
-  `InfoViewModel` → null (никаких Unit Reference-доработок, без вкладки Unit Reference в настройках).
-
-## Фоновые картинки ([General] Backgrounds = Mods|Mixed|Game, was bool ModBackgroundsOnly since 1.5.3, `src/Backgrounds.cs`)
-* Игра: картинки главного меню (`MenuSystemViewModel.Awake`) и экрана загрузки (`LoadScreen.Awake`) —
-  `FileManager.GetAllFiles("ui/backgrounds", "*.png")`: файлы из ВСЕХ отмеченных папок (StreamingAssets/original, моды, user)
-  одним списком, показывается случайная. В модах папка `ui\backgrounds\`.
-* Мод: postfix GetAllFiles (только для пути ui/backgrounds, разделители любые): если в списке есть файлы не из
-  `FileManager.specialDirectories[1]` (= original), файлы original убираются. Ставится вместе с хуком экрана загрузки
-  (`TryInstallLoadScreenHook`, как только загружена Seapower-Scripts): если меню успело создаться раньше, первая картинка меню
-  может быть игровой. По умолчанию включено. Trace: «backgrounds: N from mods, M of the game left out».
-* Экран загрузки (Singleton `LoadScreen`) создаётся раньше хука и кэширует список в поле `imagePaths` (Awake): prefix
-  `LoadScreen.ChangeBackground` чистит это поле тем же правилом (`DropGamePictures`). Подпись в окне настроек — «Mod backgrounds only».
-
-* 1.8.2: хуки (`TryInstallLoadScreenHook` → `HookBackgrounds`) ставятся в конце `Awake` (после `RefreshEnabled()`, чтобы `Active` работал); раньше —
-  в первом `Update`, ~2 с после Awake, и 1-2 с были видны штатные фоны. Запасной вариант из `Update` остался (сборка игры может быть ещё не загружена).
-* Опция `[General] RealPhotos` (bool, true): «свои» картинки мода = файлы под папкой самого мода (`OwnDir()`: первая папка после StreamingAssets/1286220).
-  `FilterBackgrounds` делит список на игровые / свои / чужие: Mods = чужие (+свои), пусто → игровые; Mixed = все (без своих при выкл.); Game = игровые.
-  Пустой результат = список не меняется. `BackgroundsOn` истинно и для Mixed при выключенных фото.
-
-## Settings window left open across a screen change (2.3.3)
-* If the settings window was open when a mission / menu was loaded (also the game reloading after a change in its Mods menu), `_root`
-  stays parented in the old screen's Grid and `IsOpen` stays true, so every later `Open` only switched tabs in the invisible copy: the
-  window "did not open". `Open` now finds the gear's panel first; when `IsOpen` but that panel is not `_host`, the old copy is closed
-  and the window built anew (trace "the open one belongs to another screen").
-* The window also closes itself (as Cancel) when a new load screen starts (`LoadScreenPrefix` → `SettingsWindow.Discard`, checked by
-  `Exists`, not `IsOpen`: the game hides the windows layer in its pause menu). Closing is traced now: "closed (OK)" / "closed (Cancel / X / discarded)".
-
-## Окно настроек: зависимые строки
-* `Field.Needs` — строка видна, только пока включён этот bool (по значению в окне, с учётом неприменённого). Смена такого
-  переключателя (`Set`) перестраивает вкладку. Сейчас: от «Layout Improvements» (ImprovedUnitReferenceUI) зависят
-  «Remember search panel» и группа «Kept by the mod»; Optimize the tree / Scroll to the selected unit / Loadout list — нет.
-
 ## Хуки
 LoadScreen `<ExecuteLoadScreen>.MoveNext` (конец загрузки), `FileManager.SaveDirectories` (Apply в Mods),
 `Window..ctor`, `OnInitialized` (prefix: открыть развёрнутым; postfix: раскладка), `ApplyScreenAnchor`,
@@ -303,16 +235,6 @@ LoadScreen `<ExecuteLoadScreen>.MoveNext` (конец загрузки), `FileMa
 `UnitTreeBrowserViewModel.set_SelectedNation` + RestoreSessionState/OnUnitsLoaded/SetupNations/FinishInitialization,
 `DamageControlView..ctor` (+ `Loaded`/`IsVisibleChanged`) — SectionsMinHeight (ниже), UnitStatusViewModel — вкладка Reference.
 Событие `Loaded` каждого окна — настройка до первого кадра (без мерцания).
-
-## Минимум панелей секций Damage Control ([UnitStatus] SectionsMinHeight, 1.3.0)
-* Вкладка (XAML: `SeaPower.AlternativeDamageModel/ref/xaml/DamageControlView.xaml`): корневой Grid MinHeight=330 (единицы UI),
-  строки: 0 карточки-сводки (Auto), 1 полоса DC/Hull/Flooding (Auto, Margin −30 сверху), 2 панели секций (*), 3 «Auto Damage
-  Control Status» (Auto). Своего минимума у панелей секций нет: им достаётся 330 − остальные строки (≈150–160 ед.).
-* Значение — пиксели экрана, 0 = как в игре. `SetupSections`: корень = ближайший Grid с MinHeight (в ширину, глубина ≤ 5, не в
-  списки), элемент строки 2 = панели; замер «игрового» минимума → `SectionsGamePx` («game: ≈ N px» в форме). `ApplySections`:
-  > 0 — у корня MinHeight 0, у RowDefinition строки 2 MinHeight = px / масштаб + поля (MinHeight самого элемента в строке «*»
-  Grid не учитывает); масштаб — `ScreenScale` (PointToScreen; иначе UIScale × Screen.height / 1080); 0 — минимумы игры обратно.
-  Вкладки создаются свёрнутыми и строят содержимое при показе — правка на первом показе.
 
 ## Настройки (.cfg)
 [General] WindowPatterns, Backgrounds (1.5.3, as ModBackgroundsOnly), CascadeOffset, BringToFrontOnClick, AllowDragOutside, MinVisiblePixels, RememberOpenWindows,
@@ -339,140 +261,6 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 Считаются только окна в UI (IsVisible + есть визуальный родитель: Unit Status оставляет старые окна с IsVisible=true)
 и того же «поколения» (номер экрана загрузки при создании окна: окна прошлой миссии висят, пока строится новая).
 
-## Рамка окон ([WindowBorder]: Enabled, Thickness 0,5–10, Color #RRGGBB/#AARRGGBB, по умолчанию #A0808080)
-Проверена в игре. В `Loaded` у окон с `Draggable = true`
-(`AddBorder`): Border из ParseXaml (IsHitTestVisible=False, Panel.ZIndex=100000) последним ребёнком в корневую панель шаблона
-(или первую панель ниже через одиночные обёртки), в Grid — на все строки/столбцы. Корневая панель шире видимого окна (зона
-ручек ресайза) → `BodyInsets`: крупнейший потомок (глубина ≤ 6) с непрозрачным Background, ≥ 60% ширины и ≥ 30% высоты;
-его отступы → Margin рамки. Верхней стороны нет (BorderThickness = t,0,t,t).
-Старый формат [OpenWindows] `state,ТипVM` читается (берётся первое поле).
-
-## Рамка подсказок ([WindowBorder] ToolTips, 1.5.2, `src/TooltipFrame.cs`)
-* Class handler `EventManager.RegisterClassHandler(typeof(ToolTip), ToolTip.OpenedEvent)` (есть и в Noesis 0.8.4) — все
-  подсказки UI, и модов тоже. Шаблон подсказки игры (`NoesisTheme.Styles.xaml`, Template.ToolTip) — Border с Background и
-  Padding (без рамки, LayoutTransform масштаба UI): ему ставятся BorderBrush / BorderThickness (со всех 4 сторон, ширина и цвет
-  из [WindowBorder]). Шаблон с собственной рамкой не трогается; корень-Panel — поверх кладётся свой Border. Применяется при
-  каждом открытии подсказки (смена настроек — со следующей); свои Border помечены (`TipOwn`), выключение снимает рамку.
-
-## Порядок окон и Weapon Reference (проверено в игре)
-* BringToFrontOnClick: PreviewMouseDown / Loaded окна → вверх от окна до первой панели, где в другом ребёнке есть ещё окно;
-  только если все дети панели — окна. Состояние (уровень = ZIndex элемента при первом обнаружении, отметка клика) хранится
-  ПО ОКНУ: Noesis-обёртки детей панели (ContentPresenter, Grid) при каждом обходе новые — по ним хранить нельзя. ZIndex окон — ОТРИЦАТЕЛЬНЫЙ, вниз от уровня
-  игры: переднее окно уровня — уровень × 1000 − 1, за ним − 2, − 3… (как в рабочей сборке 1.2.0 со своим исправлением, потерянным в истории; восстановлено в 1.5.2). Всё, что игра ставит в ту же панель со своим
-  ZIndex 0 — брифинг миссии и скриптовые сообщения (`SeapowerUI.Modal` / `RichMissionMessageModal` через WindowHost), только
-  что открытые окна, — всегда выше наших окон, без знания их типов. Не-окна панели не трогаются (раньше из-за них мод весь
-  порядок оставлял игре: trace «shares … with RichMissionMessageModal»). Панель — первая панель-предок, которая `IsItemsHost`
-  (Grid списка окон над WindowHost.Windows; так и с одним окном), иначе первая, где в другом ребёнке есть окно.
-  Раньше было «уровень × 1000 + ранг» (≥ 0): окна с рангом > 0 закрывали сообщения игры. Trace при Debug:
-  «z-order (почему) in панель: окна сзади вперёд с ZIndex (уровень игры)».
-  Развёрнутые Tactical Display / World View — ТОЛЬКО эти два окна (`IsMapWindow`: заголовок целиком TacticalDisplay /
-  WorldView, либо собственный — не унаследованный от родителя — DataContext SceneMapViewModel / WorldViewWindowViewModel) всегда ниже всех окон панели (ZIndex = минимальный уровень × 1000 − n), клик по ним порядок не
-  меняет; пересчёт и в `MaximizeChanged` (разворот/сворачивание).
-* Weapon Reference: шаблон `Weapon Reference*` по заголовку; VM — `ObjectWeaponInformationViewModel` (наследник ObjectInformationViewModel,
-  поэтому функции Unit Reference к нему не применяются: `InfoViewModel` сравнивает точное имя типа). Каскад не проверен.
-
-## Окно настроек (1.3.0)
-Стиль и устройство — как окно настроек Alternative Damage Model (`SeaPower.AlternativeDamageModel/src/SettingsWindow.cs`):
-для него в csproj есть ссылка на Noesis.NoesisGUI, UI строится кодом Noesis (типы игры по-прежнему только через рефлексию).
-* `src/SettingsUI.cs` (partial): шестерёнка (`EnsureGear`) — как у ADM (серая 14×14, `GearGrey` 170,176,184, Border-рамка
-  Opacity 0.9 → 1 под мышью, Cursor Hand, ToolTip), клик — PreviewMouseLeftButtonDown (Handled) → `SettingsWindow.Open`.
-  Кладётся в корневую панель шаблона окна (`TemplateRootPanel`, как рамка), Right/Top, ZIndex 100001, на все строки/столбцы.
-  Только у окон из WindowPatterns и при SettingsButton = true; ставится в `Loaded` окна и при опознании в Step. Место: по
-  `HeaderThumb` (TranslatePoint к панели) — по вертикали центр заголовка, справа — левее кнопок заголовка (видимые ButtonBase
-  на линии заголовка правее 30% его ширины; поиск не заходит в элементы ниже заголовка), +6 px. Trace `gear added to ...` —
-  размеры заголовка и найденные кнопки: по нему подгонять. Там же применение изменений (`AfterChange`), `ReloadPatterns`,
-  `ReloadOpenPatterns`, `RefreshGears`, `RefreshBorders`, `ResetLayouts`, `SetTyping` (InputHandler.typingActive/typingElement).
-* `src/SettingsWindow.cs` (вложенный static class): своё тёмное окно (не SeapowerUI.Window) в самой верхней Grid/Canvas над
-  шестерёнкой (не ItemsHost), ZIndex 30000, по центру экрана; размер 900×1140 пикселей экрана (не больше экрана − 40) (k = PointToScreen); размер
-  меняется за любой край (полосы 5 px) и угол (16 px; справа внизу — штриховка), 520–1600 × 420–1400, при левом/верхнем крае
-  противоположная сторона стоит на месте (`ResizeHandle`, как в ADM); размер держится до выхода из игры; перетаскивание за заголовок (TranslateTransform), ✕ и Close.
-  ✕ — нарисованный `Cross(size)` (Path, по центру кнопки, Padding 0): символ «✕» шрифта игры обрезается снизу и не по центру.
-  Вкладки General / Remembered Windows / Frame / Unit Status / Unit Reference; Unit Reference — только если открыто шестерёнкой
-  окна Unit Reference (`InfoViewModel` ≠ null; Weapon Reference — нет), Unit Status — только из окна Unit Status
-  (кнопка «Show all settings» слева в нижней панели, 1.5.0 — показывает и их, повторно — «Show fewer settings»; видна, только
-  если что-то скрыто; сбрасывается при закрытии окна).
-  (`IsUnitStatusWindow`: строка опознания 'UnitStatus*'); открыто оттуда — сразу на этой вкладке; уже открытое окно при клике
-  по шестерёнке другого окна только показывает/прячет эти вкладки. Строка: подпись с жёлтой точкой
-  (изменено в окне и ещё не применено), редактор (−/TextBox/+ с шагом и пределами; CheckBox; TextBox для клавиши/цвета (+ образец)/
-  текста), «default: …», ↺ (поставить default — тоже до применения). Списки (WindowPatterns, RememberOpenWindows) — `ListRow`:
-  строка на окно: имя (TextBox; Enter/уход — принять, пусто — удалить, повтор — откат), справа что хранит мод (сохранённое
-  положение x,y,w,h / «last left open|closed» из [OpenWindows]), ↺ — забыть сохранённое положение (на Apply, `_resets`), ✕ —
-  убрать; «+ Add window» (пустая строка с фокусом), «Forget all positions»; новые/переименованные/помеченные — с жёлтой точкой.
-  Правки строк — по значению имени, не по индексу (строки перестраиваются при потере фокуса). Внизу панель описания
-  (Description из .cfg) фиксированной высоты 108. Работа на копии, как в ADM: `_pending` (поле → значение), точки на вкладках с
-  правками; Apply — записать (`AfterChange` по каждому полю) и забыть отмеченные положения; OK — то же и закрыть; Cancel / ✕ —
-  отбросить; новое открытие — новая копия. Перед Apply/OK текст поля с фокусом принимается (`_commitFocused`).
-  Поля: Enter / потеря фокуса — принять, Esc — вернуть; неверное значение откатывается.
-* Применение (на Apply / OK): WindowPatterns → повторное опознание окон + шестерёнки + список сохранённых положений; RememberOpenWindows →
-  `ReloadOpenPatterns`; [WindowBorder] → рамки окон на экране перерисовываются; SettingsButton → шестерёнки; Debug → сразу.
-  SectionsMinHeight → `ReapplyDamageControl`: у настроенных вкладок (`_dcViews`, `DcDone`: вкладка → { корень, его MinHeight, панели секций, MinHeight строки 2,
-  масштаб, поля панелей }) — `ApplySections` сразу; видимая ненастроенная — настраивается сразу. RemoveSizeLimits → `RefreshSizeLimits`. Остальное читается при использовании; ImprovedUnitReferenceUI, TreeWidth —
-  для окон, открытых после изменения.
-* Ради этого с 1.3.0 все Harmony-хуки и события окон ставятся всегда, а тела проверяют свой переключатель
-  (HeaderDragDelta, Unit Reference, страна, WindowHost.OpenNewWindow, DamageControlView, PreviewMouseDown, двойной щелчок).
-* Совместимость: из игры — только `SeapowerUI.Window.HeaderThumb` и `SeaPower.InputHandler.typingActive` (есть в 0.8.4);
-  Noesis 0.8.4 и 0.8.5 одинаков — для 0.8.3–0.8.4 ничего нового не нужно.
-
-## Без ограничений размера (RemoveSizeLimits, «No size limits»; 1.3.0)
-* Запоминаемые окна: MinWidth/MinHeight → 100×60, MaxWidth/MaxHeight → ∞, MinWidth/MinHeight 0 у элементов от содержимого
-  до окна. Исходные значения запоминаются (`SizeLimits`: окно → { элемент, Min/Max W/H }) и
-  возвращаются при выключении — переключение действует на окна на экране сразу (`RefreshSizeLimits`).
-* Ресайз за край не упирается в экран: `ResizeCommand.ComputeSize` игры обрезает каждую сторону по хосту; постфикс
-  `ResizeBeyondScreen` (Snap.cs, до притягивания) пересчитывает шаг от окна до шага (prefix-state) без этого: верх ≥ 0
-  (заголовок доступен), минимум держит сдвинутая сторона. Только для окон из WindowPatterns.
-
-## Подписи формы
-* Серые подписи у редакторов — 1–2 слова (единица, «0 = …»); подробности — в Description настройки (панель справки внизу
-  формы), там же «для окон, открытых после изменения» и т.п. Колонка редактора ≈ 45 символов, рядом с −/поле/+ меньше.
-
-## Притягивание окон (SnapWindows, 1.3.0, `src/Snap.cs`)
-* Перетаскивание за заголовок: `AfterDrag` (постфикс HeaderDragDelta; теперь и при AllowDragOutside = false, если SnapWindows)
-  → `SnapMove`. Ресайз за края: `ResizeCommand.Execute(Thickness delta)` игры (prefix запоминает X,Y,ActualWidth/Height; postfix
-  `SnapResize`) — притягиваются только сдвинутые стороны (delta.Left/Right/Top/Bottom ≠ 0), с учётом MinWidth/MinHeight.
-* Края — видимые (`VisibleInsets`, раз на окно): «тело» рамки (BodyInsets, рамка стоит по нему верно) с поправками: слева и
-  справа зона ресайза одинакова — берётся меньшая из двух (у Unit Reference «тело» — только панель информации, его левый отступ
-  был шириной дерева); верх — верх HeaderThumb, если он выше тела. Отступ начала заголовка как ширина зоны НЕ годится (в
-  заголовке свои поля/значок: края уходят внутрь, окно уезжает за экран). Trace: `snap: body insets`, `snap: visible insets of`, раз в секунду при
-  перетаскивании `snap: '<окно>' X,Y … px per unit; screen WxH = X L..R, Y T..B; insets`.
-* ВАЖНО (проверено по trace): элемент SeapowerUI.Window всегда стоит в начале своей ячейки — PointToScreen(0,0) окна = 0,0 при
-  любом X; X/Y двигают корневую панель шаблона (Grid 'Container' [rows 10,*,10; cols 10,*,10]). Поэтому все замеры — по ней
-  (`TemplateRootPanel`): отступы относительно неё, экранное начало окна = её PointToScreen. Пример: экран 2560×1440, 1,333 px/ед.
-  → X 0..1920, низ (полоса HUD 1397 px) ≈ 1048 ед.; отступы Tactical Display 10,10,10,10 (тело 30 сверху — под заголовком).
-* Замер (`Measure`): сначала `UpdateLayout()` окна, потом X/Y и PointToScreen — за кадр может прийти несколько шагов drag, и
-  макет на шаг позади сдвигает все цели на этот шаг (окно дёргается). Другие окна (на экране, не развёрнутые,
-  Opacity ≥ 0,05, того же поколения, не предки/потомки, хоть частью на экране) меряются PointToScreen и переводятся в X/Y
-  двигаемого окна.
-* Края экрана — в пикселях экрана (UnityEngine.Screen), а не GetHostSize (тот давал правый край ~10 px за экраном). Низ —
-  верх нижней полосы HUD миссии (`BottomLimit`, кэш 3 с): от кнопки окна HUD (MainGameView.tb_UnitStatusWindow / tb_MapWindow /
-  tb_EventLogWindow / ...) вверх до первого элемента шириной ≥ 50% экрана, доходящего до низа экрана (верх > 60% высоты);
-  нет такого, но кнопка в нижней пятой экрана — верх кнопки; нет HUD — низ экрана. Trace `snap: bottom edge N of H px`.
-* Линии (`EdgeLines` для каждой стороны): края экрана; касание — противоположная сторона окна рядом (мой левый к его правому),
-  если перекрываются вдоль стороны (с запасом SnapDistance); уровень — та же сторона окна, к которому окно прилегает ВПЛОТНУЮ
-  по другой оси (мой левый к левому окна прямо над/под ним, мой верх к верху окна прямо сбоку; вплотную = видимые края ближе
-  1,5 ед.). По просто близким окнам уровень не выравнивается (решение пользователя). Перемещение — два прохода от позиции мыши:
-  X, Y, затем X и Y снова с учётом того, к чему окно прилегло. Берётся ближайшая линия в пределах SnapDistance (1–50, по умолчанию 10). Шаги игры идут относительно Thumb, который едет с окном, — притянутый край стоит,
-  пока мышь не уйдёт дальше SnapDistance.
-* Ресайз (1.5.3): правый/нижний край — X + ширина ПАНЕЛИ шаблона − отступ (раньше Width/Height окна: панель больше на зону
-  ресайза → края на ~28 px дальше вправо/вниз).
-
-## Развёрнутое окно в пределах экрана (1.5.3, `src/MaxFit.cs`)
-* Развёрнутое (Maximized, после Kfa_Completed: Stretch, Width NaN) окно растягивается на свою ячейку UI, она может быть
-  больше экрана. Каждые 0,25 с для развёрнутых окон: видимое тело (панель шаблона − VisibleInsets) через PointToScreen
-  сравнивается с UnityEngine.Screen; вылет по сторонам (в ед. UI, ScreenScale) добавляется к Margin окна (не меньше исходного).
-  Исходный Margin возвращается при сворачивании. Без отдельного ключа (часть разворота окон). Trace `Maximized window fitted`.
-
-## Unit Reference: панель поиска (RememberSearchPanel, 1.3.0)
-* Постфиксы сеттеров `UnitTreeBrowserViewModel` SelectedCategory / FilterByDate / SearchByNameOnly / SearchText
-  (`SearchSetPostfix`, имя свойства из `__originalMethod`) → `SaveSearch` (только браузер "Encyclopedia", не при
-  `_isInitializing` / `_nationBusy` / нашем восстановлении; SearchText — отложенная запись, остальное сразу).
-* Восстановление — `RestoreCountry` = `RestoreNation` + `RestoreSearch` (там же, где страна: после методов инициализации
-  браузера): категория по DisplayName из `RootCategories`, затем флажки, затем текст; ставится только отличающееся.
-  Работает при ImprovedUnitReferenceUI и RememberSearchPanel. Всё есть и в 0.8.4.
-
-## Окна, открываемые в начале миссии (форма)
-* В списке RememberOpenWindows у каждого окна ComboBox open / closed (состояние из [OpenWindows]); правка — в
-  `_osStates`, пишется на Apply после самого списка (у нового окна запись появляется при применении списка).
-
 ## Не подтверждено в игре / открытые вопросы
 * Открытие Unit Reference развёрнутым (последняя правка: `,max` снимается только сворачиванием пользователя).
 
@@ -485,16 +273,6 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 * Версия: константа `PluginVersion` (BepInPlugin, ACPlugin, лог) + `<Version>` в csproj — менять обе; и строку «Version N» в
   начале README.BBCode.txt / README.md (описание Steam). Список изменений к выкладке — одним списком, без разбивки по версиям.
 
-## UnitMenu.cs, GameFixes.cs, CampaignLoadouts.cs (1.6.0)
-- UnitMenu (`[Mission] UnitPanelMenu`): каждые 2.5 с ищем в MainGameView флаг (Image, Source ← `ObjectNation.Value`) и имя (TextBlock, Text ← `ObjectName.Value`) панели юнита; на них вешаем MouseRightButtonDown, который открывает `MainGameView.Instance.ContextMenuCanvas.ContextMenu` с `ViewModel.GetContextMenuItems()` выбранного юнита.
-- GameFixes (`[General] FixContactInfo`): `BaseVehicleViewModel.UpdateFrom` штампует обнаружения `Epoch.ToLive()` (missionSessionTime), а старит/удаляет по `missionElapsedTime` — после загрузки сейва часы расходятся, поля сенсора/возраста пустые. Transpiler подменяет вызов getter на `ContactClock()`.
-- MaxFit: для окон в Canvas (Task Force Builder кампании) Width/Height = Screen/ScreenScale, Max* = ∞ (stretch в Canvas даёт размер контента).
-- CampaignLoadouts (`[Campaign] StrictLoadouts`, по умолчанию off): постфикс `LinearCampaignTaskForceLoadoutsViewModel.GetFamilyVersions` (версии корабля по общему `_encyclopediaTag`) оставляет только типы из `_missionDefaultRestriction` билдера (захват через постфикс `LoadCampaignTaskForceData`) и уже имеющиеся (`ReadCurrentTaskForceUnitKeys`, ключ `Type:Variant`), плюс сам корабль. Если ограничения миссии нет (AllowAll) — список игры. Это опция в настройках, а не в диалоге старта кампании. Не проверено в игре.
-- StrictLoadouts, дополнение: постфикс `MergeRelatedClassGroups` (вкладка Builder) убирает варианты, не разрешённые `_missionDefaultRestriction.Allows(type, variant)` и не `IsCurrentTaskForceUnit`; в Unrestricted/debug-режиме (`AllowAllRosterUnits`) не действует. Галка «Strict loadouts» добавляется на экран старта кампании (CampaignMenuView.Instance, рядом с чекбоксом `TaskForceLimitUnitDates`) — зеркало конфига.
-- UnitMenu: меню не открывается, если DataContext элемента — Contact*/Weapon* ViewModel (панель показывает контакт, а выделен свой юнит).
-- AlertsFix.cs (`[General] AlertsClickThrough`, по умолчанию on): сообщения игры справа внизу (`ItemsControl` над `MainGameViewModel.TopAlerts`) остаются в списке после затухания (`AlertTextOpacity` → 0), а hit-test Noesis игнорирует Opacity → гасшие Alert глотали клики (кнопки Fire в углу окон). Раз в 0,2 с для каждого Alert `IsHitTestVisible = AlertTextOpacity > 0.05`; сам список остаётся hit-testable. ItemsControl ищем по ссылке `ItemsSource == DataContext.TopAlerts` (скан раз в 3 с). Источник: заметка из AWC (AlternativeGameInterface_alerts_clickthrough.md); после выхода — убрать код и опцию из AWC.
-- Правки 1.6.0 (поздние): StrictLoadouts теперь per-campaign. Значение — ключ `AlternativeGameInterface_StrictLoadouts` в `LinearCampaign.PersistentData` (сохраняется с кампанией, по умолчанию False). Галка на экране старта (`_strictStaged`) пишется postfix'ом `LinearCampaignTaskForceDifficultyRules.SeedPersistentDataForNewCampaign`. Строка в окне настроек (вкладка Game Menus, группа Campaign (this game)) — прокси-ConfigEntry в несохраняемом ConfigFile; видна только если окно открыто с шестерёнки Task Force Builder (`Field.TfbOnly`, `SettingsWindow._tfb`), при открытии подгружает значение кампании, Apply пишет его обратно в PersistentData. Опции AlertsClickThrough в cfg больше нет (всегда включено). Группа «Kept by the mod» (Unit Reference) убрана из окна — значения остаются только в cfg. FullUnitName: игра ставит `UnitName` только в SwitchUnit, а Replace (энциклопедия) меняет юнит под тем же окном — postfix `ObjectInformationViewModel.ChangeVariant` (последний шаг Replace) вызывает `SyncFullNames` по списку живых UnitStatusViewModel (без таймеров).
-
 ## Локализация (Loc.cs, Release/lang)
 - Ядро `Loc.cs` — из руководства (как в AWC): `Loc.T/F/Or/Register`, файлы `lang/<код>.ini` рядом с dll, язык игры или `[General] Language`. Тексты окна настроек не в таблице D, а регистрируются: `SettingsWindow.RegisterTexts` (вызывается в Awake после всех Bind) кладёт `tab.<вкладка>`, `grp.<группа>`, `lbl.<Секция>/<Ключ>`, `unit.…`, `help.…` (описание .cfg) для каждого поля окна. Описания скрытых записей (Category, TreeWidth …) не переводятся — их нет в окне.
 - Вкладки, группы и подписи в `Field` остаются английскими идентификаторами (сравнения `Tab == TRef`); показ — через `TabOf/GroupOf/LabelOf/UnitOf/HelpOf`.
@@ -502,103 +280,9 @@ MainGameViewModel.MapVisible / UnitStatusVisible (VM: MainGameView.DataContext �
 - Релизные файлы `Release/lang/*.ini` (9 языков) генерируются скриптом из исходников: ключи берутся из `D(...)` в Loc.cs, из `Add(...)` в SettingsWindow.cs и описаний `Bind`; переводы — позиционные файлы. При добавлении текста/настройки: добавить ключ в таблицу или поле, перегенерировать и перевести файлы (иначе игра допишет английскую строку в конец файла под `; --- new ---`). Скрипты лежали вне репозитория (/home/claude/loc).
 - Не проверено в игре: шрифты игры могут не содержать CJK/вьетнамские глифы.
 
-## Файл настроек в user (1.6.0)
-- `AlternativeGameInterfacePlugin.Config` скрыт полем `new ConfigFile Config` (OpenSettingsFile в начале Awake): `StreamingAssets/user/AlternativeGameInterface/AlternativeGameInterface.cfg`, как AWC. Если файла нет, а BepInEx/config/<guid>.cfg есть — копия один раз (старый не трогаем). Ошибка папки — откат на BepInEx/config. Весь прежний код (`Config.Bind/Save`, `P.Config`) работает без правок, т.к. обращения идут через тип плагина.
-- Умолчания взяты из cfg автора: WindowPatterns = `News,Tactical Display,World View,Unit Reference*,Unit Status*,Event Log,Formation Manager,Task Force Builder,Weapon Reference`, SectionsMinHeight = 278. Размеры/раскладки окон ([Layouts], TreeWidth), состояние панели поиска и язык в умолчания не вошли. Колонка «default» у SectionsMinHeight показывает 278 и, второй строкой, высоту игры.
-
-## Производительность (1.6.0, аудит Update и хуков)
-* Update() каждый кадр обходит все отслеживаемые окна. Что было дорого: `Prop()` склеивал строку на каждый рефлексивный `Get` (мусор → паузы GC),
-  `VtParent/VtChild` — `MethodInfo.Invoke` с новым массивом, `InfoViewModel(w)` (≈8 `Get`) вызывался 4 раза за кадр на каждое окно,
-  `LinkHelpStep` обходил всё визуальное дерево КАЖДОГО окна каждые 0.6 с, `StatusRefStep` до 120 кадров подряд искал UnitStatusView полным обходом.
-* Сделано: кэш `Prop` по (Type, имя) без конкатенации; `VtParent/VtChild/VtChildrenCount` напрямую через Noesis.VisualTreeHelper;
-  `GameAssembly()` кэшируется; помощники Unit Reference — раз в 0.12 с и только для окон с ObjectInformationViewModel (vm ищется один раз и
-  передаётся); опрос позиции окна — раз в 0.1 с; LinkHelp — серия из 6 обходов по 0.3 с после смены выбранного юнита/loadout, потом раз в 3 с;
-  поиск UnitStatusView — раз в 0.25 с, до 40 попыток; панель сообщений (Alerts) кэшируется; `ContactClock` (вызывается из
-  BaseVehicleViewModel.UpdateFrom на каждый контакт) — делегаты (DynamicMethod/CreateDelegate) вместо FieldInfo.GetValue/MethodInfo.Invoke;
-  `MatchObjectPostfix` — кэш lower-case id и описания на запись.
-* Повторные обходы дерева (аудит 2): поиск TreeView для защиты колеса — раз в 1 с, пока не найден; поиск панели Armed only и кнопки Replace — раз в 0.4 с,
-  до 40 попыток; строки файлового пикера — раз в 0.1 с; все обходы ограничены бюджетом узлов и числом попыток. Оставшиеся обходы — по событиям
-  (переключение дерева, создание окна, смена выбранного юнита).
-* Постоянных таймеров нет; единственные хуки на частые методы — ContactClock (теперь без рефлексии) и MatchesTextSearch (только при вводе поиска).
-
-## Сообщения в правом нижнем углу (1.6.0, `src/AlertsFix.cs`, без опции — всегда включено)
-* Погасшие сообщения (Opacity=0 → 0 за 6 с) остаются в hit-test и перехватывают клики (трасса показала попадание в `Run` текста). Фона у общей панели нет.
-* Решение: разово при Loaded списка (ViewCapture → `CaptureAlerts`, ItemsControl с `ItemsSource={Binding TopAlerts}`) `IsHitTestVisible=false`. Сообщения только для чтения;
-  ни опроса, ни подписок, ни обходов дерева.
-* Не помогло (не возвращаться): опрос с коллапсом строк, подписки на PropertyChanged Alert, снятие Background у общей панели.
-
-## Захват элементов вместо обходов (1.6.0, `src/ViewCapture.cs`)
-* Классовые обработчики `FrameworkElement.LoadedEvent` (ToggleButton, Button, TreeView, UserControl) и `UIElement.MouseEnterEvent` (Button) регистрируются в `HookCapture()`
-  (после первого load screen, рядом с HookToolTips). По ним мод запоминает нужные элементы (слабые ссылки, ключ — view model / окно), без обхода дерева:
-  TreeView дерева (ключ UnitTreeBrowserViewModel → `TreeViewOf`), чекбоксы Filter by date / Search by name only и кнопка Replace (ключ ObjectInformationViewModel,
-  `PartsByVm`), UnitStatusView и ObjectInformationView (ключ окно), чекбокс «Limit unit dates» стартового экрана кампании (рядом сразу добавляется Strict loadouts),
-  MainGameView (правый клик по панели юнита). Подсказки ссылок — при Loaded и MouseEnter кнопки (TipButton). Удалены: FindPanelBoxes, FindReplaceHolder, FindTypeNamed,
-  FindByType, LinkHelpStep, CampaignBoxStep, UnitMenuStep, перебор в FindTreeView.
-* Остались обходы по событию (разово, не в цикле): расстановка Reference-хоста (MakeRefHost), FindFilterAnchor / ContainsCommand при показе-скрытии дерева, строки файлового
-  пикера редактора миссий (раз в 0.1 с, пока пикер открыт), запасной поиск ScrollViewer при прокрутке дерева, EnsureGear.
-* Не проверено в игре: что Loaded доходит до классового обработчика у элементов шаблонов Noesis и что к этому моменту уже вычислены привязки (BindingPath).
-
 ## Публикации
 * 1.6.0 опубликована в Steam (22.10.2026; релизная DLL — сборка 20261021.0256, со старым опросом сообщений). Список изменений 1.6.0 дан пользователем.
 * 1.6.1 (после релиза, по разнице строк DLL): события вместо обходов (ViewCapture), IsHitTestVisible=false для списка сообщений, кэш SearchTexts, ContactClock через делегаты.
-
-## Sea Power 0.8.7 (beta 261026) — совместимость с 0.8.6 сохраняется (1.6.2)
-* Загрузку модов ломал не мод, а Anchor Chain (нужен AnchorChain.Preloader бета-форк 1.0.2 или новее). `_info.ini` ApproximateVersion остаётся 0.8.6: правило игры — тот же major.minor и патч игры не меньше, т.е. 0.8.7 проходит, а 0.8.6 тоже.
-* Проверка: `refcheck` (в scratchpad) сверяет все member-ссылки DLL с Managed обеих версий — 0 расхождений; остаётся только рефлексия по имени.
-* Backgrounds.cs: `FileManager.GetAllFiles(path, pattern)` в 0.8.7 получил третий параметр `LayerKind kinds = All` → метод ищется по имени с двумя string в начале (любая перегрузка).
-* FixContactInfo: в 0.8.7 игра сама использует missionSessionTime, transpiler заменяет 0 вызовов — безвреден, на 0.8.6 нужен.
-* Не проверено в игре: Strict loadouts в кампании с новыми правилами получения юнитов (PointsBased / HistoricalReinforcements), `UnitTreeBrowserViewModel.PreserveNodeSelection` (новое в игре) и «KeepOpenedUnit».
-
-
-## Strict loadouts в Builder: закрытые лоадауты (1.6.2)
-* В Builder у корабля отдельная позиция на КАЖДЫЙ лоадаут (`LoadRosterSection`: variants × `GetLoadoutRosterEntries`, `FixLoadout`). Закрытость лоадаута задаёт файл кампании: `LockedShipLoadoutVariants` (закрытые; `BasicShipLoadoutVariants` по умолчанию `Default|Early` — открыты всегда), открываются миссиями (`TaskForceModeLoadoutsToUnlock`) и персистентными данными — `ModeRules.IsShipLoadoutTypeRewardUnlocked` → `LoadoutOption.IsTypeUnlocked` / `IsLocked`. («Level N» — имена лоадаутов в моде Task Force Grom, в базовой игре Early / Late.) Проблема Strict — случаи, когда несколько разных Vessel объединены в одну логическую группу общим `EncyclopediaTag`: `MergeRelatedClassGroups` склеивает их позиции, и в группе оказываются позиции с лоадаутами, не открытыми кампанией, и юниты, которых миссия не даёт.
-* `MergedGroupsPostfix` (патч `MergeRelatedClassGroups`) теперь убирает позиции с `HasFixedLoadout` и `LoadoutOptions[SelectedLoadoutVariant].IsLocked` (`IsTypeUnlocked` = `IsShipLoadoutTypeRewardUnlocked`); фильтр по ростеру миссии (`Allows`) работает как раньше и применяется независимо. Купленные (`IsCurrentTaskForceUnit`) не трогаем. Те же API есть в 0.8.6 и 0.8.7.
-* Билдер запоминаем в prefix `LoadCampaignTaskForceData` (иначе первое построение списка шло без фильтра). Трейс: `strict loadouts: builder list N … left out, M … kept in K group(s)` / `not filtered (причина)`.
-* Случай «Default»: у кораблей, чьи лоадауты игра не знала при построении каталога (`wp_bpk_kashin_mod`, `wp_skr_krivak2` в Grom), позиция получает fixed-лоадаут `Default`, которого у корабля нет (опции Level 4..6 / Level 2,4..6, все закрыты) — поэтому нет «[Level N]» и списка оружия. `LoadoutLocked`: нет подходящей опции и все опции корабля закрыты → позиция скрывается.
-* Не проверено в игре.
-
-## WindowedMapAndWorldView (1.7.0, `src/MapWindows.cs`, `src/PipScene.cs`, `src/CompassTape.cs`; [General] WindowedMapAndWorldView, ранее MapWindowsNotMaximized)
-Что делает игра (XAML GameMapView / WorldViewWindowView / MainGameView):
-* Окно Tactical Display: `Maximized="{Binding IsFullscreen, TwoWay}"` — окно и `SceneMapViewModel.IsFullscreen` это одно состояние. Окно World View: `ShowPip3D = MapVisible && Map.IsFullscreen && PipOpen && !WorldViewDetached`; кнопка X окна — `ClosePipCommand` (PipOpen=false); пункт «World View» в меню окна карты (`WorldViewOpen` ↔ PipOpen) включён только при `IsFullscreen` (`IsEnabled` привязан к нему). Tab = `ToggleMapFullscreen`. Окно карты открывается/закрывается кнопкой HUD, клавишей (`ToggleMapOpen`) и X (`MapVisible`). `SyncWorldViewWindow` и `UpdateWorldRenderingPause` вызываются из Update каждый кадр.
-* Позиция окна: X/Y — `TranslateTransform` на корне шаблона (`VtChild(w,0)`), сам Window стоит в начале хоста. Для Clip / PointToScreen нужен корень шаблона.
-Что сделано:
-* Патчи: `ShowPip3D` postfix (`!Detached && PipOpen`, без требования карты и IsFullscreen), `ToggleMapFullscreen` (Tab пропускается, вызов из InputHandler), `SetRenderingPaused` prefix (камеры рендерят только пока World View показан или фото-режим), `SetCameraRects` prefix (игра не сжимает камеру прямоугольником PiP; полный прямоугольник пропускается), `Pip3DView.OnRender` prefix (рисует нашу текстуру), `Pip3DView.RemapMouse` prefix, `MouseControlState.OnUpdate` postfix (клик в 3D только внутри картинки, иначе состояние UI), `BlitToPipImage.OnRenderImage` (в режиме — обычный Blit, без копии в `_pipImage`).
-* Рендер в текстуру: `LateUpdate` (после обновления Noesis) считает экранный прямоугольник элемента `Pip3DView` (`PointToScreen`), `MapRtStep` держит RenderTexture размером окна в пикселях (смена размера — после 0.15 с покоя). Основная камера (и камера частиц, если есть) получает `targetTexture`. Суперсэмплинг PiP (`CameraManager.PipSupersampleFactor`, private static) — камера рисует в большую текстуру (лимит 16 Мпикс, 8192), `MapRtResolve.OnPostRender` сжимает её вдвое за шаг в показываемую текстуру размером окна. Лимит «не больше экрана» нативного PiP не действует. MSAA — из QualitySettings.
-* Резкость: элемент стоит на дробной экранной позиции, поэтому `OnRender` ставит угол текстуры на целый пиксель (`PointToScreen` в момент отрисовки) и рисует её ровно в её пикселях — texel за pixel, без билинейного пересэмплинга. Для окна World View прозрачность принудительно 1 (opacity < 1 даёт offscreen-группу и пересэмплинг), масштаб и обводка в меню look скрыты.
-* Мышь: `RemapMouse` переводит экранную позицию в пиксели текстуры (низ-лево), `_wvPx` — неусечённый экранный прямоугольник элемента.
-* Фон: камера `AlternativeGameInterface_Backdrop` (depth -1000, слой 31, SpriteRenderer с `AlternativeGameInterface_Backdrop.jpg/.jpeg/.png` рядом с dll, cover-fit; нет файла — серый). Живёт всю миссию (`MainVm() != null && Map != null`), потому что камера мира рендерит в текстуру.
-* Фото-режим (Backspace = `HideHUD` → `SetHudVisible(false)`, также консоль и брифинг): `PhotoMode()` = HUD скрыт; камеры переключаются на `targetTexture = null` (3D на весь экран, без окна), `RemapMouse` и привязка мыши пропускаются; на выходе камеры снова в текстуру. Скриншот без UI (`TakeScreenShot(withUI:false)`) попадает в тот же кадр — `LateUpdate` идёт после `SetHudVisible`.
-* Открытие/закрытие по отдельности: `MapModeStep` для каждого экземпляра окна карты: IsFullscreen=false, `NotifyPipChanged`, а у пункта меню «World View» (MenuItem, IsCheckable, привязка IsEnabled с путём IsFullscreen) снимается привязка (`ClearBinding`) и ставится IsEnabled=true (поиск по Items меню, до 20 попыток). Закрытый World View: камеры на паузе, мышь не попадает в мир.
-* Лента курса (`CompassTape.cs`): Canvas 480×64 с OpacityMask из MainGameView переносится в `Grid` окна World View (родитель `Pip3DView`), DataContext = MainGameViewModel; цвет текстов/линий задаётся локально (белый/чёрный как в игре) по яркости картинки под лентой: копия полосы текстуры 32×4 → `AsyncGPUReadback` (RGBA32) → среднее, сглаживание 0.5, гистерезис 0.42 / 0.55, шаг 0.1 с. Критерий игры (`DarkTape`) — камера под водой; нам он не годится.
-Отвергнуто: дыры в окнах поверх 3D под UI (Clip с полем окна) — внешний Clip попадает в кадр Noesis на кадр позже (порядок `UpdateInputs` → `Update` → render tree), отставал при перетаскивании; экстраполяция это только маскировала. Нативный PiP (`_pipImage`, viewport камеры в углу экрана + даунсэмплинг) давал мыло и лимит размером экрана.
-
-## Рабочие столы (desktops) по клавише «Toggle fullscreen minimap» (по умолчанию Tab) (1.7.0, `src/ProfileSwitch.cs`, `src/SettingsDesktops.cs`; [General] DesktopCount (2..5, по умолчанию 2), [WindowSets] Active / Set1..Set5 / WorldViewOpen; опция TabSwitchesWindowSets удалена — в режиме всегда включено)
-* Только в WindowedMapAndWorldView и в миссии: `MapTabPrefix` (патч `ToggleMapFullscreen`, который `InputHandler` вызывает по действию `KeyAction.MiniMapToggleFullscreen`, т.е. по любой назначенной в настройках игры клавише; вместо пропуска) вызывает `SwitchWindowSet`. Живые настройки ([Layouts] через `_saved`, [OpenWindows], WindowLooks, WindowLevels) всегда принадлежат активному набору, всё остальное работает как раньше; неактивный набор лежит в `Set1`/`Set2` текстом (`L|шаблон|x,y,w,h` ; `O|шаблон|open` ; `K|WindowLooks` ; `V|WindowLevels` ; `W|open`, записи через `;;`).
-* Переключение: снимок живых настроек в слот активного набора -> разбор слота другого -> `_saved`/`_looks`/`_levels` заменяются, открытые окна получают `ApplyLayout` + `ApplyLook` + `BringToFront` (если уровень изменился); open/closed — значения `_osEntries` заменяются и запускается та же фаза восстановления, что после load screen (`OsPhase`, 1.5 с, запись выключена); World View — `MainGameViewModel.PipOpen`.
-* Оба набора начинаются со встроенных раскладок мода (`PresetSet(mapTop)`, доли размера интерфейса); при первой миссии с опцией (оба слота пусты, `WindowSetsStep`) в `Set1`/`Set2` пишутся раскладки и применяется набор 1. Набор 1: World View (3D) сверху на всю ширину (60% высоты), Tactical Display слева внизу; набор 2 — наоборот, Tactical Display (карта) сверху, World View внизу слева. На ультраширокой матрице (соотношение экрана >= 2.1, 21:9 и шире) раскладка другая: три колонки 30/40/30% ширины на всю высоту — основной вид (в наборе 1 World View, во 2 Tactical Display) в центре, второй вид слева сверху (55% высоты), Unit Status и Unit Reference справа, Event Log / Formation Manager слева снизу. Для обычных экранов: Unit Status справа внизу, Unit Reference справа, Event Log / Formation Manager закрыты, вид окон и уровни по умолчанию. Игра не хранит стартовых позиций окон (часть — числа в XAML, часть — привязки к центру экрана), поэтому «настройки игры по умолчанию» восстановить надёжно нельзя. Активный набор хранится в `Active` и действует со следующего запуска (живые настройки уже его).
-* `WindowSetsStep` (каждый кадр, без таймеров): раз за миссию, как только настроены окна карты; состояние World View (`PipOpen`) пишется в `WorldViewOpen` постфиксом сеттера `PipOpen` (`MapPipOpenPostfix`) и восстанавливается в начале миссии.
-* Настройки: вкладка «Desktop mode» (`WindowedMapAndWorldView` = «Enable desktop mode», `DesktopCount`; ключи в .cfg остались в [General]) и страница «Desktops» во вложенном tab control («Settings» / «Desktops», виден при включённом режиме) вкладки «Desktop mode» (`SettingsDesktops.cs`: список рабочих столов — его состав не редактируется, число задаёт DesktopCount — и сохранённые X/Y/W/H и open/closed окон выбранного стола; редактирование, ↺ по окну и «Reset desktop to default» — к встроенной раскладке (`PresetSet(n)`); работает на копии, Apply/OK пишет в `SetN` и применяет активный стол). Столы 3–5: карта на весь экран / 3D на весь экран / рядом. Не переносится: окна, развёрнутые на весь экран (`ApplyLayout` их пропускает).
-
-## Клавиша World View (1.7.0, `src/WorldViewKey.cs`; [General] WorldViewKey, по умолчанию Insert)
-* Открывает / закрывает окно World View (`MainGameViewModel.PipOpen`, как крестик окна); пишет состояние в `WorldViewOpen` активного стола. Работает только в desktop mode и в миссии.
-* Не конфликтует с игрой: перед действием проверяются привязки игры (`InputHandler.KeyBindings[].keyCodes` — актуальные, с учётом переназначений в Controls, любая привязка с этой клавишей считается занятой) и клавиши, которые игра читает напрямую (`DirectKeys`: BackQuote, стрелки, E/F/S/W/Y/Z, F11, PageUp/Down, Escape, Return...). Занятая клавиша игнорируется, в лог — предупреждение. Не срабатывает при консоли, меню, rebind, вводе текста (`consoleOpen`/`menuOpen`/`typingActive`/`RebindMode`) и при зажатых Shift/Ctrl/Alt. Поля InputHandler — публичные поля, не свойства: читаются `Fld`.
-
-* Открытие / закрытие при переключении и Apply — без фаз и таймеров: каждое окно ставится один раз через `RestoreOpenStates(key)` с `OsSoft` (без `_osEnforce` и `_osWantOpen`), поэтому закрытое крестиком окно остаётся закрытым.
-
-## Прочее в 1.7.0
-* `src/DockReach.cs` (`ResizeDockedWindows`): зона ресайза (`ResizeThumb`, `ResizeHandleWidth`=10) лежит вокруг видимого тела; у края экрана / верха нижней панели HUD она вне экрана. Для стороны, где видимый край на краю, thumb'ы этой стороны получают отрицательный Margin внутрь на 4 единицы и увеличенный размер (thumb'ы в XAML идут после содержимого, значит выше).
-* `src/TimePanel.cs` (`DragTimePanel`, `TimePanelPosition`): Grid панели времени (Canvas.Top/Right) в `MainGameView`, перетаскивание за не-кнопочные места, двойной клик — сброс; положение в .cfg.
-* `src/WindowLook.cs` (меню look, `WindowLooks`, `WindowLevels`): по умолчанию `WindowLevels` = `Tactical Display|-1;World View|-1` (карта и 3D снизу); прозрачность (фоны Border / панелей), масштаб содержимого, уровень окна — снизу / по умолчанию / сверху (сортировка по Z внутри категорий в `BringToFront`).
-* `src/TrackState.cs`, `src/TaskForceUpgrade.cs`, `src/CampaignDismiss.cs`, `src/LoadoutsOrder.cs`, `src/PinCentered.cs`, `src/ExistingWindows.cs`, `src/ResizeCursor.cs`, `src/XamlDump.cs`: описаны в заголовочных комментариях файлов.
-
-* Панель времени (`TimePanel.cs`) — псевдо-окно в рабочих столах: ключ `Time Panel` в `[Layouts]` и в `L|` записях десктопа (X, Y слева / сверху, W/H = NaN, размера нет); живое место — `_saved["Time Panel"]`, применяется `ApplyTimePos` (каждые 0,5 с, пока не тянут). Без сохранённого места в desktop mode — отступ 6,4 справа / 26 сверху (`TimeDefR/T`), иначе место игры. Двойной клик — сброс. `TimePanelPosition` убран (`DropRetiredEntries`). Рамки и заголовка нет, look-меню нет.
-
-* `src/EventLogMap.cs` (`CenterMapOnClick`, [EventLog]): a handler of `Hyperlink.ClickEvent` on the Event Log window (DataContext `EventLogViewModel`); the Hyperlink's DataContext is the `Alert`, its Command is `SelectRaisingObject` / `SelectAboutObject` (the game switches the 3D camera) - the object is `RaisingObject` / `AboutObject`. The place is `ObjectBase.GetMapPositionForTaskforce(Globals._playerTaskforce)`, only when the player's side has a map vehicle for the object or it is the player's own (an unseen enemy's real place is not given away); `MapBase.TargetCenter` of the Tactical Display window is set (animated). The settings tab "Event Log" is shown when the settings are opened from the Event Log window.
-
-* `src/EventLogMap.cs` (`AllTracksAreLinks`): the game makes a Hyperlink for a track only in `RaiseAlert(raising, about, text)` (`${TrackId}`, `${OwnTrackId}`); "New contact ... track N" (`Taskforce`: the id is put into the text by the caller), "Track N classified" and "Track N faded" are plain. Prefix / postfix on every `MainGameViewModel.RaiseAlert`: the Alert added by the call (`EventLog.Alerts[0]`, a new object) gets every number of 4 - 6 digits that is not inside a `<Hyperlink>` and is a track in `Globals._playerTaskforce.PlottingTable.Vehicles` (own tracks from 1001, other sides' from 7001) wrapped in a Hyperlink bound to `SelectRaisingObject` / `SelectAboutObject`; an Alert that has no object in that place gets it (the backing fields of the get-only properties, the command taken from an Alert the game builds with that object). `AlertContent.FormattedContent` is rewritten (it is parsed again).
-
-- Damage Control: ancestors of the tab (up to the window) get ClipToBounds while SectionsMinHeight > 0, so the section lists no longer draw below the window edge (ClipTab; restored at 0).
-- Damage Control: row-2 MinHeight is capped to the room left in the window (DcRoom: window height - tab offset - frame bottom inset - 8 px - other rows), refitted on window size change (DcFitStep), so with a small window the section lists shrink instead of being cut off; SectionsMinHeight is the minimum only when the window has room.
 
 ## Rename: Smart Windows -> Alternative Game Interface
 Everything is renamed: namespace/assembly/dll/zip/csproj `AlternativeGameInterface`, plugin class `AlternativeGameInterfacePlugin`, GUID `com.rgreat.seapower.alternativegameinterface`, Anchor Chain id `io.github.rgreat.seapower-alternative-game-interface`, settings `StreamingAssets/user/AlternativeGameInterface/AlternativeGameInterface.cfg`, trace `BepInEx/AlternativeGameInterface.trace.txt`. Migration (once, when the new files do not exist): the old BepInEx cfg (`...smartwindows.cfg`, then `...windowmemory.cfg`) and `user/SmartWindows/SmartWindows.cfg` are copied over. The campaign data key `SmartWindows_StrictLoadouts` is kept as is (saved campaigns). Repository: rgreat/SeaPower.AlternativeGameInterface.
@@ -614,18 +298,9 @@ One entry for the settings of all the author's mods in the main menu (under Mod 
 SettingsHub.Register("alternative-game-interface", () => Loc.T("menu.button"), PluginVersion, 10, anchor => OpenSettingsFromMenu(anchor as Noesis.UIElement), () => Enabled);
 SettingsHub.Install(harmony, asm, Trace, () => Loc.Language);
 ```
-`Enabled` = the Mods-menu tick. `menu.button` = "Game Interface" (ru "Игровой интерфейс", others English) in `Loc.cs` and every `Release/lang/*.ini`. `OpenSettingsFromMenu(anchor)` (the main menu / pause menu view): starts from the view's Content (a UserControl has no panel of its own) and calls `SettingsWindow.Open(..., all flags false, showAll: true)`: every tab, as after "Show all settings" (that button toggles back). The window then goes into the topmost Grid above the view's content, like for the News window's gear in the main menu. Nothing in the settings code needs a game window: the Strict loadouts row only writes into campaign data when there is a campaign (`CampaignData()` null otherwise), the window lists work on the tracked windows that exist. The gears of the windows are not touched.
+`Enabled` = the Mods-menu tick. `menu.button` = "Game Interface" (ru "Игровой интерфейс", others English) in `Loc.cs` and every `Release/lang/*.ini`. `OpenSettingsFromMenu(anchor)` (the main menu / pause menu view): starts from the view's Content (a UserControl has no panel of its own) and calls `SettingsWindow.Open(..., all flags false, showAll: true)`; the `showAll` argument is no longer used: the window opens in the "fewer settings" mode like from any gear (only the tabs without a window context; the "Show all settings" button is there). The window then goes into the topmost Grid above the view's content, like for the News window's gear in the main menu. Nothing in the settings code needs a game window: the Strict loadouts row only writes into campaign data when there is a campaign (`CampaignData()` null otherwise), the window lists work on the tracked windows that exist. The gears of the windows are not touched.
 
 **Gear of the World View window (`src/ModChooser.cs`).** The gear of the World View window (`IsWorldViewWindow`: header "World View" or its own `WorldViewWindowViewModel`; the window's DataContext itself is usually inherited, so it is not tested alone) calls `ChooseSettings`: it reads the hub registry (`AppDomain` data `rgreat.settings.v1`), takes only the active entry whose id contains `special-effects` (the 3D effects; the other mods have nothing to do with the 3D window), adds our own entry (its open = the gear's usual `SettingsWindow.Open` with the window's flags) and shows the hub's own list through reflection on our copy's private `SettingsHub.ShowList` (so the shared `SettingsHub.cs` stays unchanged). No other active mod / reflection failure -> our settings open at once. Other windows' gears are unchanged.
-
-## Propulsion cell in Unit Reference (`src/Propulsion.cs`, `[UnitReference] ShowPropulsion`)
-The unit page is one DataTemplate (`UnitDetailTemplate` in ObjectInformationView.xaml): Grid {identity header Border, WrapPanel of stat cells (Grid.Row 1), TabControl (row 2)}; one template per entry type, re-used while the type stays (the DataContext changes). The game's `ObjectInformationView.UnitTabs_SelectionChanged` runs when the TabControl is built, so a postfix there (`PropulsionPostfix`) finds the WrapPanel through the TabControl's parent Grid and inserts a cell (Tag `agiPropulsion`, the game's own Border / label styles copied from the first cell) at index 4, after Max Speed; `DataContextChanged` of the cell refreshes its text (no polling). Data: `UnitMetadataProvider.Instance.UnitData` (key (folder, ini name)) -> folder `vessels` -> `SimpleObjectParameters._ini` -> `IniHandler.readValue(section, key, string, bool)` of `[MainPowerSystem]` / `[AuxPowerSystem]` `Type` (Steam / GasTurbine / Diesel / Nuclear / Electric / AIP / None) and `HorsePower` (the total of the vessel). The dictionary of inis is built once. With several plants (main + auxiliary) the caption line is collapsed (fewer lines); the cell has a tooltip `ref.propulsion.tip`. Aircraft and land units have no cell. Texts: `ref.propulsion`, `ref.pp.<type>`, `ref.hp` in `Loc.cs` and every lang file.
-
-## Window opacity and state-driven backgrounds (`WindowLook.StateDriven`, `HookState`)
-The opacity puts a clone of a Border's / Panel's brush on the element. Set as a LOCAL value it wins over the style's triggers: a Border in the template of a `ListBoxItem` / `TreeViewItem` / `TabItem` / `ComboBoxItem` / `MenuItem` / `ButtonBase` (TemplatedParent of those types) has its Background changed by IsSelected / IsMouseOver / IsPressed / IsChecked / IsEnabled triggers, so the clone stuck: the unit type tab (ListBox in `UnitTreeBrowserView`) that was red when the look was applied stayed red (found 2026-11-04). Now such Borders get the clone through `SetCurrentValue` (the style stays the value source, so the next trigger puts the game's brush back; `InvalidateProperty` + set when the factor returns to 1), and their TemplatedParent is hooked once (`ConditionalWeakTable`, factor kept there): MouseEnter/Leave, IsEnabledChanged, keyboard focus, Selected/Unselected (ListBoxItem, TreeViewItem; TabItem through `Selector.SelectedEvent`), Checked/Unchecked/Indeterminate (ToggleButton), PreviewMouseLeftButtonDown/Up and LostMouseCapture (buttons, menu items). Each event dims the template's backgrounds at once (`Redim`, not into nested items) and queues the item for the next window step (`FlushRedim` in `LookStep`) for triggers that follow the event. `DimWalk` hooks state-driven Borders even while their brush is empty (an item selected later). The once-a-second `LookStep` re-apply stays the backstop.
-
-## IMGUI windows of other mods over Noesis (`src/ImguiOrder.cs`)
-CameraOffset.dll: `OffsetMenuHandler.OnGUI` (depth 0) draws `GUI.Window`, dragged by `GUI.DragWindow` on the 20-unit title (`GUI.matrix` scale = UIScale or H/1080). `NoesisView.OnGUI` -> `ProcessEvent`: MouseDown / MouseUp -> `ev.Use()` when `HitTest` hits a Noesis element, then `_uiView.MouseButtonDown/Up` (mouse moves go in Update, not OnGUI). There are several NoesisViews (each event reaches 2-3 of them). Trace (2026-11-04) showed them first whatever `GUI.depth` (NoesisView has `useGUILayout = false`): setting depth 10000 did not help, it is kept (harmless). Fix: prefix `NoesisGuiPrefix` keeps a copy of each MouseDown (per view, in order) and skips the original; at the next event (Repaint follows in the same frame) `ResolveDown`: `GUIUtility.hotControl != 0` (an IMGUI control / window title took the press) -> dropped; else each view gets the copy through its own `ProcessEvent` in the original order, stopping after the view that uses it (as the game did). MouseUp / MouseDrag are skipped while `hotControl != 0`. A press on an IMGUI window body (no control) still reaches the interface. Everything by reflection (`Event`, `GUIUtility` are in IMGUIModule, not referenced).
 
 ## SettingsHub timing (1.8.0)
 `SettingsHub.cs` (the new canonical copy) patches the menu classes only after the load screen has finished: patching them at plugin start ran their static constructors (Noesis properties) before Noesis was ready and crashed the Release build of the game. Because the hub now hooks the load screen iterator itself, `Register`/`Install` are called in `TryInstallLoadScreenHook` (right after our own load screen patch), not in `TryHook`, which runs after the load screen is done.
@@ -633,546 +308,5 @@ CameraOffset.dll: `OffsetMenuHandler.OnGUI` (depth 0) draws `GUI.Window`, dragge
 ## Two game builds (checked 2026-10-30)
 The newer Release build (0.8.7-261021, decompiled from the user's GameFiles) was compared member by member with the older build: every game type and member the mod reflects exists in both, except `BlitToPipImage.Downsample` and `CameraManager.PipSupersampleFactor` (newer only). `PipSupersampleFactor` was already optional (factor 1 without it). `HidePipScene` used to switch itself off without `Downsample`; now it falls back to a plain `Graphics.Blit(source, pipImage)`, which is what the older build's own `OnRenderImage` does. Other differences between the builds (MainGameViewModel takes the window host from `RootControl.FindName("WindowHost")` instead of `WindowHostManager.CurrentHost`, `PipShown = ShowPip3D && IsHudVisible`, `Singleton<T>.OnDestroy` clears the instance) do not touch anything the mod reflects; `WindowHostManager.CurrentHost` exists in both.
 
-## Optical view (binoculars) in WindowedMapAndWorldView (1.8.0, `src/BinocularFrame.cs`, `src/MapWindows.cs`)
-Current design only; every point below was found in the game code or in a trace.
-
-**Mouse / camera.** The optical overlay lies over the World View picture but is not inside `Pip3DView`, so `MouseOverManager.UpdateCursor` (hit element != Pip3DView -> over Noesis) puts `MouseControlState` into UI and blocks the camera. `MouseOverManager` must NOT be patched (its static constructor runs before Noesis knows the type: "Native type is not registered", crash on mission load). `MapMouseStatePostfix` (on `MouseControlState.OnUpdate`): mouse inside the picture (or a drag that began there) and state UI -> `MapOverlayIsWorld` repeats the hit test from the window's root; a hit inside the World View window -> `RepeatWorld`: reset `_currentState` to All (the early-returning first pass leaves UI, which the repeated pass would take as the state the press began in and the whole drag would go to the UI), `setMouseOverNoesis(false)`, `OnUpdate` again (re-entrancy guard). Title bar and buttons are outside the picture rectangle and stay UI.
-
-**Frame fit.** Game XAML (WorldViewWindowView.xaml): window Grid(ClipToBounds){Pip3DView, Viewbox UniformToFill (ShowPipOpticalOverlay){OpticalOverlayView Width=UiRootWidth Height=UiRootHeight}}; the overlay is laid out for the whole screen (fixed margins for 1920x1080) and cropped, so in another window shape the eyepieces are cut off. `BinoFit`: Viewbox -> `Stretch.Uniform` (whole frame, centred), then a centred `ScaleTransform` k = min(1.30, fill/fit scale) on the overlay (frame and interface; `BinoMaxEnlargeWide/Tall`), four black `Rectangle` bars in the window grid for what is still uncovered, and the sensor bearing block (the 140x140 compass, bottom right; `BinoCompass`) moved in by what the window cuts off. Sizes come from the Viewbox's parent grid (the Viewbox itself reports 0x0). Option off: `UniformToFill`, no transforms, bars hidden. Event driven: a postfix on the `OpticalOverlayView` constructor (no static constructor: safe to patch); the one with a Viewbox ancestor is the window's (the full-screen one in MainGameView stays as the game lays it out); SizeChanged/IsVisibleChanged/IsOpticalViewActive events refit.
-**Never keep native Noesis elements (Viewbox, Grid) in a `WeakReference`**: the managed wrapper is created on demand and the target is gone after a while (the first two designs silently never ran). Only types the game or the mod extends (OpticalOverlayView, Window) are safe; otherwise walk from them with `VisualTreeHelper.GetParent` (`BinoViewbox`).
-
-**Backspace (photo mode) + optics.** `RefreshHudCameraVisibility`: `UiCamera.enabled = IsHudVisible || IsOpticalViewActive`; the windows layer `OverlayCanvasNew` is not under `DisplayAreaGrid`, so the windows showed over the picture, and the forced `ShowPip3D = true` put the overlay into the World View window whose picture is not updated (`PipShown = ShowPip3D && IsHudVisible`). Now `MapShowPipPostfix` keeps the game's value while `PhotoMode()` (the game's own full-screen optics) and `PhotoLayers` (on `IsHudVisible` and on the option change) hides `OverlayCanvasNew` and re-raises the `ShowPip3D`-dependent flags (the game does not raise them when the HUD toggles).
-
-**Normal view in binoculars** (`BinocularView.cs`, moved from Alternative Special Effects where it was `[Optics] BinocularsNormalView / NormalViewDayOnly`; here `[Camera] BinocularsNormalView / BinocularsNormalViewDayOnly`, "In Mission" tab, both on by default). Postfix of `CameraManager.ApplyOpticalPostProcessProfile`: for the Binoculars mode and the last (maximum) optical profile the post-process filter (`_opticalPostProcess.effectEnabled`) starts off, `toggleKey` = `originalToggleKey` so the game's filter key turns it on; DayOnly: only while `DynamicSky.getSunlightIntensity() >= 0.5`. Old ASE values are not migrated.
-
-**Ship binoculars below the horizon.** `CameraManager.ApplyOpticalRotationConstraint` clamps the ship binoculars' pitch to -90..0 (positive pitch looks down). `BinoPitchPre/Post` keep the pitch before the clamp and, for Binoculars on a `Vessel` only, clamp it to -90..`BinocularsBelowHorizon` (config section Camera, "In Mission" tab, default 10, 0 = the game). Aircraft binoculars and the periscope are untouched.
-
-**Screen vs Noesis coordinates (found 2026-10-30).** `MouseOverManager.UpdateCursor` feeds `PointFromScreen` with `mouse * UIScale * Screen.height / 1080`; `PointFromScreen`/`PointToScreen` are inverses in screen pixels (top left origin), so that is right only at 1080 lines: at 1440 the game's hit lies a third too far from the corner (the "overNoesis" flag flipped at the picture's lower part, and resizing a window over the picture also rotated the camera). AGI's own hit test (`HitIsWorld`) uses plain pixels. `OverWorld` (on mouse move / button down, not every frame) says whether the picture really is under the mouse (inside the World View window, not under a `Thumb`/`ButtonBase`; no hit counts as the picture); the press decides the owner of the whole drag (`_mapDownInside`); not the picture -> the postfix forces state UI regardless of the game's flag. The rectangle of the picture alone is only a pre-filter. Ordinary mode (not Desktop) uses the same fix: `GameMouseFix` in the same `MouseControlState.OnUpdate` postfix hit-tests the whole main view root in pixels (hit and not under `Pip3DView` = UI), the press decides the owner of a drag (`_fixDownNoes`), skipped when the HUD is hidden (`HudHidden`).
-
-## Damage Control lists: mouse wheel ([UnitStatus] DamageListsWheel, `src/DamageScroll.cs`)
-- The five section lists of `DamageControlView` are plain ListBoxes without a Background: the empty parts of a row are not hit-testable, so the wheel reached nothing there.
-- `SetupDamageWheel(view)` runs once per tab from `OnDamageControlLoaded` / `OnDamageControlShown` (events, no polling): the ListBoxes found in the visual tree get `Background = Transparent` and a bubbling `MouseWheel` handler: if the list's own ScrollViewer did not handle the event and `ScrollableHeight > 0`, it calls `LineUp` / `LineDown` (|Delta| / 40 times, the unit of the ScrollViewer is not assumed) and marks it handled.
-- Do NOT set `CanContentScroll = false` on these lists: with the game's VirtualizingStackPanel (Recycling) new items - newly damaged systems - were no longer shown.
-- Applies to the next tab shown after the option is changed. Trace: "damage control wheel: N lists set up".
-
-## Tactical Display closed by a desktop switch (`RestoreOpenStates`)
-- The map window is closed the way its X button closes it: `Window.CloseWindowNow()` (OnClosed, the window manager, the host's close command); MapVisible then follows through the HUD button's ToggleWindowBroker. Setting `MainGameViewModel.MapVisible` directly is the fallback.
-- KeepMapView state is kept per `SceneMapViewModel`, not per window: the zoom belongs to the view model and outlives the window, so a window opened again at another size gets the zoom corrected from the size the zoom was last right for. Closed windows (not visible) are not measured.
-
-## Game bug: drawing tool objects doubled after the map window is closed and opened (not the mod)
-- Reproduced without the mod (Sea Power 0.8.7): draw a ring / ruler, close the Tactical Display (X), open it again - a second picture of the ring / ruler lines stays fixed on the screen (does not follow zoom or pan). Markers are not doubled.
-- Diagnosed with a temporary trace (removed): `DrawingLayer.Graphics` holds each drawing once; the visual tree (all NoesisView roots, ~850 elements) holds one MapEllipse / MapPolyline per drawing, in the new window's GizmoLayer, ParentMap = its own map. The eraser removes a drawing and both pictures go - the extra picture belongs to the same drawing but is not in any visual tree (a stale render of the closed window's view, still bound to the drawing).
-- Related defect in `GizmoHost`: `Cleanup` (Unloaded) disposes `_handle` but does not null it, so a second Loaded of the same host calls `ReplaceGizmo`, which does not put the gizmo back into the layer.
-
-## Reference tab: the tab Kind (`src/StatusReference.cs`)
-* The game's `UnitStatusViewModel.EnsureContent` builds a tab's content by its `Kind`. A newer game build added a Supplies tab (`UnitStatusTab` 5, `SuppliesStatusViewModel`): our tab, made with Kind 5, got the Supplies view model as its Content and the Reference stayed empty (trace: `Reference tab: not made: ... content SuppliesStatusViewModel`).
-* The Reference tab now uses Kind 105 (far past the game's values; the game also looks tabs up by Kind in `ShowUnitStatus`). Alternative Weapons Control's Weapons tab uses 6, which collides when the game takes 6.
-* `RefWhy` traces once why a selected Reference tab got no content.
-* Reference for a contact (`RefTarget`, `WatchContact`): while Track State holds a contact (`TrackTab.Vehicle`), the Reference tab is available when `Vehicle.Class` has a value (the game sets it when one candidate class is left or the identification is forced; the value is the unit's ini name). The variant and loadout of the real object are not used (variant 0). `Vehicle.Updated` is subscribed while the contact is held (no polling): when `Class` changes, `UpdateRefTab` runs; content made for another ini is dropped and made again. Weapons are left out. `TrackSwitch` selects the Track State tab with `SelectOnly` (the Reference tab may have been the selected one).
-* Track State tab Kind is 107 (was 7), for the same reason as the Reference tab's 105.
-
-
-## Other monitors for windows (desktop mode, `[Monitors] Enabled`, `src/Monitors.cs`)
-Game facts (decompile): windows are items of `WindowHost.Windows` (ObservableCollection of view models); the data templates (VM -> `Window`) are in `MainGameView`'s `UserControl.Resources`; an `ItemsControl` in `OverlayCanvasNew` shows them; `WindowHost` is a Behavior on the view root that handles `WindowHostCommands.OpenWindowCommand / CloseWindowCommand` for the elements below that root (`MainGameView.FindName("WindowHost")` in the newer build, `WindowHostManager.CurrentHost` before). `NoesisView.MousePosition` uses `Display.RelativeMouseAt` and `OnGUI` / `UpdateMouse` act only for the display of the view's camera (`_activeDisplay == _camera.targetDisplay`), so a view with its own camera on a display works there. The game's own use of other displays: `SecondDisplayMapHandler.EnableSecondMonitor` (second map; `SecondaryDisplayBlanker` black cameras), `CameraManager.SetWorldDisplay` (World View on a display, `WorldViewDetached` -> `ShowPip3D` false), `CameraManager.MouseOnWorldDisplay`.
-* Off for the game while the feature is on (`MonitorsOn` = option + desktop mode + more than one display): prefixes force `EnableSecondMonitor(enabled=false)` and `SetWorldDisplay(0)`, `WorldViewDetached` answers false.
-* A `MonitorView` per display i >= 1 (`MonitorsStep`, in a mission when the main view and its host exist): GameObject + Camera (targetDisplay i, grey clear) + `NoesisView` (added by reflection after the camera; render settings copied from the main game NoesisView; `UseRealTimeClock`); content = XAML parsed in code (Grid with ScaleTransform = UIScale x display height / 1080, ItemsControl over a second `WindowHost`'s `Windows`), set with the private `NoesisView.CreateView`. The second `WindowHost` is made with `Activator` (its constructor makes itself the manager's `CurrentHost`: put back), attached with `Interaction.GetBehaviors(root).Add`. The main view's `Resources` are merged into the Grid; DataContext = the main view model. Not tested by me at runtime: failures go to the trace ("monitors: ..."), `_monBroken` switches the feature off.
-* Moving a window = its view model out of one host's `Windows` into the other's (`MonitorMovesStep`, queued from the menu / Loaded: never inside layout). A view model is on one host only: `WindowHost.OpenNewWindow` is skipped when another host has it, `CanCloseWindow` answers true and `CloseWindow` is forwarded to the owner (the game's toggles ask the main host).
-* The monitor of a window pattern: `[Monitors] Windows` = `pattern|n;...` (n = display number, 1 = main, not stored), per desktop in the record `N|` of the desktop text (`DeskData.N`); the desktop switch moves windows whose monitor differs. `Loaded` of a window (`MonitorCheck`) moves it to its remembered monitor. The look menu has a `Monitor 1 2 3` row (`MonitorRow`) for remembered windows other than the Tactical Display / World View (the 3D picture stays on the main display; later).
-* Mouse input of the monitor views: `NoesisView.ProjectPointer` flips y by `Screen.height` (the main window's) and the OnGUI mouse events carry the main window's coordinates, so `MonProjectPrefix` flips by the view's own display height and `MonProcessEventPrefix` turns `enableMouse` off for these views (keys still come through OnGUI: a view acts only while the mouse is on its display, `_activeDisplay`). `MonitorInputStep` sends buttons (down / up / double click by time and distance) and the wheel (`mouseScrollDelta` x 120) with `Display.RelativeMouseAt` positions to the view of the display under the mouse; a release goes to the view of the press. Moves are NoesisView's own `UpdateMouse`. `[Monitors] Enabled` is on by default (it still needs desktop mode and more than one display).
-* Geometry per monitor: `DisplaySize(element)` (display of the element's view: `DisplayOf` compares the visual root with the monitors' roots) replaces `Screen.width/height` in MaxFit, DockReach and Snap; the HUD's bottom limit applies to the main display only.
-* Mouse: `MapMouseStatePostfix` (desktop mode) forces UI state while `Display.RelativeMouseAt(Input.mousePosition).z > 0` (only windows are on the other monitors); `GameMouseFix` / the postfix / `MapRemapPrefix` leave the game's decision when `CameraManager.MouseOnWorldDisplay` (the game's own World View monitor); `MapPausePrefix` does not pause while `WorldViewDetached`; the World View texture is released when the game detaches the view.
-
-### Monitors: backdrop, Tactical Display, World View (1.8.2)
-- Each monitor camera gets its own sprite object (layer 31, the main backdrop's sprite, cover-fitted per display) - `MonitorBackdrop`.
-- `DisplayOf` walks `GetParent` up to `m.Root` (GetRoot returns an internal root, not ours).
-- The Tactical Display / World View are choosable for a monitor. `MainGameViewModel.SyncWorldViewWindow` is skipped (`MonSyncWorldPrefix`) when the World View VM sits on a monitor host (else it would be duplicated into the main host).
-- `_wvDisp` = display of the World View picture; `_wvPx` is in that display's pixels. `PointerOn(display, out x, out y)` gives the mouse in that display's top-left pixels (RelativeMouseAt); used by HitIsWorld, MapMouseStatePostfix; MapRemapPrefix does the same for the texture mapping. Photo mode (HUD hidden) is off when the World View is on another display.
-- Untested at runtime: needs a trace from a 2-monitor setup.
-
-### Do not patch SeapowerUI.SceneEdit.Behaviours.MouseOverManager
-Harmony's patch runs the type's static constructor, which registers a routed event for a type Noesis does not know yet: MainGameView fails to load ("Native type is not registered for 'MouseOverManager'"). Its cursor callback (one global callback for all views) cannot be filtered there; the stale hover of a view on another display is avoided by parking that view's mouse far outside (monitor view at creation, a view the mouse left).
-
-## Фон главного меню: видео или слайдшоу (`[General] MenuBackground` Video/Slideshow, `SlideshowSeconds` 15, по умолчанию Video, `src/Backgrounds.cs`)
-* `MainMenuView.xaml`: `MediaElement MainMenuBackgroundVideo_MediaElement` (main_menu.mp4, зациклен) поверх картинки `MenuSystemView` (`BackgroundImage`, выбирается `MenuSystemViewModel.ChangeBackground` при смене `CurrentWindow`, если `randomizeImage`).
-* Slideshow: prefix сеттера `CurrentWindow` — у новой `MainMenuView` до показа `Source = null`, Stop, Collapsed (видео не загружается); `MenuBackgroundStep` (каждый кадр): пока текущая страница — главное меню, раз в `SlideshowSeconds` вызывает `ChangeBackground` (до 4 раз, пока картинка та же). Плавная смена: второй `Image` (в Grid `MenuSystemView` на индексе 1, над картинкой игры, под страницей); следующая картинка (случайная из `imagePaths`, ≠ текущей) грузится через `ResourceLoader.getNoesisTextureSourceResource`, проявляется 1,5 с (smoothstep по Opacity), затем становится `BackgroundImage`/`backgroundImageResourceKey`, прежняя выгружается `PurgeCachedTextures`. Возврат к Video «на ходу»: `RestoreMenuVideo` (сохранённый `Source`, Visible, Play).
-
-## Быстродействие: что считается каждый кадр (проверка 1.8.2)
-* Каждый кадр: `MenuBackgroundStep` (в меню; в миссии выходит сразу), `BackdropStep`, `MonitorsStep` (+ `MonitorMovesStep/InputStep/MenuStep` только при вторичных мониторах), по окнам — `Step` и перечисленные в Update шаги.
-* Кэшируются: `MainGameView.Instance` (FieldInfo), `MainHost()` (по экземпляру вида; `FindName` раз за вид), поле `ContextMenuCanvas`; причина «мониторы вкл/выкл» формируется строкой только при изменении входных значений; `MonitorBackdrop` не трогает спрайт, пока размер экрана не менялся; Event Log: окно с известным не-логовским DataContext больше не проверяется.
-* Совместимость 0.8.6 (release) и 0.8.7: сверено по декомпилу — `MenuSystemViewModel`, `MainMenuView.xaml` (видео-элемент), `ObjectWeaponInformationViewModel`, `EncyclopedicDataManager.WeaponMuseumEntries`, `Vehicle.Class`, `NoesisView` одинаковы; `MainGameViewModel.SyncWorldViewWindow` в 0.8.6 берёт хост из `FindName("WindowHost")`, в 0.8.7 — из `WindowHostManager.CurrentHost` (патч и `MainHost()` учитывают оба).
-
-## Unit Status: закладка на юнит (`[UnitStatus] RememberTab`, true, `src/StatusTabMemory.cs`)
-* Prefix `UnitStatusViewModel.SwitchUnit`: закладка окна (выбранная и доступная; Kind, в т.ч. 105 Reference и закладки других модов) записывается для покидаемого юнита (`_unit`, у контакта — `TrackTab.Vehicle`) в `ConditionalWeakTable`. Postfix (после хуков Track State / Reference): у нового юнита с записью — `SelectOnly` на закладку, если она доступна. Закладку, которая ещё недоступна (её делает доступной хук другого мода, напр. AWC Weapons), подхватывает postfix `Refresh` окна (один раз, дальше выбор игры). Ключ юнита — ссылка на объект: память живёт, пока жив юнит / контакт.
-* 2.3.0: the option `RememberTab` is removed (always on; the key is in `DropRetiredEntries`). `[UnitStatus] LastTab` (int Kind, -1 none, written by the mod): `TabTrackStep` (per frame, window with UnitStatusView, skipped while a restore is pending) writes the open tab to `TabMemory[unit]` and `LastTab`; `TabApply` takes `TabMemory` or, for a unit without a record, `LastTab` (the previous unit's tab, also the first unit after a restart). The cut is recomputed per contact 5 times a second at most (`ClipState.Tick`; `UpdateEllipse` is called every frame); `FieldV` caches the members. Not verified in game.
-
-* 2.4.0: what counts as the user's tab. The game's `SwitchUnit` keeps the open tab when the new unit has it, else `SelectFirstAvailableTab` (Engagement). The old code noted every shown tab (also in the SwitchUnit prefix) as the unit's own and as `LastTab`, so a unit that lacks the tab (a weapon: no Sensors) put its fallback into `LastTab` and into its own record, and the next unit opened on Engagement. Now `TabNote` writes nothing; `TabTrackStep` (20 Hz) writes `TabMemory[unit]` and `LastTab` only when the tab changed while the same unit stayed shown (`TabSeenBy`: status -> unit + tab seen last; a tab seen right after the unit changed is only remembered as "seen"). Trace lines "remember tab: ..." show the user's choice, a put-back and an unavailable tab. Not verified in game.
-
-## Enabling in the Mods menu needs a restart (2026-11-11)
-Anchor Chain (with its Beta Compatibility preloader) loads the DLLs of **ticked** mod folders only ("original mod code will be loaded only from checked directories"). A mod that is unticked at game start is not loaded at all (LogOutput.log lists no "Loaded assembly AlternativeGameInterface"), so nothing in the plugin runs and ticking it later (Apply only reloads scene 0) cannot start it: the game must be restarted. Turning it OFF at run time works (the plugin follows the tick and goes idle). The comment in AnchorChainEntry ("started even when unticked") is only true for older Anchor Chain versions. Not fixable in the mod.
-
-## Sea Power 0.9.0 - compatibility review (2026-11-12, mod 1.9.0, nothing changed in the source yet)
-Compared: decompiled 0.9.0 (`Seapower-Scripts.dll`, `Noesis.NoesisGUI.dll` from GameFiles) against the 0.8.7 builds, and the 0.9.0 XAML against the 0.8.7 XAML. Every game type and member name the mod reflects still exists; no patched method changed its parameters in a way that breaks a patch.
-
-Fixed on 2026-11-12 (1.9.0): `_info.ini` -> `GreaterThanEqualToVersion=0.8.6`; `IsFlagship` check in `CanDismissPostfix` (CampaignDismiss.cs); `MoveTimeFollowers` in TimePanel.cs (the other children of the time Canvas get the panel's Canvas.Right and its Canvas.Top added to their own top margin, their Top binding stays). The findings:
-* `Release/_info.ini` has `ApproximateVersion=0.8.6` (rule: same major.minor, patch not lower). On 0.9.0 it fails: `FileManager.CheckCompatibility` shows the "incompatible mods" warning at start (Disable mods / Ignore), and `CheckForUpdates` does not download Workshop updates of a mod whose metadata fails the check. Use `GreaterThanEqualToVersion=0.8.6` (the key exists in 0.8.6 / 0.8.7 / 0.9.0). The same line is in ADM, AWC, ASE.
-* DismissDamaged: 0.9.0 `CanDismiss` also refuses the flagship (`LinearCampaignForceFlagship.IsFlagship(item)`); `CanDismissPostfix` repeats the airbase / historical checks but not this one, so a damaged flagship becomes dismissable. Add the flagship check (type is absent before 0.9.0).
-* Time panel (TimePanel.cs): `TimeCompressionView.xaml` got a second Canvas child - the mission timer Border (Canvas.Right=0, Top = height of the controls, RenderTransform bound to the controls). The mod moves the controls Grid by Canvas.Top / Canvas.Right, so the timer stays in the corner when the panel is dragged.
-
-Works, behaviour to know:
-* Tactical map rewritten (`MapInstance`, `MapRegistry`, `MapTerrainBackground`, geometry store instead of XAML shapes, orthographic projection, shared `MapDrawingLayer`). The map world is built when a `MapBase` is loaded and released when it is unloaded: closing / reopening the Tactical Display or moving it to another monitor rebuilds it. Still a RenderTexture, so it shows in any NoesisView. Main map renders only while `UiCamera.enabled` (HostVisible). `MapBase.ZoomLevel / TargetZoomLevel`, `MapViewModel.Center` are there (KeepMapView, EventLogMap). The pending "GizmoHost drawing duplicates" fix is probably obsolete (drawings are no longer per-view XAML) - check in game.
-* `MainGameViewModel` takes the host from `RootControl.FindName("WindowHost")` (as 0.8.6); `WindowHostManager.CurrentHost` still exists. `MainHost()` covers both.
-* NoesisGUI updated: `NoesisView.ProjectPointer` uses the camera's pixelRect, `ProcessEvent` uses `_viewSizeY` instead of `Screen.height`. The monitor patches replace / gate these and stay valid. Public managed API: additions only.
-* Unit Status: new game tab `UnitStatusTab.Supplies = 5`. Mod kinds 105 / 107 are clear; AWC's Weapons tab is 6 - the next game tab will collide.
-* Unit Reference: new "Performance" tab (index 3, aircraft / helicopters only; `HasPerformanceTab`, `EnsureSelectedTabAvailable` handles a remembered index). New weapon / sensor rows. Tree, search panel, loadouts unchanged.
-* Event Log: new `RaiseContactAlert` (New contact ...) makes the track number a link itself (`Alert.SelectContact` -> `NavigateToContact`: opens the map and centres it on the first click). It is not a `RaiseAlert` overload, so the mod leaves these messages alone; its own links still centre on the repeated click.
-* File layers (`FileLayer`, `LayerKind`, runtime mounts): `GetAllFiles(path, pattern, kinds)`, `SaveDirectories`, `specialDirectories`, [LoadOrder] format unchanged for the mod. `GetModSourceForFile` returns the layer name for every non-base layer (the user folder too) - the Source filter lists it as a source.
-* New: rolling replay (Alt+F8; closes Unit Status / Formation Manager / Tactical Doctrine while active, hides the bottom bar), radio subtitles, rudder / wire / fuel in the bottom bar, game option for World View supersampling (already read by the mod). Not seen in game yet with Desktop mode.
-
-## Cleanup after dropping 0.8.x (2026-11-12)
-* FixContactInfo removed (GameFixes.cs, the setting, the lang keys): 0.9.0 `BaseVehicleViewModel` reads `missionSessionTime` everywhere, there is no `missionElapsedTime` call left to redirect. Old saves keep an unused `FixContactInfo` line in the .cfg - harmless.
-* GizmoHost (drawings doubled after the map window is closed and opened): the mod never patched it. In 0.9.0 `GizmoHost.Cleanup` nulls `_handle` (the defect noted above is fixed) and the map is rewritten (geometry store, no XAML shapes), so the 0.8.7 note is history; not re-tested in the game.
-* AnchorChainEntry comment corrected: a mod unticked at game start is not started by the newer Anchor Chain.
-
-## Mission timer draggable by itself (1.9.0, TimePanel.cs)
-* The Border under the time controls ("Time Remaining", 0.9.0) is made hit-testable (`IsHitTestVisible=true`) and dragged like the panel. Place: `[Layouts] "Time Remaining"` (X from the left, Y from the top, width = the panel's). Not saved = it follows the panel (Canvas.Right = panel's, Canvas.Top = panel's top + height); the Canvas.Top binding is replaced by a local value. Double-click = back under the panel. Not in the Desktops list yet (only the plain layout entry).
-
-## Text by background and the frame of transparent windows (1.9.0)
-* `look[2]`: 0 off, 1 text contrast (saved as '-', '+'); the contrast includes the text-by-background shift (a separate 'Text by background' checkbox existed in a test build, '*' is read as '+'). The backdrop is the finished screen, not the 3D view (the 3D view is one window among others; works in menus too): SceneLum.cs - a coroutine at the end of the frame, every 0.5 s and only while a window asked in the last 3 s (`SceneLumAsk` from `ApplyLook`), calls (up to 10 times a second with the small capture, 4 with the full one - one at a time, the next starts when the readback is in) `ScreenCapture.CaptureScreenshotIntoRenderTexture` (reflection, UnityEngine.ScreenCaptureModule; the texture must be screen sized) into a texture, shrinks it to 64x36, AsyncGPUReadback (9 KB). The texture is 1/10 of the screen when Unity scales into it: the first captures take both a full-size and a 1/10 one and compare their 64x36 maps (mean difference < 0.06 and a picture that is not even) - then the full texture is freed (`_slMode` 1); otherwise the full one stays (2); see the Trace 'small capture'. When a map arrives, `AutoLookRefresh(display)` recolours at once the texts that the last window step collected (`LookState.AutoTexts`) for the windows on that display if their t flipped (`AutoStep`) - no tree walk, nothing when the picture is steady. A window averages the points under it (the capture includes the window itself and the windows above it; opaque dark window -> dark). Every display with a window that uses the option: display 0 in the end-of-frame coroutine, a monitor (Monitors.cs, `MonitorView.Cam`) in `Camera.onPostRender` of its camera (`SlPostRender`); the state is per display (`SlDisplay`, its own small/full mode check); a monitor without a picture yet counts as its flat clear colour. Row order: Unity copies the screen as it is in memory, so on Direct3D/Metal/Vulkan (`SystemInfo.graphicsUVStartsAtTop`) the first row is the top; `[General] BackdropRows` = auto / topFirst / bottomFirst overrides it. **Not tested in the game** - if texts of a window follow the wrong place, flip BackdropRows.
-* `OutlineWalk(.., auto)`: with auto >= 0 the text colour = `ShiftText(original, t)`: grey texts start from the pure white / black of the contrast, then HSL lightness of a text above 0.3 moves toward 15 % of itself by t (hue, saturation kept; coloured texts too); darker texts stay. t = 0 or 1 only (no gradations: `AutoStep`, up at backdrop brightness 0.66, down at 0.58; was a steep smoothstep over 0.58..0.68 (white text with a black halo reads better than black text with a white one on a mid backdrop - e.g. an Event Log over the sea, ~0.4 - and the mid-grey texts of a slow transition read badly on either halo; the band 0.34..0.48 gave exactly that; 0.42..0.58 and a quarter of the lightness left the mid and bright backdrops with little contrast), applied at once (no easing in time). The halo stays one of two colours (white for dark text, black for light). Originals are kept in `_origFg`, restored when the option goes off. A new brush is made only when the colour moves by more than 3/255.
-* Frame (`AddBorder`) of a window with opacity < 100 %: `FrameOpacity` = max(0.2, opacity / 2) on the frame element; set from `ApplyLook` and when the frame is added. Not tested in the game.
-
-## Elements rewritten by other code (flicker, 2026-11-12)
-* A mod that builds its UI in code and sets Foreground / Background on every refresh (AWC's Weapons tab) fought with the look: its colour came back after ours, so the text / background flipped between the two (the window step is once a second). Now a colour we set (`SetFg`, `_ourFg`) or a dimmed background (the Tag) that is found replaced by other code is counted (`_fgHits`, `_bgHits`); the second time the element is left alone for good (not state-driven ones: the game's triggers legitimately put the brush back). Such elements show their own colour / background undimmed. Not tested in the game.
-
-## Release 2.0.0 (2026-11-12)
-Version bumped in `AlternativeGameInterface.csproj`, `PluginVersion`, README.md, README.BBCode.txt. ChangeList.txt: new 2.0.0 section on top, the released 1.9.0 section restored as published (post-release items moved to 2.0.0); ChangeList-1000.txt rewritten for 2.0.0. Min game version 0.9.0 (`GreaterThanEqualToVersion`). Not committed until the user says so.
-
-### Text contrast: state per TextBlock (2.0.0)
-A wide window over a mixed backdrop (light sky + dark ship) had a mean near the thresholds and kept white text. Now each TextBlock samples the brightness under its own rect (`TextT`, `_txtT`, same 0.58/0.66 hysteresis); `SceneLumUnder` takes any FrameworkElement; the window-level `AutoT` is only the start value / fallback.
-
-Halo of Text contrast: blur 2 -> 1 (denser, a blurred thin stroke was too faint); config `[General] TextHaloBlur` (0.5-4).
-
-Halo of Text contrast, final: no blur - a hard pure white / black DropShadow (BlurRadius 0, ShadowDepth `TextHaloDepth`=1, dir 315, one-sided); recognised by blur 0 + that depth. A full all-round outline would need duplicate texts (Noesis has no stroke / second effect).
-
-## Mod info on the loading screen (2.0.0, `src/LoadInfo.cs`)
-`[General] LoadScreenInfo` (default on). A Harmony postfix on `LoadScreen.LoadText` (setter, called on every load step) adds one TextBlock to the root Grid of `SeapowerUI.LoadScreenView.Instance` (row 2, column 1 = under the progress bar; no hit test) with "Alternative Game Interface <PluginVersion>". Only this mod (the settings hub registry with the other mods was dropped on request). The cut is recomputed per contact 5 times a second at most (`ClipState.Tick`; `UpdateEllipse` is called every frame); `FieldV` caches the members. Not verified in game.
-
-First loading screen (2026-11-12 trace): the plugin's Awake (Anchor Chain loads mods inside a long blocking step of the first load screen) runs ~3 s before the screen ends and the frame loop (Update) starts only ~0.3 s before the end (trace: Awake 17:09:10.07, first Update 12.94, load screen done 13.24); LoadText is not set in between. So the first screen is almost entirely the game's own (base picture, no line); nothing the mod does can change it. `HookLoadInfo` now calls the line / first-picture replacement once right at hook time (it shows for the last fraction of a second at best); later load screens (missions) get the line and the mods' pictures normally.
-Anchor Chain Preloader (the latest, 9 KB, checked): `WaitAndLoad` waits for `StartupDone` = UnitMetadataProvider ready and `LoadScreen.LoadText == "Done"`, and only then loads the mods (`AnchorChainLoader.LoadPlugins`). So by design no mod exists while the first load screen is working; the screen's picture / text are the game's own. Not fixable from a mod; only the Anchor Chain author could load earlier.
-
-## R.A.T.S. Keel (loader, 2026-11-12; SeaPowerKeel.dll 193 KB checked)
-Keel replaces the Anchor Chain loader (stub in BepInEx/plugins) and starts both kinds of plugins of a dll: a `BaseUnityPlugin` (it does `host.AddComponent(type)` and puts the info into `Chainloader.PluginInfos`) and an `ACPlugin`+`IAnchorChainMod` (calls `TriggerEntryPoint`). Our dll has both (`AlternativeGameInterfacePlugin` and `AnchorChainEntry`): `AnchorChainEntry` already skips when the plugin exists; for the opposite order `Awake` now destroys a second instance (`_inst` guard). Keel also waits for `LoadScreen.LoadText == "Done"` before starting mods (globe build), so it does not help the first loading screen either. Keel starts only mods ticked in Mods (so `ModState.Controlled` false there is fine). Not tested with Keel in game.
-**Keel test (2026-11-12, trace + Keel logs): bug found.** Keel starts the mods ~1.5 s after the first load screen has finished ("Start-up load screen done (waited 10.7 s)"), so the `ExecuteLoadScreen` postfix never saw its end: `LoadScreenDone` stayed false and the window hooks (`TryHook`) were never installed ("finished so far 0" forever). Fix: `StartupLoadScreenStep` (LoadInfo.cs, called from `Update`): `LoadScreen.LoadText == "Done"` for more than 1 s while no finished screen is counted = the first load screen is finished. Under Anchor Chain this does not fire early (the screen ends within ~0.3 s of the first Update). Keel report: AGI RUNNING via its Anchor Chain entry; the BepInEx plugin class of the same dll is SKIPPED by Keel itself ("the same DLL's Anchor Chain entry is the one that runs"), so the double-start guard in `Awake` is only a safety net. Keel's warning "looks up SeapowerUI.ViewModels by name" = a namespace string prefix, harmless.
-
-### Keel: меню Alternative Mods
-Под Keel корутина первого экрана загрузки уже завершена к старту модов, поэтому постфикс хаба `LoadScreenPostfix` не срабатывает и кнопка меню не ставится. `StartupLoadScreenStep` вызывает `SettingsHub.LoadScreenPostfix(false)` через reflection (SettingsHub.cs не правим). Если у ASE/ADM/AWC своя копия хаба и они стартуют позже — у них то же; каноническое исправление в ASE: в `Install()` проверять `LoadScreen.LoadText == "Done"` и сразу вызывать `DoInstall`.
-
-### Slideshow под Keel
-Хук `CurrentWindow` ставится после показа меню (моды стартуют позже), `_menuVm` оставался null и слайдшоу не работало. `MenuBackgroundStep` теперь находит модель по странице `MainMenuView.Instance` (вверх по визуальному дереву до DataContext типа `MenuSystemViewModel`); видео к этому моменту уже запущено — `DisableMenuVideo` его выключает при первом шаге.
-
-### Keel: Backgrounds = Mods
-Список картинок меню (`MenuSystemViewModel.imagePaths`) читается в `Awake`, до старта модов под Keel, поэтому постфикс `GetAllFiles` его не фильтровал. `FixMenuPictures` (из `MenuBackgroundStep`, один раз на модель) применяет тот же фильтр к уже готовому списку и при необходимости вызывает `ChangeBackground`. Модель находится по странице меню (см. Slideshow под Keel). Общее правило: всё, что хук ловит «при создании» (Awake/ctor) синглтонов и страниц главного меню, под Keel надо доделывать по уже существующим экземплярам.
-
-### Keel: меню не кликается после Close в окне Keel
-Окно Keel — IMGUI, закрывается по нажатию (Input System, в Update) → hotControl на отпускании уже мог быть ≠0 (или наоборот), и `NoesisGuiPrefix` отдавал Noesis нажатие, но не отпускание: захват мыши оставался. Теперь пара согласована: `_noesisDown` (нажатие ушло в интерфейс → отпускание/drag тоже всегда), `_withheld` (нажатие забрал IMGUI → отпускание не отдаётся). Гипотеза, без доступа к игре не проверена; без AGI залипания нет (проверка пользователя), со слайдшоу выключенным — есть.
-
-### Keel: меню не кликается после Close — настоящая причина (trace build 1538)
-`GUIUtility.hotControl` оставался 31 навсегда: окно Keel закрывается по нажатию (Input System, Update), кнопка IMGUI не получает MouseUp и не сбрасывает hot. `ResolveDown` считал `hot != 0` захватом IMGUI и не отдавал Noesis ни одного нажатия. Теперь запоминается `_hotBefore` (hot до обработки нажатия IMGUI); захват = hot изменился этим нажатием. Отпускание/drag не отдаются только если нажатие было забрано (`_withheld`), текущий hot для них не смотрим.
-
-### Keel: StartEarly
-Keel (новая версия, по тексту её изменений) умеет запускать мод до конца стартового экрана загрузки: `[Keel] StartEarly=true` в `_info.ini` (добавлено в `Release/_info.ini`; в приложенном архиве 0.5.0 ключа ещё нет, формат взят из описания обновления, не проверен по коду). Anchor Chain секцию игнорирует и ждёт «Done», как раньше. Обходы под поздний старт (`StartupLoadScreenStep`, `FixMenuPictures`, поиск модели меню, вызов `SettingsHub.LoadScreenPostfix`) оставлены: они срабатывают только если экран уже закончился. Проверить по trace под новым Keel: «patched LoadScreen.LoadText» и «loading screen info: line added» должны идти ДО «load screens 1».
-
-### Хаб: подпись кнопки главного меню при раннем старте
-`StartEarly` → AGI регистрируется в хабе один, хаб ставит кнопку с именем мода («Game Interface»), ASE/ADM/AWC регистрируются позже, подпись не обновляется. Обход: `HubLabelStep` (src/HubLabel.cs, раз в секунду, пока есть страница главного меню (остальные моды регистрируются позже)) ставит `SettingsHub.Label()` в кнопку `rgreatSettings`. Правильно — в каноническом хабе (ASE): `Register` обновляет подписи уже созданных кнопок (см. файл инструкций hub-label-refresh.md); тогда HubLabel.cs удалить.
-
-### Keel: ложное предупреждение «SeapowerUI.ViewModels.»
-Keel сканирует строковые литералы и считает префикс `"SeapowerUI.ViewModels."` (TaskForceUpgrade.UpStatic) именем типа, которого нет. Имя теперь собирается `string.Join`, литерала нет. Остальные предупреждения Keel по нашим модам: ADM `SeaPower.BaseObject` (в 0.9.x тип `ObjectBase`) — в чате ADM.
-
-### Хаб: каноническая копия из ASE (eb6609e) — обход HubLabel удалён
-`src/SettingsHub.cs` снова копия ASE без изменений: в ней `Install` сам ставит меню, если стартовый экран уже закончился (Keel), и `Register` обновляет подписи кнопок уже построенных меню (`RefreshLabels`). `HubLabel.cs` / `HubLabelStep` убраны. Вызов `SettingsHub.LoadScreenPostfix(false)` из `StartupLoadScreenStep` оставлен (защищён флагом `_installed`).
-
-### Хаб: RefreshLabels и в Install
-У каждой dll своя копия класса хаба (свои static). В `Register` у позднего мода `_game` ещё null (порядок в плагинах: Register, затем Install), и `RefreshLabels` выходил сразу: подпись кнопки оставалась «Game Interface». Теперь `RefreshLabels()` вызывается и после `_game = game` в `Install`. Файл — для канонической копии в ASE; в AGI лежит тот же.
-
-### Мерцание текста на фоне (даже на паузе)
-Картинка под окном живёт и на паузе (дым, вода, частицы), яркость под текстом колеблется у порога 0,58–0,66 и состояние текста переключалось каждый кадр. `TextT`: яркость сглаживается (EMA ≈ 0,3 с), новое состояние должно продержаться 0,4 с, первое измерение применяется сразу. Состояние окна (`AutoStep`) без изменений. Если мерцание осталось — это не порог, а второй источник (захват «small/full», перезапись цвета самим окном); смотреть trace `text by background`.
-
-### Мерцание текста на паузе — настоящая причина: обратная связь
-Захват — готовый экран, вместе с окнами. Яркость под текстом включает сам текст (глифы + гало ≈ 25 % его рамки): белый текст поднимал яркость выше порога → текст темнел → яркость падала → текст белел… с периодом захвата (полный захват 0,25 с = 4 Гц) даже на статичной картинке. Теперь `TextT` вычитает вклад текста: bg = (m − c·L_текста)/(1 − c), c = `TextCover` = 0,25, L — яркость текущего цвета. Сглаживание и задержка 0,4 с оставлены. Если мерцает ещё на краю — подбирать `TextCover` (больше при крупных глифах). Для окна целиком (`AutoStep`, фон окна) поправки нет.
-
-## Encyclopedia Save / Load (src/MuseumSave.cs)
-The Encyclopedia is the mission `missions/Demo/EncyclopediaMission.ini` (`Globals._inMuseum`); its pause menu is a short hand-made list (Resume, Options, Send debug, Exit) without Save/Load. Patch: prefix on `PauseMenuViewModel.Initialise(List<PauseMenuButton>)`; when `_inMuseum`, a throw-away PauseMenuViewModel runs `InitialiseMissionPause()` and its "SaveAs" / "Load" buttons (the game's own file pickers, `SaveLoadManager.SaveGame`, `Globals.OpenMission` + `UnloadMissionAndReload`) are inserted before Options. Folder: saves/missions (no LinearCampaign) = the main menu Scenarios load dialog. Guard `_museumBusy` stops the recursion (InitialiseMissionPause calls Initialise itself). Not verified in game yet.
-
-## Encyclopedia / Encyclopedia 3D (src/EncyclopediaSplit.cs)
-Main menu: `EncyclopediaSplitApply` (no polling: MainMenuView ctor postfix, the option's SettingChanged, LanguageResourceHandler.LanguageChanged, and once at hook time for a menu that is already up) finds the game's Encyclopedia button (first Button after the 2nd spacer TextBlock of the `scrollViewer` StackPanel), renames it "<game text> 3D" (loads EncyclopediaMission as before) and inserts our button before it with the game text (`mainmenuencyclopedia`) that opens `ObjectInformationViewModel(MainMenuView)` via `WindowHostCommands.OpenWindowCommand` (the main menu XAML has its own WindowHost, like the mission editor). Texts are set as strings (the binding is replaced), so they are set again on a language change. Not verified in game yet.
-
 ## Translations (rule)
 Every new option / group / text gets entries in ALL Release/lang/*.ini (cn de en es fr ja ko ru vn), real translations, not English copies: `grp.<group>`, `lbl.<Section>/<Key>`, `help.<Section>/<Key>` (+ `unit.` when the option has a unit). Check with a key diff against en.ini before building.
-
-## Errors when loading a save (FixSoundOnReload, src/MuseumSave.cs)
-Loading a save from a mission (pause menu): while the mission is unloaded `PlaySoundDistanceBased.Update` (objects still alive) calls `CameraManager.getCameraUnityPosition` with no camera and throws NullReferenceException every frame; the game shows an error box for each (100+ boxes in the log, the load itself succeeds). Not caused by AGI (no AGI code touches game cameras; the backdrop camera is our own). Harmony finalizer on `PlaySoundDistanceBased.Update` swallows only that NRE (stack contains getCameraUnityPosition). Option "No errors when loading a save" (In Mission), default on.
-
-## Release 2.1.0 (2026-11-13)
-Version bumped in `AlternativeGameInterface.csproj`, `PluginVersion`, README.md, README.BBCode.txt (7756 bytes, 82 lines), ChangeList.txt, ChangeList-1000.txt. ChangeList 2.0.0 section restored to the published text; the Keel and loading-screen-line items moved to 2.1.0. New GUI options: Game Menus / Main menu / "Encyclopedia and Encyclopedia 3D" (default on); In Mission / "No errors when loading a save" (default on). Encyclopedia Save/Load has no option.
-
-## Ghost window (0 % opacity, src/WindowLook.cs)
-Opacity step 0 %: `ApplyLook` computes `ghost` (opacity 0, mouse not over the window, look menu closed, not a bottom window): title strip factor 0, frame (`Borders`) opacity 0, and the header grid (parent of HeaderThumb, only if <= 48 units high) Opacity 0. Hover is event-driven: MouseEnter / MouseLeave of the window element (hooked once, `LookState.HoverHooked`) re-run ApplyLook. The hidden header still takes the mouse (opacity, not visibility).
-
-## Release 2.2.0 (2026-11-15; 2.1.1 (Unit Reference tree button) was published earlier)
-Version bumped in `AlternativeGameInterface.csproj`, `PluginVersion`, README.md, README.BBCode.txt (7674 bytes; the text of the Steam page is the base: the page and its change notes are read with the Steam API `ISteamRemoteStorage/GetPublishedFileDetails` (item 3813683442) and `.../changelog/3813683442?p=1,2` from the shell), ChangeList.txt, ChangeList-1000.txt (2.1.1 only).
-* Loader: R.A.T.S. Keel was removed from Steam (it may be restored); README / `_info.ini` stay as in 2.1.0 (Keel recommended, Anchor Chain alternative; AC install is described in the AC documentation). Anchor Chain 1.2.0 needs the separate `AnchorChain.Preloader.dll` (inside `ACPreloader.zip` of release V1.2.0, goes to `BepInEx\plugins`); `AnchorChain.dll` must NOT be in `BepInEx\plugins` too: the preloader loads the Workshop copy with `Assembly.LoadFile`, a second copy in plugins has other type identity, and no mod entry point (`IAnchorChainMod`) is found (log: "Loaded assembly ..." but no "Loaded plugin ..."). `AnchorChain.dll` of V1.2.0 = the one of `dev.zip`.
-* Unit Reference "<" / ">" (`FindTree`): a window opened with the tree hidden never loads the TreeView (collapsed), so `TreeViewOf` finds nothing and the toggle ended with "window not found" (no resize). Now: tracked window whose `InfoViewModel` is the view model + `UnitTreeBrowserView` looked up in it once; the pair (window, tree view) is remembered per view model (`TreeOfVm`) for later toggles. Trace on failure: "tree toggle: no window (tracked N, tree view found/not found)". Verified in the trace of build 20261114.1207 (window from the main menu and from a mission).
-* Game 0.9.2 (0.9.2-261113b): no incompatibilities found (crew skill rule, `Waves` enum rename, XAML of Port Status / Task Force Builder / Debrief / Options do not touch the mod).
-* `build.sh`: `zip -x` goes after all paths (before, only `Release` was packed).
-
-### Save/Load folder memory (2.2.0)
-`src/Pickers.cs`: option `General/RememberSaveFolder`. `FilePickerViewModel.Initialise` prefix clears a "ready" flag, postfix restores the stored folder (pickers with extension `sav`, home folder named `saves`; initial folder `campaigns` -> `LastSaveFolderCampaigns`, otherwise `LastSaveFolderMissions`) and sets the flag. Postfix on the `SelectedFolder` setter stores the folder only while the flag is set, so the initial value set by the game is not recorded. Folder must exist and lie under the picker's home.
-
-### World View picture opacity (2.2.0)
-Cause of the difference from the no-GUI render: the camera texture has an alpha channel; blended effects (sun glow, exhaust) leave alpha < 1 there, the screen has none, Noesis blended those pixels with the backdrop. `MapRtResolve.OnPostRender` (after the last camera) now draws a full-target quad with `Hidden/Internal-Colored` (Blend One One, colour 0,0,0,1) so alpha becomes 1; it runs in the non-supersampled case too.
-
-### Snapshot (2.2.0, `src/Snapshot.cs`)
-[Debug] Snapshot (button in the Debug tab, switches itself off) appends frame time, GC/Unity memory, Unity objects and MonoBehaviours by type, particles, log error counters and the mod's own collections (static + plugin fields that are `ICollection`) to `BepInEx/AlternativeGameInterface_snapshots.txt`; every figure carries its change since the previous snapshot. Use: one before saving and one after loading (what a load resets accumulated in the mission; what stays is process-level or in the save). The file is deleted at every game start.
-
-Snapshot also lists, for ParticleSystem / Light / AudioSource / SphereCollider / TrailRenderer, the active / playing counts and the top names and root names, and the live managed heap after `GC.Collect()`. First real result (2026-11-15, 40 min mission): a save/load brought objects back from 71k to 56k (ParticleSystem 3.9k -> 1.2k, Light 356 -> 162, AudioSource 1.27k -> 672) and the frame time from 23.7 to 15.9 ms, while the managed heap stayed at 1.15 GB (834 MB at the first load) and the tracked Noesis windows did not shrink (482 -> 570): scene objects pile up in the game, the managed growth survives the load.
-Settings window: field kind 'a' = a one-shot action button (ActionEditor sets the self-clearing config entry at once; no default / reset column). Used by Snapshot and DumpXaml.
-
-### Create Mod window fill (`src/ModCreate.cs`, [General] ModCreateFill)
-Postfix on `CreateModMenuViewModel.SelectedUserCreatedMod` setter (SeapowerUI.ViewModels, internal): with `UpdateExisting` and an item chosen, the mod's local folder is looked up in the top-level folders of StreamingAssets (`_info.ini` present; folder name equals the item title without spaces, or a `Name=` of a `[Language_*]` section equals the title) and set as `FolderPath`; the picture is the first of thumbnail.jpg / .jpeg / .png, preview.jpg / .png up to the game's 1,000,000 byte limit, loaded through `ImageConversion.LoadImage` into `PreviewImage` (a `Noesis.TextureSource`) and its path into the private `previewImagePath`. Not in a changelog yet: version to be decided.
-Picture fallback: any .jpg/.jpeg/.png of the folder that is 512x512 and <= 1 MB.
-
-## Campaign: ship state on briefing / newspaper events (Campaign/EventShipState, src/CampaignEvents.cs)
-Symptom: with an event (FreeEvent: newspaper, briefing, e.g. Mission6 "after AR02" in the Argentina campaign) selected on the campaign map, the Task Force shows ships with full ammunition and no damage, as before the first mission. The save file itself is correct (PostState of the last mission is there).
-Cause (decompile 0.9.2): the view model passes `(_selectedMission as LinearCampaignMission)?._index ?? 0` (an event is not a LinearCampaignMission) to `LinearCampaignTaskForceSaveManager.FindLatestPriorUnitStateSection`; its loop starts at `Math.Max(1, target - 1)`, so for 0 only Mission 1 is checked. `LinearCampaignTaskForceStatusViewModel.LoadFromSnapshot` keeps the previous `_targetMissionIndex` when 0 is passed (stale index: state from before the previously selected mission).
-Fix: Harmony prefixes on FindLatestPriorUnitStateSection and LoadFromSnapshot: an index <= 0 becomes (highest N of TaskForceMode_Mission{N}_PostState_/_LaunchState_) + 1. Not verified in game yet.
-
-## Unit Status header: class (first 2.3.0 build; superseded by the section "window title and label" below)
-The red label at the right of the tab strip is `UnitStatusViewModel.UnitName` (the game sets it to `DisplayNameShort` in SwitchUnit). FullUnitName already replaced it with DisplayNameFull (FullUnitName in StatusReference.cs, also after Replace / ChangeVariant); The two switches were merged into one list UnitStatus/HeaderName = Class (default) | Full | Short (the old FullUnitName / ClassInHeader entries are dropped from the config). Class uses `ObjectBase.ClassNameShort` (`_obp._className`, the part after the comma of the "Default" name in vessel_names), then ClassNameFull, then the full / short name. The cut is recomputed per contact 5 times a second at most (`ClipState.Tick`; `UpdateEllipse` is called every frame); `FieldV` caches the members. Not verified in game.
-
-## Release 2.3.1 (minor)
-2.3.0 is published. 2.3.1 = only the option `General/DoubleClickOpen` (default off): Pickers.cs `PickerDoubleClickPostfix` (postfix of the FilePickerViewModel select command lambda, OpenFile pickers: runs ButtonCommand) and ViewCapture.cs `OnTreeItemDoubleClick` (scenario TreeView of the main menu: runs ScenarioMenuViewModel.PlayCommand). Version bumped in csproj, PluginVersion, READMEs, ChangeList.txt (new 2.3.1 section on top), ChangeList-1000.txt (2.3.1 only).
-
-## Release 2.3.0 (published)
-Release docs prepared 2026-11-16: 2.2.0 (and 2.2.0 b) is PUBLISHED on Steam (World View transparency, Save/Load folder, Create Mod fill, campaign event ship state), so ChangeList-1000.txt lists only 2.3.0 changes. README.md was 8219 bytes (limit 8192, trim), README.BBCode.txt 7862 bytes / 79 lines. Keel is kept in the docs second, marked "temporarily unavailable".
-Version bumped in `AlternativeGameInterface.csproj`, `PluginVersion`, README.md, README.BBCode.txt, ChangeList.txt, ChangeList-1000.txt (2.3.0 only). 2.2.0 (World View opacity, Save/Load folder memory, Create Mod fill, campaign event ship state) is built but not published yet; 2.3.0 adds the Unit Status window title / label name lists (UnitStatus/WindowTitleName, UnitStatus/UnitLabelName).
-
-## Unit Status: window title and label (2.3.0, StatusReference.cs `UnitText` / `FullUnitName` / `StatusTitleStep`)
-Both texts are bound to `UnitStatusViewModel.UnitName` (MainGameView.xaml: the window Header is `<Run WindowHeader/> <Run UnitName/>`; UnitStatusView.xaml: the label at the right of the tabs is `Text="{Binding UnitName}"`), so they are decoupled: the label keeps the VM property (set after SwitchUnit, `UnitLabelName`, default TypeClass), the second Run of the window Header gets its own local text every frame (`StatusTitleStep`, `WindowTitleName`, default FullName; a local value replaces the binding). Five forms: ShortName (DisplayNameShort, the game's default for both), FullName (DisplayNameFull), ShortClass (ClassNameShort), FullClass (ClassNameFull = `_obp._defaultName`), TypeClass (`_obp._typeFullName` + FullClass); an empty form falls back to the short name. The HeaderName entry of the first 2.3.0 build is dropped. The cut is recomputed per contact 5 times a second at most (`ClipState.Tick`; `UpdateEllipse` is called every frame); `FieldV` caches the members. Not verified in game.
-The Header TextBlock has three inlines: Run(WindowHeader), a Run of the space between the two Runs in the XAML, Run(UnitName): StatusTitleStep sets the LAST Run (the first version took the 2nd, the space, and the title showed both texts glued together). In the lists the ShortName value is marked "(game default)" (the game shows DisplayNameShort in both places).
-
-## Track State layout (2.3.0, TrackState.cs `TrackXaml2`)
-
-Option `UnitStatus/TrackLayout` (default on; settings tab "Track State" together with `TrackState`): off = the old `TrackXaml` (the game's templates) is used. Read when the tab view is built, so it applies to the next selected contact.
-Option `UnitStatus/TrackIdentProgress` (default on; new layout only): row LblProg/TxtProg under Identification, hidden when nothing to show. `TrackIdentProgress`: Vehicle.Class set -> 100%; else the max of `_observationTime / _identificationTime` over `_esmObservationData` of all `_obp._esmSystems` (`_esm`) of the player taskforce units (`Globals._playerTaskforce._taskforce*` lists) whose key `_baseObject` is `Vehicle.Object`; read twice a second, rounded to tens; Class set -> 2 -> row hidden; ESM ratio >= 0.95 -> text "not enough data" (`track.identNoData`; the ESM only gives the signature bit, the contact can stay "Detected" with several candidates left). Not verified in game (the game itself has no such field in VehicleInfo; same numbers as its debug ESM panel).
-The game's VehicleInfo body (DockPanel of the StateComponents: BaseVehicleViewModel in 4 equal columns / 3 equal rows, SignaturesViewModel below) wastes space and lets "Detected By" push the table away. `TrackXaml2`: row 0 facts (State / Identification, Last / First detection age) in two compact label+value pairs per row; row 1 "Detected By" caption + ScrollViewer `DetBox` (cards copied from VehicleInfo.xaml, WrapPanel) whose MaxHeight is set on SizeChanged to 36 % of the body (min 64); row 2 `ContentControl Content={Binding SignatureInfo}` (the game's own template with its generated columns and its own scroll) takes the rest; row 3 Reset TMA. Labels come from code (`TrackLabel`, the game's language keys). `VehicleInfoViewModel.BaseInfo` / `SignatureInfo` are computed properties over StateComponents, which is filled once in the constructor. If ParseXaml of TrackXaml2 fails (a missing StaticResource), the trace says so and the old `TrackXaml` is used. The cut is recomputed per contact 5 times a second at most (`ClipState.Tick`; `UpdateEllipse` is called every frame); `FieldV` caches the members. Not verified in game.
-
-## Settings: Remembered Windows (2.3.0)
-
-No longer a top-level tab: `TRemembered` fields are shown on page 1 of the "Desktop mode" tab (`MapSubTabs()` returns 0 Settings / 1 Remembered Windows / 2 Desktops; Desktops only while desktop mode is on). The page works without desktop mode too. The tab dot of "Desktop mode" covers changes of all three pages.
-
-## Contact estimate squeeze (2.3.0, `[Map] ClipContactEllipse`, `src/ContactEllipse.cs`)
-Problem: the TMA error ellipse of a bearing-only contact may reach behind the sensor. How the game works: `Vehicle.DetectedPosition` / `ExtrapolatedPosition` = `(GeoPosition, PositionEigpairs, Entity)?` are copied from the ECS (`DetectedPosition` / `EstimatedPosition` components or `VehicleSnapshot`) in `TransferFromSnapshot` / `TransferFromComponents` on each update; `PositionEstimate` picks one of them; `Position.Value = PositionEstimate.Item1` is the icon (`MapUnitViewModel.Location`, updated at random with p = 1/15 for contacts - the jumps) and the base of the range in the label (`GetDistance(selected, Location)`); `ErrorEllipseViewModel.UpdateEllipse` draws the ellipse (K^0.5 sigma, `TMAContext.KField`, SharedStatic<float>) from the same estimate. Tried: clipped polyline (heavy), changing the ellipse geometry only (the icon and range stayed). Now: postfix of both Transfer methods changes the copy in the Vehicle (not the ECS data: nothing accumulates): the sensor / bearing from `TryGetLatestBearingTrack` (private; looked up 5 times a second per contact; `BearingDeg` is the game's grid yaw, same frame as `MajorAxis` x,y), the covariance S Sigma S' with S = I + (k-1)uu' (k = (d0+h)/(2h): the extent along the bearing becomes [0, d0+h]), new eigenpair (axes by atan2, std devs), the centre moved along the true heading by (h-d0)/2 m. Not for a fresh precise track, not when nothing is behind, not when everything is (stale bearing), only `IsUiTable` (the player's table; the AI tables keep their estimates). `UnsafeDataPointer` of the SharedStatic is read for K (csproj: AllowUnsafeBlocks), 5.99 if it fails (trace line "contact estimate: K = ..."). Not verified in game; note it changes what weapons / the range readout use for the contact (KnownUnityPosition) - by the user's decision.
-
-## Compact sonobuoys (2.3.0, `[Map] CompactSonobuoys`, `SonobuoysThreshold` 20, `src/SonobuoyDeclutter.cs`)
-The map icon of a unit is the Canvas `UnitIcon` of `UnitOverlay.xaml` (DataContext `MapUnitViewModel`, `VisualType` PassiveSonobouy / ActiveSonobouy; RenderTransform = Translate(-11.25,-11.25)); the text is drawn by the label solver (`MapLabelLayer`) from `ContactInfoLine1..4` of the same view model. `SonobuoyStep` (per tracked map window, 2 times a second): walks the visual tree, collects the sonobuoy icons and the `MapBase`, counts the visible ones (IsVisible, `PointToScreen` inside the map rectangle); crowded when > threshold (off again below 90%); then per icon: RenderTransform = Group(Scale 0.5 about 11.25,11.25 + the original), the VM is flagged and the getters of `ContactInfoLine1..4` (postfix) return "" while flagged; `OnPropertyChanged` is raised for the four names when the flag changes and `Label.BumpContentVersion()` is called (the label solver re-measures a label only when its ContentVersion changes; the game setters do the same) — without it the text came back late and not for all. The original transform is kept in `SonoIconState` and put back. Not verified in game: the label solver may keep the space of the empty lines; the Canvas name `UnitIcon` / VisualType names are from the 0.9.2 XAML.
-
-## Анализ быстродействия (2.3.0, по коду, без замеров в игре; код не менялся)
-Профайлера в игре не было: оценки по числу вызовов. Замерить можно существующим снимком (опция Snapshot: frame ms) с включённой и выключенной опцией.
-Покадровое (Update, каждый отслеживаемый `Tracked`, в т.ч. закрытые окна — список `_tracked` не чистится, пока окно живо):
-1. `StatusTitleStep`, `TabTrackStep`, `StatusRefStep`, `TrackStateStep` — каждый кадр на каждое окно Unit Status, без троттлинга. Рефлексия `Get/GetB` (боксинг), `foreach` по `tb.Inlines`/`Tabs` (аллокация энумератора), `UnitText` (строка каждый кадр + 1–3 рефлексии), `TabKey/SelectedKind` (Kind боксится). Решение: проверять только при смене юнита/вкладки (SwitchUnit/Refresh постфиксы уже есть) либо раз в 0.1–0.25 с; сравнивать Header-текст, не пересобирая строку.
-2. Покадровые шаги вне `t.WasActive`: `TrackOpenState`, `FitMaximized` (GetB "Maximized" + CWT), `PinStep`, `LookStep`, `MapModeStep`, `EventLogStep`, `PickerStep` — на закрытых окнах впустую. `FitMaximized`/`LookStep`/`PickerStep` можно пропускать при `!t.WasActive && !fs.On`.
-3. `Step` каждый кадр: `IsOnScreen` = `GetB("IsVisible")` + `VtParent` (рефлексия + try/catch на каждое окно). Кэшировать делегаты (`Func<object,bool>` через `CreateDelegate`) вместо `PropertyInfo.GetValue`.
-4. `IsWindowOf` (IsMapWindow/IsWorldViewWindow): на каждый вызов `new[]{h,ch}`, `new[]{"WorldView"}`, лямбда, `Squash(t)` (строки). Вызывается из SonobuoyStep (раз в 5 с у не-карт), MapModeStep, KeepMapViewStep; кэшировать результат на окно (CWT<bool?>) после того, как Header/DataContext заданы.
-Периодическое:
-5. `SonobuoyStep` (мой, 2.3.0): полный обход визуального дерева окна карты (бюджет 80 000 узлов) 2 раза в секунду + `new List/Stack`. Это самый дорогой периодический шаг мода при включённой опции (даже без единого сонобуя). Решение: ходить по дереву раз в 2 с (или по смене числа юнитов), в промежутках считать по кэшу `WeakReference<Canvas>`; либо найти контейнер иконок (общий предок) и ходить только по нему; пропускать вообще, если в миссии нет сонобуёв (счётчик по `VisualType` в постфиксе).
-6. `SonoLinePostfix`: на каждый вызов геттера ContactInfoLine1–4 (карта, MapTrack.Sample, label solver — для каждого юнита) один поиск в `ConditionalWeakTable`. Быстрый путь: статический счётчик «сколько VM сейчас с Hide»; 0 → return без поиска.
-Патчи на частые методы игры:
-7. `NoesisGuiPrefix` (IMGUI-события, несколько раз за кадр): `Convert.ToInt32(_evType.GetValue(ev))` — рефлексия+боксинг на каждое событие; заменить скомпилированным делегатом.
-8. `VehicleTransferPostfix` (ContactEllipse): на каждый перенос состояния контакта 2× `FieldInfo.GetValue` + `PropertyInfo.GetValue(IsUi)` ещё до троттлинга; порядок: сначала дешёвый `EstSensors`/Tick (200 мс), потом рефлексия; `Squeeze` аллоцирует `object[]`/`double2` — делегаты/кэш полей.
-9. `MapMouseStatePostfix`, `MapRemapPrefix`, `MapSetRectsPrefix` — каждый кадр, но только при `MapOn()`; дёшево, `MouseDisplay()` вызывается дважды в одной строке — можно один раз.
-Не трогать (уже ок): `SourceFilter/ArmedFilter` (CWT, Done-флаги), `MatchObjectPostfix` (кэш lower-case текста), `CompassTapeStep` (0.4 с), `DockReachStep` (0.12 с), `MonitorDupesStep` (0.5 с), `MapPipStep` (ранний выход без опции), `Trace` (только при `_debug`).
-Ожидаемый выигрыш: заметен только при многих открытых окнах Unit Status и большой карте; п.5 и п.1 — первые кандидаты.
-
-Сделано по этому анализу (2.3.0, не проверено в игре):
-- `src/FastGet.cs`: `FastGet.Property/StaticProperty/Field` — делегаты вместо `PropertyInfo.GetValue` (generic-обёртка `Func<T,R>`; поле — DynamicMethod). `Get()` теперь кэширует `Func<object,object>` на (тип, имя); при неудаче — прежняя рефлексия. Это ускоряет все `Get/GetB/GetF` разом (п.1, 3). `IsOnScreen` — напрямую через `Noesis.UIElement`.
-- п.1: `StatusTitleStep/TabTrackStep/StatusRefStep/TrackStateStep` — раз в 0.05 с на окно (`Tracked.UsNext`), не каждый кадр. п.2: `PickerStep` только для активных окон, `FitMaximized` — для активных/настроенных (закрытое окно подгонится при открытии).
-- п.4: `IsWindowOf` без аллокаций (кэш `Squash`, статические массивы), положительный результат запоминается на окно отдельно для карты и World View (`WinOfMapYes/WinOfWvYes`).
-- п.5: `SonobuoyStep` ходит по дереву раз в 2 с (`SonoWalk`, значки хранятся как `WeakReference`), счёт видимых — каждые 0.5 с по кэшу; новые сонобуи получают компактный вид с задержкой до 2 с. п.6: `_sonoHidden` — пока ни один юнит не скрыт, геттеры подписи не ищут флаг.
-- п.7: `Event.type` / `Event.current` в `NoesisGuiPrefix` — делегаты. п.8: `VehicleTransferPostfix` читает `DetectedPosition/ExtrapolatedPosition/IsUiTable` делегатами. п.9: `MouseDisplay()` в `MapMouseStatePostfix` один раз.
-- Если рефлексия-делегаты вдруг не создаются (другой рантайм) — молча остаётся старый путь; замерить можно снимком (frame ms).
-
-## Аудит утечек (2.3.0, по коду, не проверено в игре)
-Найдено и исправлено: (1) `_backdrop` (MapWindows): `Texture2D` + `Sprite` фоновой карты не освобождались при удалении GameObject (ассеты) — теперь `FreeBackdropAssets()` при снятии и перед пересозданием; (2) `TreeTweaks.LoadoutDataDone` был `HashSet<object>` со словарями загрузок всех юнитов (держал данные энциклопедии навсегда) — теперь ConditionalWeakTable; (3) ModCreate: текстура картинки Workshop не уничтожалась при смене выбора (`_mcTex`); (4) `Created` (WeakReference на каждое окно) только рос — раз в 30 с мёртвые убираются, когда все уже в `_tracked`; (5) `TraceOnce` — предел 300 ключей.
-Проверено, утечки нет: статические списки WeakReference (`_probes`, `_dcViews`, `_borderOwners`, `Statuses`, `_redimQueue`, `_pauseButtons` — чистятся/ограничены), `_pendingDown` (очищается), `SettingsWindow` статические списки (пересоздаются, `Fields` один раз), обработчики событий на объектах, которые сам же и создаём (замыкание ссылается на тот же объект — цикл, сборщик собирает; `LayoutUpdated` отписывается), RenderTexture (`FreeRt`, `SlDrop`), камеры мониторов (`Destroy`), CWT-таблицы (ключ — окно/юнит/контакт, слабые). Остаётся по мелочи: `_getters` / `SquashCache` / `FieldVCache` — ограничены числом типов/имён; `_sonoHidden` может остаться >0 после уничтожения скрытых юнитов (только замедляет геттеры, не течёт).
-`_sonoHidden` теперь обнуляется, когда ни одно окно карты не в компактном состоянии (`_sonoCrowdWins`): флаги ушедших юнитов больше не держат медленный путь геттеров. Если окно закрыли в компактном состоянии, счёт окон не падает до нуля (только замедление, как раньше).
-
-## Профайлер мода (2.3.0, `src/Profile.cs`)
-Работает только при `Debug = true`: `Prof.T()` / `Prof.Lap(id, t0)` (Stopwatch) вокруг шагов Update (по окнам: Step, TrackOpenState, Fit, Pin, Look, MapMode, KeepMap, EventLog, DcFit, Picker, Sonobuoy, Unit Status, ResizeCursor, DockReach, Upgrade, LoadoutOrder), MonitorsStep, остальных шагов, LateUpdate (MapPipStep) и патчей на методы игры (MouseControlState, NoesisView.OnGUI, перенос состояния контакта, PIP render, remap мыши, SetRects, PIP blit). Раз в 10 с в trace строка `profile:` — средний кадр (мс, fps, худший) и мс на кадр по разделам. Это только CPU мода; всё, что мод заставляет делать GPU (текстура World View с сверхсэмплингом, камера подложки, текст-эффекты), в цифрах не видно: если кадр длинный, а разделы дают мало — цена в рендере.
-Там же (только Debug): строки `hitch:` на кадры > 25 мс с разбивкой по фазам кадра (метки `Prof.Ring`: первый Update → Update мода → последний LateUpdate → конец рендера → начало следующего кадра; `FrameStamp.cs`, `PhaseLoop`), трейс пишется фоновым потоком. Вывод разбора 2.3.0: секундные просадки в миссии дают игра (шаг симуляции раз в секунду; без модов то же) и, частично, захват экрана «текста по фону» на паузе; Keel-окна в меню давали отдельный 1 с хитч. При `Debug = false` (по умолчанию) всё это не работает: ни меток, ни компонентов, ни потока трейса.
-Найдено по trace 03:17 (2.3.0 build 20261115.2344): (1) при загрузке миссии `MapPipStep` включал «фото-режим» (камеры на экран), а `BackdropStep` на следующем кадре откатывал (`!want`) — по кадру туда-сюда, 226 раз (+ запись в trace и смена `targetTexture` всех камер); исправлено: `MapPipStep` ничего не делает, пока нет миссии (`MapMissionOn()`). (2) в 03:17:29–32 окна Event Log / Tactical Display / Unit Status «загружаются» ~40 раз в секунду (123 раза Event Log, 126 раз Tactical Display) — драка восстановления открытых окон (`RestoreOpenStates` каждый кадр фазы, `OsEnforce`) с игрой; не исправлено, нужен trace с подробностями (какое окно кто закрывает).
-
-Просадка раз в секунду (2.3.0): `LookStep` вызывал `ApplyLook` раз в секунду (`st.Next = now + 1f`) для каждого окна с нестандартным look (у пользователя Event Log и News: opacity 0, scale 1.2, контраст `+`) — 4 обхода дерева (HasRender, SolveFactor, DimWalk, OutlineWalk, до 6000 узлов каждый) + `SceneLumAsk` (держит запущенным захват экрана 10 раз/с для «текст по фону»), в том числе для закрытых окон. Теперь: `LookStep` только для активных окон; полный `ApplyLook` — если `LayoutUpdated` панели сработал с прошлого обхода (`LookState.Dirty`) или раз в 10 с (`Full`); раз в секунду без обхода только `SceneLumAsk(st.AutoDisp)`, чтобы захват не затухал (3 с). Цвет уже найденных текстов обновляет `AutoLookRefresh` без обхода. Захват экрана для «текст по фону» (ScreenCapture.CaptureScreenshotIntoRenderTexture + 2 blit + AsyncGPUReadback, до 10 раз/с) остаётся самой дорогой частью по GPU при любом окне с контрастом `+`: если нужен FPS — снять `+` (`-`) у Event Log / News.
-
-Trace пользователя 03:29 (build 20261116.0027, главное меню, окно News с контрастом `+`): профайл — код мода 0.035–0.12 мс/кадр из 9.3 (107 fps), то есть шаги мода не причина; «worst» кадры ~100 мс раз в 10 с совпадали с записью строки profile (File.AppendAllText на потоке игры, антивирус) — теперь Trace пишет отдельный поток (очередь, сброс раз в 0.3 с и в OnDestroy; последние 0.3 с при вылете могут не дойти). `text by background: small capture differs - the full capture is used` — полный захват 2560x1440 (режим 2): шаг теперь 0.5 с (режим 1 — 0.2 с). `ResizeCursorStep` в меню каждую секунду делал `Noesis.GUI.SetCursorCallback` — теперь при смене экрана и раз в 10 с. Профайл теперь показывает worst-вызов каждого раздела и число сборок мусора (gen0/1/2) за интервал: раз в секунду gen0 = подозрение на GC от аллокаций.
-
-## Лимит FPS (FrameLimit.cs, OnSliderLoaded в ViewCapture.cs)
-Лимит — штатная опция игры (VideoSettings/TargetFrameRate в options.ini, слайдер `sliderTargetFrameRate` в OptionsMenuView.xaml: 15..120, шаг 5). Мод своего значения не хранит: `General/FrameRateOptionMax` (250, только в cfg, в окне настроек нет) поднимает `Maximum` слайдера при его Loaded (при ≥ 1000 расширяет рамку с числом). Слайдер при привязке уже обрезал сохранённое значение до 120 (TwoWay) — после смены Maximum значение возвращается из `GameFps()` (то, что игра задала в `Application.targetFrameRate` или мод забрал в `_gameFps`). Точный лимитер (настройки нет, всегда при `vSyncCount == 0`): `FpsLimitStep` раз в секунду забирает `Application.targetFrameRate > 0` в `_gameFps`, ставит -1 и держит темп корутиной `Pacer()` (Stopwatch, Sleep(1) до 2 мс, затем ожидание вхолостую; `timeBeginPeriod(1)`); при vSync != 0 не работает. «Без лимита» — не значение игры (слайдер коэрсит -1 до 15), а `General/NoFrameLimit`: под слайдером добавляется CheckBox (`FpsBoxes`, вставка после строки слайдера), он отключает слайдер (`IsEnabled=false`); `FpsLimitStep` и `Pacer()` при флаге ставят движку -1 и не ждут, значение игры остаётся в `_gameFps`.
-
-### Adaptive V-Sync (FrameLimit.cs `AdaptiveVSyncStep`, ViewCapture.cs `OnComboLoaded`)
-В список V-Sync видео-настроек (ComboBox с ItemsSource `VsyncModes`, `List<Tuple<int,string>>`) при Loaded добавляется пункт `Tuple(1, "Adaptive V-Sync")` — значение 1, как у «Every»: игра сохраняет в options.ini обычный V-Sync, без мода или при его отключении получается штатный режим (значение 3 писать нельзя: игра выставила бы `vSyncCount = 3`). Пункт добавляется при `General/AddAdaptiveVSync` (вкл, есть в окне настроек); что выбран именно он — `General/AdaptiveVSync` (по SelectionChanged; список не INotifyCollectionChanged — ItemsSource переприсваивается, выбор восстанавливается). Режим активен при флаге и сохранённом `QualitySettings/VSync == 1` (читается через рефлексию из OptionsManager.OptionsIni раз в секунду). Каждый кадр: `dt > 1.5 × период экрана` — «поздний»; окно 0.5 с, ≥ 25% поздних → `vSyncCount = 0` (`_avOff`; точный лимитер при этом без лимита: кадры измеряют работу); `_avOff` и ни одного кадра длиннее 0.85 периода 3 с → снова 1. Если лимит игры ниже частоты экрана — режим ничего не меняет. `ReleaseFrameControl()` при отключении мода в меню Mods: возвращает лимит игры и `vSyncCount` из ini.
-
-### Anchor Chain: StartEarly
-`Release/_info.ini` has both `[Keel] StartEarly=true` and `[AnchorChain] StartEarly=true`. The Anchor Chain side needs the change of issue #32 (fork rgreat/AnchorChain, branch early-start) and the stub preloader 2.0.0 of PR #24; with the stock AnchorChain 1.2.0 the key is ignored and the mod starts as before.
-
-### Debug: Screenshot all tabs (SettingsShots.cs)
-[Debug] ScreenshotTabs (button in the Debug tab, switches itself off): with the settings window open, shows every tab (as with "Show all settings", all 3 pages of the Desktop mode tab) and saves the options window alone (rect of `_root` via PointToScreen, `ScreenCapture.CaptureScreenshotAsTexture` at end of frame, cropped) as PNG to `BepInEx/AlternativeGameInterface_screens/NN_Tab.png`; the folder PNGs are cleared at each run; the window state is restored after.
-
-### Campaign: KeepReserveSubmarines (ReserveSubmarines.cs)
-Game bug: a submarine waiting for service (Rearm/Repair order) sits in the `Reserve` force. `CreateManagementSnapshot` (what Status/Builder show) leaves out `IsCampaignSupportUnit` items (aircraft, helicopters, SUBMARINES) of the selected force and takes submarines only from `Submarine-...` forces, so the Reserve submarine is invisible in the windows, the return dialog never lists it, and when the Reserve is the selected force any roster change (`UpdateSelectedStandardTaskForceSnapshot` -> `ReplaceSnapshot(items without support units)` -> persist) drops it from the save; only the service order stays. Seen in the 18-save series (M-03-1 -> M-03-2, and M-03-1 -> buying a ship). Not caused by UpgradeShip (the upgrade itself is fine: trace `roster before/after sale/after confirm`).
-Fix: Harmony prefix on `LinearCampaignStandardTaskForceEntry.ReplaceSnapshot` - for the `Reserve` entry the submarines of the old snapshot that the new one lacks are appended (new snapshot built by reflection). Config `[Campaign] KeepReserveSubmarines` (true). Trace: "KeepReserveSubmarines: the Reserve keeps ...". Not done: showing the Reserve submarine in the windows / the return dialog (game behaviour).
-ShowReserveSubmarines (same file): the Reserve card lists only `row.IsShip` rows (`RefreshManagerRoster`), a submarine is a row only through its own `Submarine-` force; the Submarine tab (`HasStandardSubmarineCategory`) needs a submarine in the management snapshot. Postfix on `LinearCampaignStandardTaskForceEntry.RefreshManagerRoster`: for the Reserve entry the submarine rows of its snapshot are built with `status.CreateManagerRosterPreview` and added to `ManagerUnits` (no new force, so no duplicate). Config `[Campaign] ShowReserveSubmarines` (true). Unchecked in game: how the card template draws a submarine row. Trace: "ShowReserveSubmarines: N submarine(s) listed...".
-KeepReserveSubmarines scope (2nd build): the ReplaceSnapshot prefix acts only inside `LinearCampaignMapViewModel.UpdateSelectedStandardTaskForceSnapshot` (prefix/finalizer depth counter `_rsDepth`) - that is the only lossy path (Status snapshot minus IsCampaignSupportUnit replaces the selected force; lossy when the Reserve is selected). Transfers (`TransferStandardTaskForceUnit`) and the return from service (`AcknowledgeReturns` -> `ReleaseRepairedSubmarines` -> `RefreshStandardTaskForcesFromStore`, new entries) are left alone. Side effect of the loss in the game: `PendingReturns` lists only orders whose unit is still in a force, so the order of a lost submarine is never acknowledged. Save repair recipe (fix.py, done for M-06A-2): add `TaskForceMode_ForceN(+_Unit1)` with `ForceId=Submarine-<id>`, bump `TaskForceMode_Forces/Count`, add the unit to `CurrentTaskForce` too (else the Builder's next commit drops the Submarine- force), set the order `Acknowledged=True`.
-RestoreLostSubmarines (same file, replaces hand repair of saves): postfix on `LinearCampaignMapViewModel.RefreshStandardTaskForcesFromStore` (guard `_rsRestoring`). Finds `TaskForceMode_RepairOrder_*` with Acknowledged != True, Source state not IsDestroyed, whose InstanceId is in no force of `ReadCurrentTaskForces()`; takes the unit from the latest `TaskForceMode_Mission<N>_Post_Unit*` with that id and Category=Submarine (via private `ReadSnapshot(state, "..._Post", "..._Post_Unit")`), appends it to the Reserve group, `WriteCurrentTaskForces(coll, null, null, null)`, then calls RefreshStandardTaskForcesFromStore again. The game's return dialog (`PendingReturns` on mission open) then acknowledges the order and `ReleaseRepairedSubmarines` gives the Submarine- force. Ships are not restored (an orphan order of a ship = it was sold). Config `[Campaign] RestoreLostSubmarines` (true). Trace: "RestoreLostSubmarines: put back into the Reserve: ...". Untested in game.
-Save series check: only two submarine instance ids ever appear in the 18 saves (Santa Fe 9bdf.., San Luis 550b..) - no second purchased submarine left a trace.
-Options merged: Keep / Show / Restore are one option `[Campaign] FixReserveSubmarines` (true), field `_fixSubs`, label "Fix submarines sent for service" (lang keys lbl/help.Campaign/FixReserveSubmarines). The earlier three keys never shipped.
-
-### UpgradeShip: the sold hull is free to buy again
-The game's Dismiss returns a ship to the roster ("Dismissed units return to the roster and can be purchased again"). The Builder marks owned hulls (IsCurrentTaskForceUnit, IsAffordable=false) when it builds its roster (`AddFilteredRosterGroups`) and the upgrade sells the old ship while the Builder stays open, so after `DoUpgrade` the Builder is refreshed: `RefreshCurrentTaskForceOwnershipState`, `LoadCampaignTaskForceData(true)`, `NotifyPurchaseStateChanged` (`FreeOldHull`). Trace "UpgradeShip: old hull <type:variant>: owned in the save X; in the roster, owned X, already in task force X, affordable X". Static analysis did not find a blocker in the save itself (the old hull is in no force and not in CurrentTaskForce after the upgrade) - the trace line is there to show what still blocks it, if anything.
-Builder diagnostics (TaskForceUpgrade.cs, `TraceRosterItem`): on every new SelectedRosterItem the trace gets "Builder: selected <type:variant>, cost, surcharge, available, pending, fleet value, cap, its cap value, owned flag, owned in the save, destroyed, already in task force, can afford, affordable flag" - the game greys "owned" and "too expensive / over the fleet cap" alike (IsAffordable=false). Case 2026-11-17: Santa Fe not buyable in M-06A-2 - the save has 50 points (PersistentData TaskForceAvailablePoints, PointJournal Balance, all forces), Santa Fe is not owned, not in Losses, allowed for mission 20, in service 1971-1982.
-FixReserveSubmarines rework (2026-11-17, after M-07-1/M-07-2): the sub was lost again right after "Send for rearm" from the Mission Debrief although the old ReplaceSnapshot keep traced "the Reserve keeps ..." - likely Harmony(X) did not write `__args[0]` back. Now:
-- keep (store): prefix on private static `LinearCampaignTaskForceSaveManager.WriteCurrentTaskForces(IniHandler, collection)` - the one funnel of every forces write. Pending-service submarines (order not Acknowledged, source state not destroyed) missing from the collection are added to the Reserve; record from the saved forces (`ReadSnapshot(state, "TaskForceMode_ForceN", "..._Unit")`) else the latest `Mission<N>_Post`. The argument object is changed in place (`<Forces>k__BackingField`) as well as `__args[1]`. Trace "FixReserveSubmarines: kept in the Reserve X (the write came from A <- B ...)" - the caller chain is for the game bug report.
-- keep (memory): ReplaceSnapshot prefix inside `UpdateSelectedStandardTaskForceSnapshot` sets the new snapshot's `<Items>k__BackingField` (no `__args` write-back needed).
-- restore: `RefreshStandardTaskForcesFromStore` postfix writes the forces once more when a pending sub is missing (the keep logic adds it), then refreshes.
-- show: unchanged (`RefreshManagerRoster` postfix).
-UpgradeShip: the button is disabled (tooltip `up.owned`, "this version is already in your fleet") when the selected roster variant is already owned - the Builder's own `IsVariantAlreadyInTaskForce(sel)` (owned flag, owned hull keys in the save, pending/purchased lists). `DoUpgrade` checks it again before anything is sold (trace "UpgradeShip: X is already in the fleet - nothing sold"): before, the old ship was sold and the Builder then refused the purchase.
-UpgradeShip: ships of the other surface forces (Reserve, other task forces) are candidates too (2026-11-17). The Status window holds only the selected force, so `UpOtherForceShips` builds each other force's rows with `status.CreateManagerRosterPreview(force.Snapshot, missionIndex)` (as the Manager cards do) and uses the row's preview view model (`_owner`) for CanDismiss / refunds; ships away for service (`LinearCampaignTaskForceRepairs.IsUnavailable`) are left out; cached by the forces' snapshot objects + selection + mission. The menu shows "<ship> (<force>)". `DoUpgrade` selects that force first with the map's own `SelectStandardTaskForce(entry, true)` (`LinearCampaignMapViewModel.Instance`; the Builder's status VM is the map's `TaskForceStatusWindow`), finds the ship in the Status window again, sells/buys there (the new ship joins that force) and selects the previous force back.
-UpgradeShip window header (2026-11-17): as the game's Window.xaml - 20 px row, `Brush.Window.Header`, the title TextBlock at margin 2.5 with the theme's default text style, close = Button Width 20, Padding 0, bold "X". The old "X" was a TextBlock inside the draggable header: the header's MouseLeftButtonDown captured the mouse, so the X never got its MouseLeftButtonUp (did not close). Now the header ignores presses on the button (`x.IsMouseOver` / `IsInside(e.Source, x)`).
-Show moved (2026-11-17): the row of a submarine in service is no longer added to the Reserve card of the Surface tab (`RefreshManagerRoster` postfix removed) but to the Submarines tab: postfix on `LinearCampaignMapViewModel.RefreshStandardManagerVisibleUnits` - when `IsStandardSubmarineCategorySelected`, submarines of the Reserve entry's snapshot that `StandardManagerVisibleUnits` lacks get a row from `TaskForceStatusWindow.CreateManagerRosterPreview(one-item snapshot, mission index)` (IsReserveUnit=true; rows cached per item object) and are appended; NotifyPropertyChanged HasStandardManagerVisibleUnits / HasStandardManagerEntries. The tab itself is already offered (`HasStandardSubmarineCategory` looks at all StandardTaskForces items).
-Text by background, coloured texts on a dark backdrop (2026-11-17): a coloured (non-grey) text is lightened to at least 80 % HSL lightness (`TextColourLight`, hue and saturation kept) while the backdrop is dark (t = 0); on a light backdrop it is darkened as before. Before, on a dark backdrop it kept the game's colour (only grey texts went to pure white), which he had taken for "lightened the wrong way".
-The halo follows the text's own lightness: light text (dark backdrop) - black halo, dark text (light backdrop) - white halo.
-Text by background, inlines (2026-11-17): the Event Log's unit links are Hyperlink inlines with a colour of their own (red); only the TextBlock's Foreground was shifted, so the link kept its colour while the halo flipped (white halo on a light backdrop made the red look lighter, black on a dark one darker - "coloured text works the wrong way"). `ShiftInlines` gives every inline whose Foreground is not inherited (not the parent's brush) the same `ShiftText` as the text (originals in `_inlOrig`, ours in `_inlOurs`); off / text by background off: our colours are put back to the originals (a colour the game set meanwhile stays).
-Coloured texts' band (2026-11-17): HSL lightness at least 0.7 on a dark backdrop (`TextColourLight`) and at most 0.35 on a light one (`TextColourDark`), otherwise unchanged - the hue stays recognisable (the Event Log's red link was nearly black at 15 %). Grey texts as before (white / down to 15 %).
-The halo of a coloured text follows the backdrop (`HaloWhite`: white on a light one, black on a dark one), not its own lightness - within the band a blue at 0.7 still counts as "dark" by luminance. Also used for the halo share in `TextT`.
-Coloured texts on a dark backdrop: tried full HSV brightness (vivid red instead of pale pink) - he wanted it back, so it is HSL lightness 0.7 again.
-Link hover: our local Foreground on a Hyperlink hid the hover colour of its style (a trigger loses to a local value). `HookInlineHover`: on MouseEnter our colour is cleared (the style's normal / hover colour shows), on MouseLeave it is set again; `ShiftInline` does not touch a recoloured inline under the mouse (it would take the hover colour for the original).
-Link hover outline (TextElement.Stroke on the inline) was tried and removed: the stroke and the row halo together smeared the letters.
-Inline colour restore (text by background off / look off): a colour that came from the style is given back with ClearValue (so the style's hover trigger works again; setting it back as a local value hid the hover colour), a local original (`ReadLocalValue` is a Brush, `_inlLocal`) is set again.
-
-### Event Log: Compact layout (EventLogCompact.cs)
-`[EventLog] Compact` (off). Event Log tab, group "Layout", "Compact layout" / "less spacing". On the window's own elements, no tree search: window Content = the XAML's Grid (Margin 5), its first child the TabControl (theme Padding 12), its TabItems (theme Padding 12,7.5; header font 16 stays), TabItem.Content = the Borders of the XAML: tabs 0/1 Border.Child = the ListBoxes (their ItemTemplate gets a copy of the game's row template with smaller Border Padding / column gap, parsed with GUI.ParseXaml), tabs 2/3 Border Padding 5. Sizes are chosen in SCREEN PIXELS (margin 3, content 4, tab header 10 x 3, row 6 x 2, time-text gap 8) and divided by `ScreenScale(window)` (px per unit, incl. the window's look scale) - re-applied on the window's Loaded when the scale changed and on the option switch (windows kept in `_logWindows`). Off: the remembered originals go back.
-
-### Main menu: News window fills the free area (NewsFit.cs)
-`[General] FitNewsWindow` (on). Game Menus tab, "Main menu", "News window fills the free area". `NewsFitStep` (after PinStep, once per window and per canvas size): target = from the right edge of MainMenuView's ScrollViewer "scrollViewer" (menu column) to the canvas' right edge, from the canvas top to 6 screen px above the loading tip bar (the 800-wide Border on MainMenuView's Canvas; without tips 30 units above the bottom); measured with PointToScreen, turned into canvas units with PointFromScreen, plus the window's VisibleInsets; MaxWidth / MaxHeight bindings replaced. First time only (`[General] NewsLookApplied`, written by the plugin) and only when no look is remembered for the News pattern: look 0 % opacity / 120 % scale / text contrast (his own setup). The two FindFirst searches run once per fit, not per frame.
-News fit, second build: the VisibleInsets estimate put the window ~13 px too far left / up and a few px too low (2560x1440); now after setting X/Y/Width/Height the window is checked 0.2 s later against its frame (the mod's border = what the user sees, `Borders`) on the screen and corrected once by the differences (`NewsCorrect`). The first look is applied at once (`ApplyLook` with the look state's panel); before, only the stored look changed (the menu showed 0 % / 120 % but the window stayed as it was).
-News fit, third build (trace 2026-11-17): the frame check moved the window 26.67 px DOWN by the frame's top - the frame sits on the body below the title bar, so the title bar went above the screen (invisible, hover could not show it). The top is now checked against the HeaderThumb's top; left / right / bottom against the frame (those came out 0 / 0 / -5 px).
-Main menu background: default changed to Slideshow (was Video), 2026-11-17 (his request); existing cfg files keep their value.
-News fit without the jump (2.3.3): the window is hidden (Opacity 0) and fitted in OnWindowLoaded (after its first layout, before its first frame); the visible edges are measured on the window as it is (HeaderThumb top, frame sides / bottom, in canvas units against X / Y / Width / Height) so the offsets carry over exactly; when the frame is not laid out yet (it is added in the same Loaded) the inset estimate + the frame check (`NewsCorrect`, 0.2 s) are used while it stays hidden. Shown by `NewsFitStep` once fitted, or after 2 s whatever happened. No longer waits for PinStep (our X / Y replace the game's centring bindings anyway).
-News fit vs. the user (2.3.3): the user's own place / size / look win. `NewsUserChanged` (from DragPostfix, ResizePostfix, the look menu pick and SetLevel; our own SetF / LookMap writes do not go through them) switches `FitNewsWindow` off. First time (`NewsLookApplied` false): a News window with a remembered layout (`_saved`) or look switches the option off instead of being fitted: checked at start right after `ReloadPatterns` (`NewsOwnedAtStart`, by the pattern matching "News"), so the check box is off before any window, and again in `NewsFitLoaded` / `NewsFitStep` (`NewsUserOwned`). Switching the option on (SettingChanged): `NewsLookApplied` = false, `ResetLayouts(key)` + the look removed (`NewsReset`), the open News window refitted and given the mode's look.
-
-### Camera offset (CameraShift.cs)
-- Re-implementation of the Camera Offset mod (bananaduck.cameraoffset 0.4.0): postfix on `CameraManager.OnLateUpdate`; `ResetProjectionMatrix`, then `m[0,2] = -m[0,0]*X`, `m[1,2] = -m[1,1]*Y` on `_camera` and `_particleCamera` (lens shift: the camera does not move). One X/Y pair (`[WorldView] CameraOffsetFollowX/Y`, ±25 % of the view, /50 for the matrix), used in `CurrentMode` Follow and FollowBehind only, while `RenderPosition.SelectedObject` exists and not when `IsOpticalViewActive`. SmoothDamp, 0.1 s fixed. (The mod's per-mode values, glide time and optics switch were dropped on request.) Once back at zero the matrix is reset once and left alone.
-- Our postfix is always installed and returns while the mod works. "Works" = its own postfix (owner `bananaduck.cameraoffset.patch`) is on `CameraManager.OnLateUpdate` (`Harmony.GetPatchInfo`), not "its dll is loaded": unticked in the Mods menu the mod stops also without a restart (Anchor Chain), while its dll stays loaded. `RefreshCamMod` reads it at start, after our patch, in `RefreshEnabled` (Mods menu saved / load screen), when a settings page or the look menu is built (`CamModWorking`), and once a second from our postfix. We never patch / unpatch the mod ourselves. While it works the rows are greyed out (`Field.Conflict` → disabled, opacity 0.45, a `cam.conflict` note under the group title and in the help line; also in the look menu).
-- Editor: kind 'p' = `SettingsWindow.PadRow`: a 2D pad (sight with ticks every 5 %, the camera dot) for `f` (X) and `f.Pair` (Y; that field is `Hidden`, no row of its own, but its pending value / dot / Apply work as usual). Drag or click on the pad, RepeatButton arrows at the edges step by `Step`; pad edges = Min/Max; ↺ resets both.
-- Look menu (▾) of the World View window: `CameraOffsetMenuRow` = the switch + the same `SettingsWindow.Pad`, writing the entries directly (saved, live); moving the dot also switches the offset on; `SettingsWindow.Forget(entry)` drops an unapplied value of the open settings window and rebuilds its tab; the menu does not close on MouseLeave while `PadDragging`. Greyed out with `cam.conflict` when the mod is loaded.
-- Settings: tab "World View", shown when the settings are opened from the World View window's gear (`Open(..., worldView)`, `IsWorldViewWindow`). Live before Apply: the postfix reads `SettingsWindow.Shown(entry)` = the pending value while the window is open, else the entry's value; closing without Apply returns to the saved values.
-
-### Game version watermark (VersionMark.cs)
-`[General] ShowGameVersion` = Game (default) / Show / Hide; Debug tab, group "Game", "Game version watermark". The game decides once in `SeaPower.VersionWatermark.OnStart` (GameInitializer): shown on a Steam beta branch, or with [Debug] ShowVersionWatermark in its options ini AND config.ini; otherwise the object is deactivated. Postfix on OnStart puts Show / Hide over it (activate + the game's text `productName + " v" + version` on its TextMeshProUGUI, or deactivate); Game leaves the game's result. The option switch acts on the singleton's cached `_instance` (read by reflection, its Instance getter would create one); Show/Hide -> Game re-runs the game's OnStart. Nothing written to files.
-
-## Formation Manager: right click on another monitor (after 2.4.0)
-The rows of Formation Manager open the unit's menu with `MouseBinding RightClick` -> `{RelativeSource AncestorType=UserControl, AncestorLevel=2}.DataContext.OpenContextMenuCommand` (level 1 = FormationManagerView, level 2 = the MainGameView). The monitor view's root (`MonitorXaml`) was a plain Grid, so there was no second UserControl above the window, the binding found nothing and the click did nothing (on the main monitor it worked). Now the ItemsControl of the monitor sits in a `UserControl` (the DataContext is inherited from the root: the main view model). The command then opens the game's one context menu, and `MonitorMenuStep` moves it to the display the mouse is on (trace "monitors: context menu opened on display N"). Other bindings that look for `local:ScalableUserControl` above a window (HUD visibility, TacticalDoctrine content) still find nothing on a monitor. Not verified in game.
-
-Tactical Display on a monitor (same cause, after 2.4.0): GameMapView.xaml binds `Window.Closable` to `DataContext.MapClosable` and the draw toolbar's Visibility to `DataContext.ShowPip3D` (InverseCollapsedConverter) through `FindAncestor MainGameView`; on a monitor the FallbackValues won (always closable, toolbar always shown, so doubled while the World View overlay shows the same tools). `MonitorMapBindings` (from `OnWindowLoaded`, windows on a display > 0 whose DataContext is `SceneMapViewModel`) sets both bindings in code with the main view model as `Source` (`Window.ClosableProperty`; the `MapDrawToolbarView` found in the window's visual tree; the converter from the window's resources). Trace "monitors: Tactical Display on display N: closable / toolbar bound...". Not verified in game. Windows that commands open (`WindowHostCommands.OpenWindowCommand.Execute(vm, MainGameView.Instance)`) are put on the main host by the game; the mod's pattern -> monitor memory moves remembered windows afterwards.
-
-Unit Status tabs for contacts (after 2.4.0): a contact (no unit of the player in the window: `StatusUnit == null`) has its own preferred tab, `[UnitStatus] LastTabContact` (written by the mod, -1 none; `LastTab` stays for the player's units), so a tab chosen on a contact (Track State, Reference) does not become the preferred tab of the next own ship, and the tab of the previous contact is kept for the next one. The unit's own tab (`TabMemory`, key = the Vehicle of the Track tab) is noted for every contact as for units. A tab that is not available yet (the Reference tab of a contact appears when its class is known) is waited for 1.5 s (`TabPendingAt`, `TabWait`) instead of being dropped on the first Refresh. `TabTrackStep` no longer skips while a put-back is pending: `TabBaseline` sets the baseline (unit + the tab shown) after each put-back, so a change after it is the user's and cancels the pending put-back. Not verified in game.
-
-## Map label filters (after 2.4.0, `[Map] GroupNameOnly`, `LabelOverlapFilter`, both default false, `src/MapLabelFilter.cs`)
-Game: `MapLabelLayer.ArrangeOverride` -> `Gate1` fills `_active` (labels on screen, `ActiveIndex` = position) and `_anchorPx` (same order), then Cluster / RealizeAndMeasure / Solve work only on `_active`. Each unit has two candidates sharing `Content` = MapUnitViewModel: the text label (`Descriptor.IsIcon` false) and the icon label. Formation: `MapLabelGroup` (Key = UnitFormation); the leader's text label has `HeadLine` (template MapLabel.Formation.Summary, text `FormationInfoLine1` = formation name, `HeadContent` = MapFormationViewModel). A formation is selected when any of its unit VMs has `Selected`.
-Mod: postfix on `Gate1` (no timer, no tree walk) edits `_active` / `_anchorPx` (drop: Eligible/Realized false, ActiveIndex -1, Representative null, RepScore 0, as the game does for an off-screen label) and renumbers `ActiveIndex`.
-- GroupNameOnly: text labels of an unselected formation are dropped except the one with a HeadLine; the ContactInfoLine1-4 getters of that VM return "" (same getter postfix as CompactSonobuoys, own flag table `GlFlags` / counter `_glHidden`; OnPropertyChanged + `Label.BumpContentVersion()` when the flag changes). A formation with no HeadLine label among the active ones is left alone. Icons are never dropped. Needs the sonobuoy hook (getters, `_sonoRaise`).
-- LabelOverlapFilter: text labels (not aggregates) sorted by unit size, biggest first (vessel: `Unit.BaseObject.VP._displacement` only if `IsPlayerObject` or `Unit.Identified.Value`, cached 2 s; formation leader label: the biggest unit of the formation; unknown = 0; ties: order in `_active`); greedy keep; a label that overlaps is first tried with fewer lines (all, then without the last, ... down to the head line / line 1): the lines above the kept count are blanked by a per-line mask (`GlFlag.Mask`, the getter postfix reads the line number from `__originalMethod.Name`); natural line sizes are remembered (`GlNats`) while no line is blanked, else the cut label would look small and be un-cut next frame. Dropped only if even one line overlaps. A label whose rectangle (ViewPx + (14.75,-21.25); size from `LineSizes` of the last measure, else 90x14) overlaps a kept one is dropped. The solver really places labels on any side of the anchor, so the rectangle approximates the default place. Aircraft have no size (0): they lose to known vessels and keep list order among themselves.
-- Cost: ~8 reflection reads per active label per layout pass, only when an option is on. On any exception the filter switches itself off until restart (trace "label filter: ...").
-- Not verified in game: that an empty-lined leader label shrinks to the name; that dropping from `_active` after Gate1 leaves no stale presenter (the game's own sweep for non-eligible labels is expected to remove it); the overlap rectangle accuracy.
-- `[Map] LabelPlacement` (Game / Bottom / Top / Right / Left, default Bottom; `GroupNameOnly` and `LabelOverlapFilter` now default true): sets `MapLabelDescriptors.Contact.PreferredSide` (LabelSide South / North / East / West; Game = the value read at start, East). Setting only the preferred side was not enough (the solver moved labels), so for any side but Game the solver is off: prefixes on `MapLabelLayer.Cluster` / `Attribute` return false and the prefix on `Solve` calls the game's own `PlaceLegacy(registry)` (Slot = PreferredSide for every label, Prefix = the lines the ceiling layers permit, Realized, NotifyClient, connectors dropped) and returns false. `ArrangeLabels` then puts the box with `SlotOffset(Slot, ...)`: centred on the side (slot 2 = down, 6 = up, 0 = right, 4 = left; screen y down); West right-aligns the lines. Consequences: no aggregates / merged labels / representatives, no line cutting by the solver (the mod's overlap filter still cuts lines and drops labels, now with the rectangle of the chosen side: anchor + dir * (12 + 6 + half extent)). A change of the option sets `NeedsSeed` on all labels (back to Game the solver starts from the preferred slots). Not verified in game.
-- LabelPlacement fix: the first build did nothing on the user's map (trace: patched, "label placement: Bottom", labels still top-right). Cause (by code, the trace has no proof): the map display feature `SolvedLabels` is off, so `ArrangeOverride` runs `PlaceLegacy` itself and `ArrangeLabels` uses the old top-left offset (`_wasSolved` false) whatever the slot. Prefix on `ArrangeLabels` sets `_wasSolved = true` when a side is chosen (it also right-aligns the lines of a West label). Not verified in game.
-- LabelPlacement distance (icons differ): `ArrangeLabels` calls `SlotOffset(slot, label.AnchorRadiusPx, size)` = dir * (radius + 6 + half box). In fixed mode a postfix on the getter `MapLabelCandidate.AnchorRadiusPx` returns, per label, `GlBase(vm, side) - 6`, GlBase = the drawn extent of that unit's icon on that side + 4 px. Extents: the icon is Canvas "UnitIcon" (22.5, anchor at its centre 11.25) with Path "IconGeometry" (geometry by VisualType + VisualPosture via NtdsGeometryConverter); `Geometry.Bounds` + half stroke gives L/T/R/B about the anchor (`GlExts`, per VM, with the VisualType / VisualPosture it was measured for). The Gate1 postfix sets `_glNeedExt` when a text label's VM has no measure or the type / posture changed; `GlExtStep` (per map window in the Update loop, with SonobuoyStep) then walks the tree once a second (budget 80 000) and measures every unit icon; it does nothing otherwise. Before the first measure: bottom 7, top 18, sides 13. The overlap rectangle uses the same `GlBase`. Not verified in game (`Geometry.Bounds` units / origin assumed = canvas coordinates).
-
-## Load screen line without Effect (after 2.4.0, `LoadInfo.cs`)
-Report: the mod's line on the loading screen looked smeared (redrawn many times while the background does not change). The TextBlock had a `DropShadowEffect` (BlurRadius 0): an Effect makes Noesis render the element through an offscreen target and composite it again on every redraw. Now a Grid with two plain TextBlocks (black one pixel down-right, grey on top), no Effect; the text is set on both only when it changes (`LoadTextPostfix` returns early when the text is the same). Cause not proven in game (no trace of drawing); if the smear stays, the next suspect is alpha-blended anti-aliased text drawn again onto a background that is not cleared.
-
-## Formation name around the whole formation (after 2.4.0, `GlGroupAround` in `MapLabelFilter.cs`, only while a label side other than Game is chosen)
-The formation name is the HeadLine of the leader's text label, anchored at the leader. The prefix of `ArrangeLabels` (already there for `_wasSolved`) now takes, per formation (`Group.Key` is a UnitFormation), the pixel positions (`_anchorPx`) of the icon labels that are active, builds their box and, when the formation has >= 2 active icons and the box is not wider/taller than `GlGroupMax` = 260 px (otherwise it is scattered: the name stays at the leader), replaces `_anchorPx[i]` of the leader's label by the centre of the box. The distances from that centre to the box edges (+ half an icon) are kept per label (`GlGroupExt`) and `RadiusPostfix` (AnchorRadiusPx) uses the one of the chosen side instead of the icon extent, so the name sits centred below / above / right / left of the whole formation. The leader's own lines (when the formation is selected they come back) move with it. Not verified in game; the overlap filter still uses the leader's position for the group label.
-- Load screen line, second version: not a shadow either; the game's own loading tip (LoadScreenView.xaml, row 0) is a Border (background Color.ContrastGrey at 0.6 opacity, BorderBrush Brush.Border.Normal, 1 px) around a TextBlock (14, Brush.Foreground.Highlight, opacity 0.9); the mod's line now has the same look (resources found with `view.TryFindResource`, fallbacks if not). Replaces the two-TextBlock shadow. Not verified in game.
-- Load screen line, third version: the border of the Border showed a row of coloured dashes along its top edge (screenshot). Suspects, all removed: the game's `Brush.Border.Normal` as BorderBrush (a non-solid brush on a 1 px edge), `Opacity` 0.9 on the TextBlock (offscreen group). Now: plain SolidColorBrush border, no element opacity, `UseLayoutRounding`; the background keeps `Brush.Opacity` 0.6 (a brush opacity needs no offscreen pass). Cause not proven.
-- Load screen line, fourth version (screenshot: ours was darker with a light edge, the tip translucent): the Border and TextBlock are now built from the live tip (the Border at Grid row 0 / column 1 of the LoadScreenView root with a TextBlock child): Background, BorderBrush, BorderThickness, Padding, CornerRadius, MaxWidth, Opacity, Effect, UseLayoutRounding; TextBlock FontSize, FontFamily, FontWeight, Foreground, Opacity, Effect (shared objects). Own look only when the tip is not found (trace line). Not verified in game.
-- Selection (after 2.4.0): `GlBase` is at least `GlSelFrame` (12.5) + gap when the unit is selected - the game's selection brackets are a 22.5 square about the anchor, larger than most icons; the group extent uses 12.5 per icon. The overlap filter treats a selected unit's label and the name label of a selected formation as size MaxValue: sorted first, never cut to fewer lines, never dropped (the others make room). Selected formation members are not hidden by GroupNameOnly (it only acts on unselected formations).
-- Group name gap: the distances from the new anchor to the formation's edge use the drawn extents of each member's icon (`GlExts`, a selected member at least `GlSelFrame`; 11.25 until measured) instead of a fixed 12.5 per icon - a flight of aircraft has only ~3 px below its anchors.
-- Overlap with the formation name (screenshot: the selected Carrier Group's text lay over a destroyer's label): the overlap filter ran at Gate1 with the name label still at the leader. `GlGroupBoxes` (centre + edge distances of every compact formation's name label, from the active icons) is now shared: the filter uses the centre and the edge of the formation for the rectangle of that label, `GlGroupAround` (before ArrangeLabels) applies it.
-- Load screen line, fifth version (screenshot: coloured dashes at the bottom edge, panel brighter than the tip): copying the live tip's translucent Background / BorderBrush / Opacity did not help. Now opaque solid colours (panel 44,48,52, border 70,74,80, text 214,216,220), integer margins, `UseLayoutRounding`, no Opacity / Effect anywhere. If dashes still appear, the cause is the element's position / size on the load screen, not its brushes.
-- Formation name and the leader (screenshot: only "Carrier Group / 1005 (CVS) / 25 De Mayo" under the whole formation, the carrier itself had no text): the name label IS the leader's label (HeadLine + the leader's lines), so moving it around the formation leaves the leader without text. `GlGroupBoxes` now skips a formation with a selected member: its label (name + leader's lines) stays at the leader; an unselected formation shows only the name (GroupNameOnly), around the formation.
-
-## Formation name as a label of its own (after 2.4.0, `GlNamesSync` in `MapLabelFilter.cs`, only with a label side other than Game)
-Requests: both labels for a selected formation (the leader's own text at the leader AND the name around the whole formation, both with priority); no formation name for a formation of one unit.
-The game's name is the HeadLine of the leader's text label (set in `MapFormationViewModel.UpdateLabelLeader`), so one label cannot be in two places. After every Gate1 `GlNamesSync` goes through `registry.Groups` (Key = UnitFormation): a text label with a HeadLine is taken over: line / content (the MapFormationViewModel) are kept in `GlName`, the label's HeadLine is set to null (BumpContentVersion; HeadContent stays, so the game's `ClearLeader` still works and a new leader's HeadLine is taken over again), and a second candidate X is registered (`registry.Register(descriptor, vm)`, descriptor made by reflection: one line = the game's SummaryLine, Policy None, PreferredSide = the chosen side) whose anchor is the leader's `Anchor` (SetAnchor each pass). X is anchored around the formation by `GlGroupAround` (compact formation) or stays at the leader; a scattered selected formation: X goes to the opposite side (`Slot` + 4) because the leader's own label sits on the chosen side. A formation with fewer than 2 unit labels: no X and the leader's HeadLine stays off (no name for one unit); the filters (GroupNameOnly, size sort) also ignore such a formation. GroupNameOnly: the unit labels of an unselected formation are dropped, X stays. Selected unit / selected formation: sorted first in the overlap filter (X of a selected formation too), never cut. With side Game (or the option off) `GlNamesSync(on=false)` unregisters every X and puts the HeadLines back. `RadiusPostfix` takes the side from the label's `Slot`. Not verified in game. Fallback: if a registry member is not found (trace "registry members for the formation name not found") the old behaviour stays (HeadLine on the leader's label, blanked lines for an unselected formation).
-- Order of adding texts in the overlap filter (tiers): 0 selected unit, 1 leaders of formations (the leader's own label; in the old mode the label with the HeadLine), 2 other units (by size), 3 names of formations (X); inside a tier selected first, then bigger, then list order. The name moves farther from the formation in steps of 12 px (up to 60) while it overlaps an already kept text (`_glShift`, read by `RadiusPostfix`, cleared every pass); no free place: dropped, but the name of a selected formation stays at its place.
-- Name around the leader: the "scattered" limit was a constant 260 px, smaller than a destroyer screen of a normal formation at the usual zoom (the screenshot formation is ~300 px tall), so the name fell back to the leader. Now `[Map] GroupSpreadMax` (px, default 600, 100-3000; GUI "Formation spread limit"). Not confirmed by a trace; if the name still sits at the leader with a big limit, check the trace for "formation name:" (GlNamesSync failed).
-- Scattered formation by distance: `[Map] GroupSpreadMiles` (nautical miles, default 5, 0.5-100; replaces `GroupSpreadMax` in pixels). Scattered = some unit's anchor (GeoPosition of its icon label) is farther than the limit from the leader's anchor (haversine, R 3440.065 nm, `GlNm`; `b[10]` in `GlGroupBoxes`); also needs >= 2 active icons for the box. Scattered only changes where the name of the formation is put (at the leader instead of around the formation; a selected scattered formation: the opposite side) - it has no effect on the unit labels, GroupNameOnly or the order of the texts.
-- Formation logic changed (replaces the "scattered" rule): `GlNearSet(group)` (per frame cache) = the member labels within `[Map] GroupSpreadMiles` (nm, default 5) of the leader's label (the leader = `GlName.Leader`, in the old mode the member with a HeadLine; no leader label known: every member counts). Units beyond it are independent: not in the box of the formation, not dropped by GroupNameOnly, not counted for the selection / size of the formation. The formation is always compact (the name around the box of its near units). When fewer than 2 near units are left (nobody near the leader) it is not a formation any more: no name label, the leader keeps its own text, GroupNameOnly does not act. The opposite-side placement of a scattered selected formation is no longer reached.
-- Reverted on request: a formation does NOT stop being a formation when nobody is near the leader. The name needs >= 2 units in the formation (all members, `GlUnits`), the box is that of the near units (the leader alone at least). Far units stay independent.
-- Two limits: `[Map] GroupSpreadMiles` 5 nm for ships and ground units, `[Map] GroupSpreadMilesAir` 1 nm (0.1-100) for aircraft and helicopters (the member's own `VisualType`: 1 Air, 2 Helicopter, measured from the leader).
-
-## Formation lines (after 2.4.0, `[Map] FormationLines` default true, `src/FormationLines.cs`)
-The game's own membership connectors (`MapLabelConnector`, template MapLabel.Connector.Membership = MapPolyline with `Map_FormationMembershipLine`) are made only by the solver (`Attribute` -> `UpdateConnectors`) for labels merged into a formation label, so they do not exist with a label side chosen and not for "select a unit -> see the formation". The mod draws its own: a prefix on `MapLabelLayer.ArrangeLabels` (`LinesPrefix`); `MapLabelLayer` is a Panel and measures every child, so a Canvas with `Noesis.Line` children is added to `layer.Children` (one set per layer, `GlLineSets`) and Measure/Arrange'd over the whole layer each pass. Lines: for every formation (registry.Groups, Key UnitFormation, >= 2 members) with a selected unit among the near units (`GlNearSet`), from the leader's icon position to each other near unit's icon position (`_anchorPx` of the icon labels in `_active`, layer coordinates; units off screen have no line). Stroke / thickness from the resources `Map_FormationMembershipLine` / `FormationMembershipLineThickness` of the layer (fallback light blue 1). Not verified in game (resource lookup, that the Canvas is shown).
-
-## Icons as taken places (overlap filter)
-In `LabelFilter` the rectangles of all drawn icons (measured extents `GlExts`, a selected one at least the selection frame, anchor from `_anchorPx`) are tested together with the kept text boxes: a unit text (and a formation name) that overlaps any icon gets fewer lines or is dropped (a formation name shifts away first). A selected unit's text is not cut or dropped, as before. Not verified in game.
-
-## Master switch `[Map] DrawingImprovements` (default true)
-Group "Map drawing" on the Tactical Display tab: the master switch and its children (compact sonobuoys + threshold, label position, spread limits, formation lines, formation name only, overlap filter, cut contact ellipses); children have `Field.Needs = master`, so they are hidden while it is off. Code: `MapImp` (static) gates `SonoStep`/crowded logic, `LabelFilterPostfix` (group/overlap), `LabelPlace` (acts as "Game"), `GlFixed`, `LinesStep` and the ellipse cut. "Keep map view on resize" stays in group Map (not drawing). Not verified in game.
-
-## Own units: the 2nd line when 2 lines do not fit
-In the overlap filter, when even 2 lines of a unit of the player's side (`BaseObject.IsPlayerObject`, no head line) do not fit, the last step shows line 2 alone (mask 1|4|8) instead of line 1; its box is the size of line 2. Other units keep line 1. Not verified in game.
-
-## Selected formation name: farther shift
-Order of adding is unchanged (selected unit, leaders, other units, formation names; the name of a selected formation is last too, but never dropped). A selected formation's name now tries shifts up to 150 px (12 px steps) away from the formation before it stays on top of other text (was 60). Not verified in game.
-
-## Order of the formation name (corrected)
-Tier of a formation name label: with GroupNameOnly on and the formation not selected its units have no text, so the name is the formation's only label and sorts in tier 1 with the leaders / by size; otherwise (a selected formation, or GroupNameOnly off) it is tier 3, after the unit texts. The extra shift (150 px) applies to the selected formation only. Not verified in game.
-
-## Empty lines in the label text
-The game's presenter already collapses an empty line (`MapLabelPresenter._empty`, its `LineSizes` entry is 0). The overlap filter used to count such a line as one of the lines to show (k lines = the first k indexes), so with an empty line 3 the step "3 lines" showed only 2 and a cut left the wrong lines. Now the filter works on the contact lines that have text (`ne`): the steps are 'all lines with text, fewer and fewer', the box is built from those lines only, the "2nd line" of an own unit is its 2nd line with text, and the mask blanks only the lines with text that were cut. Not verified in game; if empty lines are still seen on the map, the cause is elsewhere (trace needed).
-
-## Own auto placement of the labels (part of the overlap filter)
-In the placement loop of `LabelFilter` (fixed label side) a text that does not fit is tried on the chosen side, then the opposite one, then the other two (vertical choice: opposite, right, left; horizontal: opposite, bottom, top). Loop order: shift of a formation name (outer, 0 first: the offset is the last resort) > number of lines (all lines with text first) > side. So all four sides are tried with the full text before a line is cut. The side found is stored in `_glSides` (label -> game Slot 0 E / 2 S / 4 W / 6 N, cleared every pass in `LabelFilterPostfix`) and written to `Label.Slot` in `ArrangePrefix` after `GlGroupAround` (PlaceLegacy resets Slot to PreferredSide every pass; `RadiusPostfix` reads the Slot, so the distance to the icon follows the side). A selected unit is not checked against other texts, so it stays on the chosen side. Works only with LabelOverlapFilter on and a label position other than "As in the game". Not verified in game.
-
-## Stale label box after a line is blanked (zoom out)
-Symptom: after zooming out the filter cut the 2 lower lines of a text but the text did not move (the box kept the 4-line height / full width). Cause (by reasoning, in-game picture): `GlSetMask` raises PropertyChanged and bumps the label's ContentVersion, but the Noesis bindings apply the new text later than the same layout pass, so `MeasureAndRead` still measured the old lines and `LineSizes` stayed 4 lines; the version was then "measured" and never re-read. Now the labels bumped by `GlSetMask` are kept in `_glRe`; at the end of the pass the layer gets `InvalidateMeasure` (one more pass), and in a pass of a later frame (`Time.frameCount`) the labels are bumped again before `RealizeAndMeasure`, so the sizes are read with the new text. Not verified in game.
-
-## Line alignment of the label text
-`ArrangeLabels` calls `MapLabelPresenter.SetLineAlignment` (Left, Right on west slots) for every label each pass. `LineAlignPrefix` replaces the argument while a label side is chosen (`GlFixed`): Slot 2 / 6 (below / above) Centre, 4 (left) Right, 0 (right) Left; diagonal slots keep the game's value. The slot is read from `presenter.Label.Slot`, which `ArrangePrefix` has set just before (`_glSides`). Not verified in game.
-
-## Box taller than the text (trace of 2026-11-18)
-Trace: the filter put the label of 1053 (2 of 3 lines) 14 px above the icon, but on the map it stood ~45-80 px away. `ArrangeLabels` sizes the box from `LineSizes` of the first `Prefix` lines; the sizes of the lines blanked by the mask stayed non-zero (the measure of the pass still saw the old text), so the box was 4 lines tall with the text at its top. `GlZeroBlanked` (start of `ArrangePrefix`, any label mode) zeroes the `LineSizes` of every blanked line (mask bit q = contact line q, + 1 with a head line) just before ArrangeLabels. The second measure (`_glRe`) stays for restored lines. Also in the trace: the filter's own line sizes (`GlNats`) can be older than the text (a line that was empty at the measure). Not verified in game.
-
-## Empty lines (live)
-The game fixes which lines are empty (`MapLabelPresenter._empty`, `LineSizes` 0) only at a measure, and a text that becomes empty does not always cause one; so an empty line kept its old size in the box. `GlZeroBlanked` (start of `ArrangePrefix`, all labels, only with the master switch on) now reads the current text of the 4 contact lines (`ContactInfoLineN` getters, `GlLineText`) of every unit text label and zeroes the `LineSizes` of the empty ones; a line with text and size 0 bumps the content version (at most once per 2 s per label) and invalidates the layer to be measured again. The overlap filter uses the same live emptiness (an empty line is not counted; a line with text and size 0 gets an estimate 5.4 px per character x 12.5). Not verified in game.
-
-## Empty line in the middle of a text (1050)
-An empty line in the middle stayed as a gap: the presenter collapses a line only when `_empty[i]` is set (at a measure), and a text that became empty later was still flagged non-empty. `GlZeroBlanked` also sets `presenter._empty[line]` from the live text (`layer._presenters[label]`), and `SetPrefix` in ArrangeLabels then collapses it. Not verified in game.
-
-## Empty line inside the text of one label line (trace 2026-11-18)
-Trace of the selected unit 1050: texts [Id | Class | Alt | ""] with sizes 68x12, 40x12, 56x24, 0x0: the 3rd line is 24 px high, i.e. its text carries a line break (an empty line before 'Alt: ...'), which the empty-line logic by line could not see. `SonoLinePostfix` (the getter postfix of ContactInfoLine1-4) now removes empty lines from any such text (`GlNoEmptyLines`, with the master switch on); `GlZeroBlanked` measures a label again when the size of a line is taller than 17 px per line of its text (rate limit 2 s). Not verified in game.
-
-## Natural line sizes of a cut label (7006)
-Trace: the label of 7006 had 1 of 3 lines. A label that was cut from its first pass has no natural sizes (`GlNats`), and the filter used 90x12 for every line, so 2-3 lines of 7006 seemed not to fit on any side near 7005's text and 7004's label. Now an unknown contact line starts at size 0 and the live loop gives it an estimate from the text it has when it is NOT cut (`GlLineText(vm, q, raw: true)` makes `SonoLinePostfix` skip the mask for that call), 5.4 px per character; masked lines are no longer skipped there. Not verified in game.
-
-## The game measures every label with all its lines first
-A label that was cut from its first pass was never measured with its full text (the bindings were already empty), so its natural line sizes were unknown. Now the filter cuts lines of a label (mask) only when its natural sizes (`GlNats`) are known, and those are taken only from a label that has a presenter (`layer._presenters`, i.e. `MeasureAndRead` has run) and has no mask. A new label is therefore shown whole for its first pass(es), measured by the game, and cut from the next one. The estimate from the text (5.4 px / char) stays only for placing such a label in that first pass. Not verified in game.
-
-## Own full measure before the filter
-`GlHostMeasure` (in `LabelFilter`, for a label without natural sizes, once per label, no limit per pass): the same sequence the game uses for hidden labels in `RealizeAndMeasure` - `_host.Attach(label, layer)`, `ShowAllForMeasure`, `Measure(inf)`, `layer.ReadSizes(label, _host)`, `Detach` - with `_glRawText` set so that the `ContactInfoLineN` getters give the uncut text while the bindings are evaluated. The sizes go to `LineSizes` and become the natural sizes (`GlNats`) at once, so a new label is cut by the filter in the same pass, without a frame of the whole text. `_host` exists after the first `RealizeAndMeasure` (else the first pass shows the label whole, as before). A failure is traced once ('label measure: ...'). Not verified in game: that the bindings read the uncut text during this measure.
-
-## Natural sizes are re-measured when the text changes
-`GlNat.T` keeps the uncut text of the 4 contact lines the sizes were measured for. The filter reads the uncut text every pass (needed anyway for empty lines); when it differs from `GlNat.T` the label is measured again by the host (`GlHostMeasure`), so a changed distance / altitude / class does not leave stale sizes while the lines are cut. The sizes do not depend on the map scale or the positions of the units (a label has a fixed pixel size; the positions only decide where it goes), so those need no new measure. Not verified in game.
-
-## Hysteresis of the placement (1 s)
-Units move once a second, not together, so the filter's decision for a label (side, number of lines, name shift, dropped or not) could flip every pass. `GlDecs` (label -> `GlDec` {C lines, Si side try, Sh shift, Drop, T time of the last change}): a decision that is younger than 1 s (`Time.unscaledTime`) is kept as it is (the loops run only that one candidate and it is accepted without the overlap test; a dropped label stays dropped), unless the number of lines with text became smaller than the stored one. After 1 s the label is decided freely again; if the result differs, the new decision holds for 1 s. A selected unit / formation is not held (always decided: whole text, chosen side). Not verified in game.
-
-## Load on entering Scenarios / Campaign, windows beside the menu (`src/MenuLoad.cs`)
-[General] AutoOpenLoad (default true): `ScenarioMenuViewModel` / `CampaignMenuViewModel` constructors are noted (postfix); `AutoLoadStep` (UpdateCore, after the hook) waits >= 3 frames until `ScenarioMenuView.Instance` / `CampaignMenuView.Instance` is loaded, visible and has the view model as DataContext, then executes the view model's own `LoadCommand` (opens the FilePickerViewModel window via WindowHostCommands.OpenWindowCommand). Scenarios only when `SaveLoadEnabled` (game config.ini) is true. [General] MenuWindowsAside (default true): `OnWindowLoaded` -> `MenuAsideLoaded`: a Window under a `MenuPage` (its overlay Canvas) is queued; `PutAside` (when the Canvas and the window have sizes, tried 2 s) sets `Window.X` to the centre of the area right of `leftContentPresenter` (the 560-wide column of the page template, + 10): the game's CanvasCenter binding puts the 600x400 window in the middle of the whole page, over the buttons. Y stays the game's. Trace: 'auto Load: ...', 'window aside: ...'. Not verified in game (whether the Loaded of the picker window comes with sizes, whether SetF over the binding sticks).
-
-## File picker without a height limit ([General] FilePickerTall, default true)
-The data template of `FilePickerViewModel` (Scripts/UI/Game/Views/FilePickerViewTemplates.xaml) makes the window `Height=400 MaxHeight=400 MaxWidth=600`. `PickerLoaded` (from `OnWindowLoaded`) sets `MaxHeight` of a Window whose DataContext is a FilePickerViewModel to infinity, so it can be resized taller. The initial Height stays 400; the width limit is not touched. Not verified in game.
-
-## The 'FRND' badge (friendly unit of another side)
-Template `FriendlySideMarker` (UnitOverlay.xaml): a TextBlock (abbreviation of `mapfeaturesfriendlysideabbreviation`, 10 pt) in a Canvas of the icon size, `Canvas.Right=26` (its right edge 14.75 px left of the anchor), `Canvas.Top={Binding RelationshipMarkerTop}`, visible while `MapUnitViewModel.IsFriendlyOtherSide`. `ArrangeLabels` sets `RelationshipMarkerTop` from the position of the first text line, so with a label side chosen by the mod (label far from the icon) the badge hung away from the icon and could lie under a label. Now: `MarkerTopPrefix` (prefix on the internal setter) forces 0 while the label side is chosen (`GlFixed`) = the badge is centred on the icon; and the overlap filter adds a 30 x 22.5 rectangle left of the icon of every such unit to the taken places (`icons`). Not verified in game (the badge width 30 is an estimate).
-
-## 'FRND' merged into the first line ([Map] FriendlyBadgeInLabel, default true, in the master switch group)
-`BadgeLine` (start of `SonoLinePostfix`, i.e. the postfix of `ContactInfoLine1-4` getters, before the raw / mask logic): for ContactInfoLine1 of a unit with `IsFriendlyOtherSide` the text of `mapfeaturesfriendlysideabbreviation` (`GameText`, 'FRND') + a space is put in front. `MarkerTopPrefix` then sets `RelationshipMarkerTop` to -10000 (the game's badge, Canvas.Top bound to it, is out of the picture; a collapsed template was not an option without touching the XAML). The icon-side rectangle reserved earlier (30 x 22.5) is skipped while the option is on. The filter's text cache sees the longer line (raw read goes through BadgeLine too), so the label is measured again. Not verified in game.
-
-Update: the badge is now a line of its own: `BadgeLine` gives "FRND\n<line 1>" (a two-line text in the first contact line; the number of label lines does not change, the first line is two lines high). The estimate of an unmeasured line counts the lines of the text (12.5 px each, the widest part). Not verified in game.
-
-## The badge is a line of the label with the usual cutting rules (replaces "goes with the first line")
-Text: unchanged ("FRND\n<line 1>" in ContactInfoLine1; no 5th descriptor line: the descriptor is shared and every index in the mod counts the 4 getters). The filter treats it as a virtual line: for a unit with the badge the list of lines is [FRND, line 1 (height - 12), line 2 ...]; the lines are cut from the bottom, FRND stays last. When only 1 line fits, line 1 shows only the badge: `GlFlag` bit 4 (value 16) with bit 0 -> `SonoLinePostfix` returns the badge text instead of "". The line mask / blank logic of the other lines is as before. Not verified in game (the badge width 6 px / char, height 12 and the 12 px taken off line 1 are estimates).
-
-## FRND badge glued to line 1 (no virtual line)
-No separate size of the badge: `BadgeLine` glues `FRND\n` to the text of line 1 (the getter), so the host measure and the natural sizes (`GlNat`) see it as part of line 1 and everything works as for any other line. Line 1 is cut last, so the badge goes with it. The earlier virtual line, GlFlag bit 16 and the extra measures are removed. Not verified in game.
-
-## Text alignment inside a line
-MapLabels.xaml fixes `TextAlignment="Left"` on the TextBlock of every contact line; the game aligns only the line block (`SetLineAlignment`). A line of several rows (FRND over the id) stayed left. `GlTextAlign` (in `ArrangePrefix`, fixed placement only) sets `TextAlignment` of each line's TextBlock by the side: above/below centre, left of the unit right, right of it left. Not verified in game.
-
-## The game's own FRND badge
-UnitOverlay.xaml draws it at Canvas.Top = `RelationshipMarkerTop`. It is put away (-10000) for every unit by the getter postfix (`MarkerTopGetPostfix`) while the badge is in the label: the setter prefix alone missed units whose label ArrangeLabels does not arrange.
-
-## Labels of the units of an unselected formation: last in the order
-GroupNameOnly used to drop them for good. With the overlap filter on they are kept in the list at tier 4 (`low`), after everything else, and the usual rules decide: a label is drawn only where it fits (the cut lines, the four sides), else it is dropped. Without the overlap filter, and for aircraft and helicopters (`GlAirLabel`, MapVisualType 1 / 2), they are dropped as before. Not verified in game.
-
-Aircraft and helicopters of a selected formation: the labels of all of them except the selected unit are dropped (`GroupNameOnly`, same block as the unselected formations; the formation name stays). Not verified in game.
-
-## Formation update by the leader (`[Map] FormationUpdateByLeader`, on by default since 2.5.0, src/LeaderUpdate.cs)
-The game takes a unit's position for the map only with the chance 1/15 at each change (MapUnitViewModel ctor, `random.NextDouble() > 1/15` returns), so the units of a formation move at random moments. The setter `MapUnitViewModel.Location` is patched. Aircraft / helicopters (VisualType 1/2) in a formation (`BaseObject.Formation`, leader = `LeaderStation.UnitObject`): a member within the air spread limit of the leader does not take its own position while the leader took one in the last 3 s (prefix returns false); when the leader takes one (postfix) the members within the limit take their current `Unit.Position.Value` at once (`_leadBusy` guards the recursion). A unit's first position is always taken (registered in `LeadVms`, `LeadByBo` maps game object -> view model). No leader news for 3 s (dormant, destroyed, not registered), a leader change (the game's AssignNewLeaderFromAvailableUnits) and a unit beyond the limit: the unit updates itself as before. The velocity bearing is not synchronised. Side effect: a member's icon is up to a second behind its real position. Not verified in game.
-
-Fix: a unit can have more than one MapUnitViewModel (one per map); the registry kept only the last one, so the other one of a member was blocked and never given the leader's position (the member stood still). `LeadByBo` now keeps a (weak) list of view models per game object and the leader's postfix gives the position to all of them. The Debug trace line 'formation update by leader: members blocked / positions given' (every 2 s) shows whether the leader gives positions. Not verified in game.
-
-The spread limit no longer applies to this option: every aircraft / helicopter of the formation (game's UnitFormation) follows the leader's update, near or far. Only the leader-news timeout (3 s) lets a member update itself.
-
-## Aircraft formation: distance and altitude under the name (`[Map] AirGroupInfo`, on by default)
-The name label X (the mod's own label, placed around the whole formation) has two forms (`GlName.Form`): 0 = the name only (formation view model as content); 1 = a head label like the game's leader label: head line = the name (content: the formation view model, `SetHeadLine`), the four contact lines of the Contact descriptor, content = the leader's `MapUnitViewModel`. Form 1 is for an unselected formation whose leader is an aircraft / helicopter, while GroupNameOnly is on (the unit labels of the formation are dropped, so nothing else uses the leader's view model); LabelFilter gives it the base mask 11 (lines 1, 2, 4 blank, line 3 = distance and altitude stays) and the usual rules cut the line from the bottom. The form follows the selection: X is registered again when it changes (the leader's label of the game is never touched; an earlier version switched the head line of the leader's label, which made the name appear late or not at all, and put the name at the leader instead of around the formation). Not verified in game.
-
-Fix: a leader's label now gets and loses its head line (name) when the selection changes (AirGroupInfo), so the cached natural sizes (and the game's LineSizes of the old state) had the wrong number of lines (4 without the head, 5 with it): the lines were misindexed and the name was dropped. The sizes are used only when their count is the label's own line count (`GlLineCount`: the head line + the lines of its descriptor; a unit label 4, the name label X 1), else the label is measured again. (A first version used a fixed 4 and zeroed the name labels X: box 0x0 in the trace.) Not verified in game.
-
-## The game's FRND badge stayed on some units until they were selected
-A binding of Canvas.Top made before the getter postfix applied (or before a unit became a friendly one of another side) keeps the value it read until the property raises a change (a selection did). `GlMarkRefresh` (every label pass, `MarkSeen` per view model) raises PropertyChanged("RelationshipMarkerTop") once for each unit of the active list: when first seen, when the option / master switch changes (`_glMarkGen`), and when the friendly-other-side state changes. Not verified in game; if some badges still stay, the cause is elsewhere (not a stale binding).
-
-## Map labels reworked after the review (2026-11-18)
-- **Cut per label, not in the text.** The getter masks (`GlFlags`, `GlSetMask`, `_glHidden`, raw-text reads) are gone; `ContactInfoLine1-4` keep their text for every consumer (only the sonobuoy compact mode and the FRND glue still act in the getters). `_glCut` (label -> contact lines cut, rebuilt every filter pass) is applied by `GlApplyCut`: natural sizes with the cut lines zero -> `LineSizes` (the box of ArrangeLabels), the presenter's `_empty` flags -> its `SetPrefix` collapses those lines. `GlCutState.Applied` keeps it from being redone each frame. Called in `ArrangePrefix` (now patched whatever the placement) for every active text label and in `ReadSizesPostfix` after every measure.
-- **One source of sizes.** `ReadSizesPostfix` (postfix of the game's `MapLabelLayer.ReadSizes`, run by every measure: presenter, hidden host, `GlHostMeasure`) stores the natural sizes in `GlNats` (now keyed by label) with the shape of the unit text (per contact line: length, line breaks). `GlSyncSizes` measures a label again with the hidden host only when there are no sizes, the line count differs or the shape changed: the distance / altitude digits no longer cause a measure 4 times a second. Without the overlap filter the sync runs for every active text label. Removed: `GlZeroBlanked` (17 px / 2 s heuristics, `_glRemeasured`), the second bump a frame later (`_glRe`), the text estimates (5.4 px per char, 90x12): a label without a measure is left uncut.
-- **Formation name X.** Form 1 (name over the leader's contact lines) depends only on the option and on the leader being an aircraft, not on the selection: X is registered again only when the form or the leader changes. The filter gives it cut 11 (line 3 stays) for an unselected formation while GroupNameOnly is on, else 15. With per-label cuts the leader's own label and X no longer share a mask.
-- **Selection of a formation:** one rule, `GlGroupSel` (a unit within the spread limit of the leader is selected), used by the filter, the name and the formation lines.
-- **Leaks:** `_glNames` / `_glXs` / `_glXGroup` reset when the registry changes and pruned of groups the registry no longer has.
-- **Alignment in one place:** `LineAlignPrefix` sets the block and the TextBlock alignment; with the placement Game (or the master switch off) the text goes back to left. `GlTextAlign` removed.
-- **Dead code removed:** the scattered-formation branches of `GlGroupBoxes` / `GlGroupAround` (every formation is one box of its near units); `GroupSpreadMiles` description rewritten (9 languages).
-- **Per pass:** the leaders are a HashSet, the raw lines are not read twice, `GlFriendlyMarker` reads once; FormationLines does nothing (no resources, no layout) when there is no line.
-- **LeaderUpdate:** `VelocityBearing` of a held member is blocked like its position and set with it (`SpeedVectorBearing`), so the speed vector and the icon move together.
-- **FRND as a line template.** `BadgeLine` (the glue in the getter) is gone: `GlBadgeTemplateSync` sets `MapLabelDescriptors.Contact.Lines[0].Template` (the game's Bind uses it before TemplateKey) to a template of the mod: a vertical StackPanel with the badge TextBlock (Visible by a DataTrigger on IsFriendlyOtherSide, text = mapfeaturesfriendlysideabbreviation read when the template is made) over the id TextBlock. Null gives the game's own back. On a change the presenters are unrealized (the game realizes them again) and `_glNatGen` makes every label measure again. The shape of a unit includes the badge row (IsFriendlyOtherSide). The game's own badge is hidden (`MarkerTopGetPostfix`) only while the template is on. `LineAlignPrefix` aligns the TextBlocks of a vertical panel too.
-- **Hysteresis without overlaps.** A held decision is tried first but checked against the boxes placed before it like any other; when it no longer fits the usual search follows. A held drop stays dropped (it overlaps nothing).
-Not verified in game.
-
-## Fine zoom with Shift (`[General] MapFineZoomShift`, on by default, src/MapFineZoom.cs)
-The game zooms the map in `MapDragger.MapZoom` (Thumb over the map, CommonMap.xaml: Tactical Display and the other maps built from it): `ZoomMap(mouse, ZoomLevel + delta / 255)`, with Shift `delta * -3` (the game's own Shift handling). Prefix: without Shift the game's step runs and |delta| of the notch is remembered (120 until seen); with Shift the step is (sign of delta * -3) * notch / 255 / 5, i.e. a fifth of the normal step in the game's Shift direction, independent of what the system does to a Shift wheel. Debug trace: 'fine zoom: delta ... with Shift' (once a second) shows the raw delta. Not verified in game.
-
-## Version 2.5.0 (2026-11-18)
-Version bumped in the csproj, `PluginVersion`, README.md, README.BBCode.txt; ChangeList.txt / ChangeList-1000.txt have the 2.5.0 entry (map labels, fine zoom, menu Load / file picker, Unit Status tab fix, monitors, loading screen panel). README sizes after the update: README.md 8090 bytes, README.BBCode.txt 7785 (the Show/Hide tree line, the Desktops page line, the briefing line and the binoculars desktop-mode sentence were dropped to make room).
-
-## Optical View (Z) without a World View picture: the camera did not follow the mouse (bug report, 2.5.0)
-
-Z with the World View window closed: the game hides the whole HUD (`MainGameViewModel.HideHudForOpticalView` = IsOpticalViewActive && !ShowPip3D && !WorldViewDetached; `DisplayAreaGrid` collapsed, the windows with it) and the 3D view fills the screen. `MapMouseStateCore` saw no picture (`_wvAlive` stale, `IsPipActive` false) and forced the UI state, so after the button was released the camera never got a drag again; a drag that began before Z (`_mapDownInside` still true) worked while held - exactly the report. Fix: `OpticalFullscreen()` at the top of `MapMouseStateCore` - the game's own state is left alone. Trace had no mouse lines, so the cause was found by reading the code; not verified in game, the build could not be run here (no game references in this workspace).
-
-Desktop mode (`[General] WindowedMapAndWorldView`) is on by default now (was off). A user cfg that already stores the value keeps it.
-
-## Version 2.5.1
-Optical View (Z) mouse fix, desktop mode on by default. Version bumped in the csproj, `PluginVersion`, README.md, README.BBCode.txt; ChangeList.txt / ChangeList-1000.txt have the 2.5.1 entry.
-
-## Trace volume
-`[Debug] TracePeriodic` (default off, Settings / Debug "Trace of periodic data"; `Periodic` = Debug && TracePeriodic) now gates what writes all the time: the label pass dump (every label, every 2 s), the leader-update counters, snap, fine zoom, the profiler and its frame stamps (`Prof.On`, PhaseLoop). `Debug` alone keeps the events only. The trace file stops at 40 MB (`TraceCap`) with one note. The diagnostics code is kept, only switched off. The lang entry for the new option is English in the languages other than ru.
-
-## Game beta 0.9.3-261116b (gamefiles e1571a8) - what changed for the mod
-Decompiled old (0.9.2) and new Seapower-Scripts.dll with the same references and compared member by member: 96 game files changed; 89 identifiers removed from the game and none is used by AGI / AWC / ADM / ASE. XAML assets (gamefiles d1f133e, "xaml update") changed in 5 files only: RichMissionMessageModal (objectives rail removed from the modal, layout rows), AircraftEditorViewTemplates, TacticalDoctrineContentView (aircraft turn aggressiveness), LinearCampaignTaskForceBuilderView (debug "Point transactions" journal popup), MainGameView (the weapon-entry templates hide the Type/Mode row for `IsSystemEntry`). None of them is patched or searched by AGI (checked by name), so nothing to adapt.
-- Campaign Task Force points moved into an account: `LinearCampaignTaskForcePointsAccount` (Available / Cap) + `TaskForcePointLedger`; the status VM fields `_availablePoints` / `_capPoints` are gone (AvailableBalance / CapBalance), the builder VM refreshes with `RefreshPointsFromAccount()`, `CommitBuilderPurchases/TaskForceName` lost their points parameters, `WriteCurrentTaskForces` no longer writes the persistent points. AGI reads only the builder VM's `AvailablePoints`, `PointCap`, `ProjectedFleetValue`, `PendingPurchaseCost` and the snapshot's `AvailablePoints/CapPoints` (all still there). Upgrade / Reserve / Dismiss patches are not touched by name; the upgrade cost maths (TaskForceUpgrade) is to be checked in game against the new account.
-- `PauseMenuViewModel.InitialiseMissionPause` uses `LinearCampaign.PlayedMissionIfRunning` (MuseumSave patches it: check the pause menu in a mission and in the museum).
-- Option `ThrottleBasedSpeedSteps` is now `EngineBasedSpeedSteps`; ini `SystemGroup` / `[SG_*]` sections are gone from the vessel ini files (the game's code never read them).
-
-## Camera offset per desktop
-Desktop records got `C|1,x,y` (`CamText` / `CamFromText` in ProfileSwitch.cs): `SnapshotSet` writes the live [WorldView] CameraOffset / FollowX / FollowY, `ApplySet` restores them on a switch (the glide in CameraShiftPostfix does the rest). A desktop without the record (saved before, or a preset) keeps the live values, so existing desktops start equal and diverge when edited. Outside desktop mode nothing changes. Not verified in game.
-
-## Settings window: one-line tab strip (after 2.5.1, not committed)
-`SettingsWindow.cs`: the tabs are a horizontal `StackPanel` inside a `ScrollViewer` (`_tabScroll`, scroll bars hidden) instead of a `WrapPanel`: always one line; `◀` / `▶` buttons (`_tabLeft` / `_tabRight`, 160 units a click, dimmed at the end) sit at both ends of the strip and are visible only while `ScrollableWidth` > 0 (updated on `ScrollChanged` / `SizeChanged`). The wheel over the strip scrolls it sideways (`MouseWheel`, `Delta * 0.5`); `ShowTab` sets `_tabCenterPending`; `TabCenter()` scrolls the strip only as far as needed to see the whole chosen tab (widths of the visible tabs before it summed; waits until the strip is laid out, from `ScrollChanged` / `SizeChanged` / `LayoutUpdated`, once) and is asked on every `SizeChanged` of the strip and whenever `ViewportWidth` / `ExtentWidth` changed (checked in `LayoutUpdated`: the arrows appearing takes ~64 px of the viewport after the tab was brought into view, leaving it half under the right arrow) and done from `LayoutUpdated`, repeated (max 40 times) until `HorizontalOffset` really stands at the target (a scroll made inside a layout pass was lost) (a smaller window must not push the chosen tab out) - `BringIntoView` did nothing there. Not checked in game: the look of the bar and whether the wheel reaches the strip before the body's ScrollViewer.
-
-## Settings screenshots: window fitted to each tab (after 2.5.1, not committed)
-`SettingsShots.cs` / `SettingsWindow.cs` (`ShotFitMax`, `ShotFitWidth`, `ShotFitHeight`, `ShotEnd`): before every screenshot the window goes to the largest size the screen allows (top left 20 px from the corner), then the width = natural width of the widest row (`_body.Measure(inf)` + the chrome around the scroll area, 520..1600), then the height = `Height - ViewportHeight + ExtentHeight` (420..1400), a few frames laid out between the steps. `ShotEnd` puts the window back to its own size (`_winW` x `_winH`) in the middle of the screen. The resize state (`_winW/_winH`) is not touched. Not checked in game: group headers or long labels may widen the natural width.
-
-## Text-by-background thresholds as options (after 2.5.1, not committed)
-`WindowLook.cs`: `TextUp` / `TextDown` (were consts 0.54 / 0.52) are static fields set from `[General] TextDarkAbove` / `TextLightBelow` (`ApplyTextThresholds`, on start and on `SettingChanged`: up 0.05..0.95, down not above up). They drive both the windows' texts (`TextT`, `AutoStep`) and the compass tape (`CompassTape.cs`, `_lum < TextUp` / `<= TextDown`). GUI: Windows tab, group "Text by background", all nine language files.
-
-## Settings kit: the tab strip and the screenshots moved to shared files (after 2.5.1, not committed)
-`src/TabScroll.cs` (the one-line strip, `Reveal`) and `src/SettingsShotKit.cs` (`SettingsShots.Run`, `ShotFit`, `IShotWindow`) replace the code that was in `SettingsWindow.cs` / `SettingsShots.cs`; they are copies of the files of the SeaPower.AlternativeBase repository (sibling folder, `tools/sync.sh`), the same in ADM, AWC and ASE: change them there only. `SettingsWindow.ShotAdapter` is AGI's `IShotWindow` (tabs = all, pages = the Desktop tab's pages); `SettingsShots.cs` keeps the config option and the start.

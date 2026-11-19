@@ -1,4 +1,4 @@
-[b]Version 2.5.1[/b]
+[b]Version 2.6.0[/b]
 
 Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several monitors, windows that remember their place and state, transparency, a richer interface for missions and campaigns.
 
@@ -71,7 +71,7 @@ The window title and the name beside the tabs show the unit's name, class or typ
 
 [h1]Usage[/h1]
 [list]
-[*]Windows remembered by default: Tactical Display, World View, Unit Reference, Unit Status, Event Log, Formation Manager, Task Force Builder, Weapon Reference.
+[*]Windows remembered by default: Tactical Display, World View, Unit Reference, Unit Status, Event Log, Formation Manager, Task Force Builder, Weapon Reference, Sensor Reference.
 Move or resize them as usual; they come back where you left them.
 [*]To remember another window, add its name in the settings window (Remembered Windows).
 [*]Most features can be turned off or customized in the settings window (the gear in the title bar of a remembered window). They are stored in:

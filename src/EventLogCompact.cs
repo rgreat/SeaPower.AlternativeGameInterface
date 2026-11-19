@@ -23,7 +23,7 @@ namespace AlternativeGameInterface
 
         void BindEventLogCompactConfig()
         {
-            _logCompact = Config.Bind("EventLog", "Compact", false,
+            _logCompact = Config.Bind("EventLog", "Compact", true,
                 "Event Log window: smaller margins, tab headers and row spacing, so more rows fit (the text size is not changed).");
             _logCompact.SettingChanged += (s, e) => { foreach (var r in _logWindows.ToArray()) { var w = r.Target; if (w == null) _logWindows.Remove(r); else LogCompactApply(w); } };
         }

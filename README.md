@@ -2,7 +2,7 @@
 
 A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows").
 
-**Version 2.5.1**
+**Version 2.6.0**
 
 Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several monitors, windows that remember their place and state, transparency, a richer interface for missions and campaigns.
 
@@ -72,7 +72,7 @@ Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several m
 
 ## Usage
 
-- Windows remembered by default: Tactical Display, World View, Unit Reference, Unit Status, Event Log, Formation Manager, Task Force Builder, Weapon Reference.
+- Windows remembered by default: Tactical Display, World View, Unit Reference, Unit Status, Event Log, Formation Manager, Task Force Builder, Weapon Reference, Sensor Reference.
   Move or resize them as usual; they come back where you left them.
 - To remember another window, add its name in the settings window (Remembered Windows).
 - Most features can be turned off or customized in the settings window (the gear in the title bar of a remembered window). They are stored in:

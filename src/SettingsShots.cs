@@ -21,7 +21,7 @@ namespace AlternativeGameInterface
         void BindSettingsShotsConfig()
         {
             _shotTabs = Config.Bind("Debug", "ScreenshotTabs", false,
-                "Diagnostics: switching it on takes a screenshot of every tab of the settings window (and every page of the Desktop tab) to BepInEx/AlternativeGameInterface_screens, then it switches itself off.");
+                "Diagnostics: switching it on takes a screenshot of every tab (and every page) of this settings window, then the same for the windows of the other installed rgreat mods, to BepInEx/<Mod>_screens, then it switches itself off.");
         }
 
         void SettingsShotsStep()
@@ -34,7 +34,29 @@ namespace AlternativeGameInterface
         IEnumerator SettingsShotsRoutine()
         {
             _shotBusy = true;
-            try { yield return StartCoroutine(Rgreat.Kit.SettingsShots.Run(new SettingsWindow.ShotAdapter(), Path.Combine(Paths.BepInExRootPath, "AlternativeGameInterface_screens"), s => Trace(s), s => Logger.LogWarning(s))); }
+            string cur = "alternative-game-interface";
+            try
+            {
+                // the window of this mod first, then the window of every other installed mod in turn (each one takes the place of the last), then back
+                yield return StartCoroutine(SettingsWindow.ShotsRun());
+                var others = new System.Collections.Generic.List<object[]>();
+                foreach (var m in Rgreat.Hub.SettingsHub.ActiveMods()) if (Rgreat.Hub.SettingsHub.IdOf(m) != cur && Rgreat.Hub.SettingsHub.ShotsOf(m) != null) others.Add(m);
+                foreach (var m in others)
+                {
+                    string id = Rgreat.Hub.SettingsHub.IdOf(m);
+                    Rgreat.Hub.SettingsHub.SwitchTo(cur, id, SettingsWindow.ShotAnchor, null);
+                    cur = id;
+                    for (int i = 0; i < 90; i++) yield return null;   // the window of the other mod is built and laid out
+                    IEnumerator run = null;
+                    try { run = Rgreat.Hub.SettingsHub.ShotsOf(m)(); } catch (Exception e) { Trace("screens of " + id + ": " + e.Message); }
+                    if (run != null) yield return StartCoroutine(run);
+                }
+                if (cur != "alternative-game-interface")
+                {
+                    Rgreat.Hub.SettingsHub.SwitchTo(cur, "alternative-game-interface", SettingsWindow.ShotAnchor, null);
+                    Logger.LogInfo("Screenshots of the tabs of " + (others.Count + 1) + " mods are in BepInEx/<mod>_screens.");
+                }
+            }
             finally { _shotBusy = false; }
         }
     }

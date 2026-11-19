@@ -284,7 +284,7 @@ namespace AlternativeGameInterface
                     // the 3D window: the settings of which mod? (the other mods' 3D effects are set in theirs)
                     bool wv = ow != null && IsWorldViewWindow(ow);
                     Trace("settings gear: World View window " + wv);
-                    if (wv && ChooseSettings(gear, openOwn)) return;
+                    if (wv && Rgreat.Hub.SettingsHub.OpenLastOther(gear, OwnHubId)) return;
                     openOwn();
                 };
                 if (host != null) host.Children.Insert(0, gear);

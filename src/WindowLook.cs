@@ -57,9 +57,9 @@ namespace AlternativeGameInterface
                 OutlineDepth = Math.Max(0.5f, Math.Min(3f, hd));
             }
             catch { }
-            _textUpE = Config.Bind("General", "TextDarkAbove", 0.54f,
+            _textUpE = Config.Bind("General", "TextDarkAbove", 0.67f,
                 "Text by background (windows with the text contrast on, and the compass tape of the World View window): the backdrop brightness (0 = black, 1 = white) above which the texts turn dark. Lower = the texts turn dark on darker pictures.");
-            _textDownE = Config.Bind("General", "TextLightBelow", 0.52f,
+            _textDownE = Config.Bind("General", "TextLightBelow", 0.57f,
                 "Text by background: the backdrop brightness below which dark texts turn light again. Not above TextDarkAbove; the gap between the two keeps the texts from flickering on a picture of about that brightness.");
             _textUpE.SettingChanged += (s, e) => ApplyTextThresholds();
             _textDownE.SettingChanged += (s, e) => ApplyTextThresholds();
@@ -387,7 +387,7 @@ namespace AlternativeGameInterface
         /// <summary>The backdrop brightness 'sl' switches the window's texts between two states, no gradations: t = 0 (the texts as they are, black halo on light
         /// ones) and t = 1 (darkened, white halo). Up at 0.66 and down at 0.58 (a hysteresis; white text with a black halo stays until the backdrop is really
         /// light). True when t changed.</summary>
-        static float TextUp = 0.54f, TextDown = 0.52f;   // [General] TextDarkAbove / TextLightBelow: the backdrop brightness at which a text turns dark (up) and white again (down); the estimate no longer depends on the text's own colour (TextGlyph / TextHalo), so a small gap is enough; white comes early
+        static float TextUp = 0.67f, TextDown = 0.57f;   // [General] TextDarkAbove / TextLightBelow: the backdrop brightness at which a text turns dark (up) and white again (down); the estimate no longer depends on the text's own colour (TextGlyph / TextHalo), so a small gap is enough; white comes early
         static int _flipLog;
         const float TextGlyph = 0.14f, TextHalo = 0.065f;
         const float TextCover = 0.25f;   // the share of a text's box that its own glyphs and halo cover in the screen capture
