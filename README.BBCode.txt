@@ -14,7 +14,7 @@ Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several m
 [*]Windows can be dragged partly off the screen.
 [*]Remembers which mission windows were open and restores that at the next mission start.
 [*]Thin, customizable frame around draggable windows and the game's tooltips.
-[*]In-game settings window (gear button in the title bar of a remembered window): tabs, groups, hints, language selector.
+[*]In-game settings window (gear button in the title bar of a remembered window): tabs, search, hints, undo, a row of mods, one shared language.
 [*]Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's. Main menu: slideshow (default) or game video.
 [*]Main menu: "Encyclopedia" opens the Unit Reference window at once, "Encyclopedia 3D" is the game's own (optional). Save / Load in the pause menu of Encyclopedia 3D.
 [*]Mission editor: the open-mission picker starts in the last mission's folder; *.ini files are light blue. Save / Load windows remember their last folder; Load game opens on entering Scenarios / Campaign, beside the menu; Create Mod fills in the folder and picture of your Workshop item.
@@ -47,7 +47,7 @@ The window title and the name beside the tabs show the unit's name, class or typ
 [*]Main menu: the News window gets the mod's gear and frame and fills the free area; "_Custom Mission" is hidden in SCENARIOS; the game's resize cursors work outside a mission.
 [*]Optional "Keep map view on resize": the Tactical Display's zoom follows its window size, so the visible area stays.
 [*]Event Log: every track number is a link; a repeated click on the same link centres the Tactical Display on it (both optional). A compact layout (optional).
-[*]Settings entry "Game Interface" in the main menu (under Mod Manager) and the pause menu (under Options); with several of the author's mods it becomes "Alternative Mods" with a list.
+[*]Settings entry "Game Interface" in the main menu (under Mod Manager) and the pause menu (under Options); with several of the author's mods it becomes "Alternative Mods".
 [*]Binoculars: at max zoom they start with the normal view instead of the night / thermal filter (by day, optional). Ship binoculars can look below the horizon (In Mission tab).
 [*]Moving a window over the 3D view no longer turns the camera; other mods' IMGUI windows can be grabbed over the game's.
 [*]Desktop mode: the other monitors work like the main one for windows (Monitor in the window's menu).

@@ -18,7 +18,7 @@ Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several m
 6. Windows can be dragged partly off the screen.
 7. Remembers which mission windows were open and restores that at the next mission start.
 8. Thin, customizable frame around draggable windows and the game's tooltips.
-9. In-game settings window (gear button in the title bar of a remembered window): tabs, groups, hints, language selector.
+9. In-game settings window (gear button in the title bar of a remembered window): tabs, search, hints, undo, a row of mods, one shared language.
 10. Background pictures of the main menu and loading screens: only the mods' (default), mixed with the game's, or only the game's. Main menu: a slideshow (default) or the game's video.
 11. Main menu: "Encyclopedia" opens the Unit Reference window at once, "Encyclopedia 3D" is the game's own (optional). Save / Load in the pause menu of Encyclopedia 3D.
 12. Mission editor: the open-mission picker starts in the last mission's folder; *.ini files are light blue. Save / Load windows remember their last folder; Load game opens on entering Scenarios / Campaign, beside the menu; Create Mod fills in the folder and picture of your Workshop item.
