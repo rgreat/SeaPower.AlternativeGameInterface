@@ -1,5 +1,7 @@
 # Alternative Game Interface: сборка, проверка и выкладка в Steam Workshop
 
+> Preparing a release (version, change lists, README, translations, build, commit rules)? Read the Sea Power project doc `claude/release-howto.md` first (also: `claude/steam-workshop.md` for the Workshop ids and how to check what is published).
+
 ## 0. Переименование (было «Window Memory»)
 
 Мод переименован в **Alternative Game Interface**: папка и DLL `AlternativeGameInterface`, настройки `Sea Power_Data/StreamingAssets/user/AlternativeGameInterface/AlternativeGameInterface.cfg` (как у AWC/ADM; файл BepInEx/config/com.rgreat.seapower.alternativegameinterface.cfg версий до 1.6.0 копируется туда один раз).
