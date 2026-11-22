@@ -1,4 +1,4 @@
-[b]Version 2.7.0[/b]
+[b]Version 2.7.1[/b]
 
 Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several monitors, windows that remember their place and state, transparency, a richer interface for missions and campaigns.
 

@@ -1,3 +1,6 @@
+Version 2.7.1
+- Tactical Display: the name and distance lines of a map label are no longer cut at the width of the other lines (a line with text whose size was read as 0 is measured again).
+
 Version 2.7.0
 - Adaptive V-Sync (Windows / Performance, "Add Adaptive V-Sync" + the game's V-Sync option) now works: the game's option was read wrongly (the reader of the ini value was never found), so it never switched on. With more than one active display Unity's own vertical sync would wait for every monitor; now the frames are synced to one monitor (the others get them without vertical sync and may tear). New option "Adaptive V-Sync monitor": Auto = the fastest monitor, or a chosen display (the list shows names, sizes and refresh rates). Frames late on a quarter of the refreshes: not synced; steady again: synced.
 - New option "Frame counter on every monitor" (Windows / Performance): "FPS: N" in a small box on every monitor, dragged by the mouse and kept inside the view. The main monitor has it also in the main menu, pause menu and campaign map; the place is kept separately for each of these screens. Debug / Diagnostics "Diagnostics in the frame counter" adds the monitor number, its refresh rate and what V-Sync is synced to.

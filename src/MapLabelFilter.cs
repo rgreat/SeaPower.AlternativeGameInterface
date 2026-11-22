@@ -609,6 +609,19 @@ namespace AlternativeGameInterface
             return old[8] == (_glBadgeTplOn && GlFriendlyMarker(vm) ? 1 : 0);
         }
         static bool GlSameShape(int[] a, int[] b) { if (a == null || b == null) return false; for (int k = 0; k < 9; k++) if (a[k] != b[k]) return false; return true; }
+        /// <summary>A contact line has text in the view model but its natural size is 0: the measure ran before the text reached the label (the shape is taken from the view model, so it looks unchanged). The label is measured again.</summary>
+        static bool GlZeroWithText(object vm, GlNat nat, bool head)
+        {
+            int first = head ? 1 : 0;
+            for (int q = 0; q < 4 && first + q < nat.W.Length; q++)
+            {
+                if (nat.W[first + q] > 0.5f) continue;
+                var t = GlLineText(vm, q);
+                if (t == null || t.Trim().Length == 0) continue;
+                return true;
+            }
+            return false;
+        }
         /// <summary>The text without empty lines (the text of one label line may carry a line break before / between / after its parts).</summary>
         static string GlNoEmptyLines(string t)
         {
@@ -649,7 +662,7 @@ namespace AlternativeGameInterface
             if (!need && unit)                                                        // the shape of the text (its digits change all the time): looked at 7 times a second, not at every pass
             {
                 float tn = UnityEngine.Time.unscaledTime;
-                if (tn - nat.ShapeAt >= 0.15f || tn < nat.ShapeAt) { nat.ShapeAt = tn; need = !GlShapeIs(vm, nat.Shape); }
+                if (tn - nat.ShapeAt >= 0.15f || tn < nat.ShapeAt) { nat.ShapeAt = tn; need = !GlShapeIs(vm, nat.Shape) || GlZeroWithText(vm, nat, _gcHead.GetValue(lab) != null); }
             }
             if (need && GlHostMeasure(layer, lab)) GlNats.TryGetValue(lab, out nat);
             return nat != null && nat.W != null && nat.W.Length == lc ? nat : null;

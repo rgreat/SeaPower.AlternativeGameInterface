@@ -1,7 +1,2 @@
-Version 2.7.0
-- Adaptive V-Sync now really works (before it never switched on). With several monitors it syncs to one of them; new option "Adaptive V-Sync monitor" (Windows / Performance).
-- New option "Frame counter on every monitor" (Windows / Performance): FPS in a small window you can drag; each screen (mission, menus) keeps its own place.
-- Tactical Display: unit labels are placed faster.
-- Fixed: the Event Log window opened and closed over and over at mission start, dropping the frame rate.
-- Several monitors: a window dragged to another monitor follows the mouse until you let go; double click on a title bar works on every monitor; the other monitor no longer shows over the loading screen; no second Tactical Display there.
-- A double click on an empty place of a fully transparent window makes its frame blink red.
+Version 2.7.1
+- Tactical Display: map labels (name and distance lines) are no longer cut at the right edge.

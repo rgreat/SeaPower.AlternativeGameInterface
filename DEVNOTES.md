@@ -16,10 +16,16 @@ Seapower-Scripts), Harmony-хуки ставятся по именам мето�
 
 ## Состояние релиза
 - 2026-11-19: версия 2.6.0 подготовлена (csproj, PluginVersion, ChangeList.txt, ChangeList-1000.txt = текст Change Log для Steam, README). Не выложена в Steam, пока пользователь не скажет; не закоммичена.
-- 2026-11-22: 2.6.0 опубликована в Steam (18 ноя). Версия 2.7.0 подготовлена (csproj, PluginVersion, ChangeList.txt, ChangeList-1000.txt, README.md, README.BBCode.txt 7801 байт + 79 строк, переводы 9 языков). Не выложена, не закоммичена.
+- 2026-11-22: 2.7.0 is published on Steam (his word; the fetched change log still showed 2.6.0). Version 2.7.1 prepared: map labels no longer cut (GlZeroWithText in MapLabelFilter.cs). csproj, PluginVersion, ChangeList.txt, ChangeList-1000.txt, README.md, README.BBCode.txt updated. Prepared, not published, not committed.
 
 ## Keel: BlockingStart (2026-11-22, not committed)
 `Release/_info.ini` has `[Keel] BlockingStart=true` next to `StartEarly=true`. Only a mod with it holds the game up, and only at one point: right before the game's first `LoadScreen.ExecuteLoadScreen` call (needs the Keel build that knows the key; an older Keel ignores it and the mod starts as a plain early mod, one frame step at a time, after the first picture). Plain `StartEarly` mods (ASE, ADM, AWC) start in the game's first frames next to the game. Reason: the game has no frames from the start of its own loading until its first scene is up (the Keel coroutine got its second step about 6 s after Awake), so a frame-based start could not beat the first picture.
+
+## Map labels cut at the right edge (2026-11-22)
+
+- Symptom (release 0.9.3): the name and distance lines of some labels (7001 Maritime Patrol, SAM sites, airbases) are cut at the width of the other lines. The trace line `label ... size 0x0,24x12,52x24,0x0` with `cut 0` and `lines 2/2`: the natural size of the name line is 0, so the box is as wide as the other lines only. It started after the scene changed (06:29:21), earlier labels had the name measured.
+- Likely cause (not proven): GlHostMeasure measured the label before the text reached it, while the shape (`GlShape`) is taken from the view model, so the shape looked unchanged and the label was never measured again.
+- Fix: in GlSyncSizes (the 0.15 s check) a contact line with text in the view model and a natural size of 0 makes the label measured again (`GlZeroWithText`). Checked in the game on the release 0.9.3: the labels are whole (a label can stay cut for a few seconds while its unit is just detected, then it is measured again).
 
 ## Оптимизация подписей на карте (2026-11-19, не закоммичено)
 - `FastAcc.cs`: `Acc` — обёртка над FieldInfo/PropertyInfo с делегатами (FastGet) вместо рефлексии; все дескрипторы в `MapLabelFilter.cs` переведены на неё, `GetFloat` для Vector2 без боксинга. `TrackState.FieldV` — кэш по (Type, имя) без аллокации строк.
