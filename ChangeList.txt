@@ -1,3 +1,11 @@
+Version 2.7.0
+- Adaptive V-Sync (Windows / Performance, "Add Adaptive V-Sync" + the game's V-Sync option) now works: the game's option was read wrongly (the reader of the ini value was never found), so it never switched on. With more than one active display Unity's own vertical sync would wait for every monitor; now the frames are synced to one monitor (the others get them without vertical sync and may tear). New option "Adaptive V-Sync monitor": Auto = the fastest monitor, or a chosen display (the list shows names, sizes and refresh rates). Frames late on a quarter of the refreshes: not synced; steady again: synced.
+- New option "Frame counter on every monitor" (Windows / Performance): "FPS: N" in a small box on every monitor, dragged by the mouse and kept inside the view. The main monitor has it also in the main menu, pause menu and campaign map; the place is kept separately for each of these screens. Debug / Diagnostics "Diagnostics in the frame counter" adds the monitor number, its refresh rate and what V-Sync is synced to.
+- Tactical Display: the label placement is faster (faster reading of the units' data, a grid for the overlap checks, fewer repeated calculations).
+- Fixed: at mission start the Event Log window was created and closed 200-300 times in a few seconds (the open-state restore saw "button pressed, no window" while the game was still placing it): the frame rate fell to about 30.
+- Several monitors: a window dragged to another display follows the mouse until the button is released (also back and to a third place), the grabbed point kept in the right scale; the double click on a title bar works on every monitor (the system double-click time and a 10 px tolerance; no double toggle after the window was moved: the game's proxies of the title bar were hooked twice); the second monitor's windows are hidden while the load screen is on; the game's own second-monitor Tactical Display no longer stays on over the mod's view.
+- A double click on an empty place of a fully transparent window (0 % opacity) makes its frame blink red twice.
+
 Version 2.6.0
 - Settings window (the same window and rules in all four Alternative mods):
   - One-line tab strip with arrows; the mouse wheel scrolls it.

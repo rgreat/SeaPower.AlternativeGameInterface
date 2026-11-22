@@ -291,8 +291,65 @@ namespace AlternativeGameInterface
             };
             fe.MouseEnter += (s, e) => set(true);
             fe.MouseLeave += (s, e) => set(false);
+            Hook(w, "MouseDoubleClick", new EmptyDoubleClick { Plugin = this, Window = new WeakReference(w), State = st }, "Handle");
             st.Hover = fe.IsMouseOver;
             if (_debug) Trace("ghost hover hooked: '" + TextOf(Get(w, "Header")) + "' mouse over " + st.Hover);
+        }
+
+        /// <summary>Double click on the empty place of a fully transparent window: its frame blinks red twice (the window is there, the click hit nothing).</summary>
+        sealed class EmptyDoubleClick
+        {
+            public AlternativeGameInterfacePlugin Plugin; public WeakReference Window; public LookState State;
+            public void Handle(object sender, object e) { if (Enabled) Plugin.EmptyClick(Window.Target, State, e); }
+        }
+
+        sealed class RedBlink { public WeakReference Window; public float Start; public Brush Brush; public Thickness Thickness; public bool On; }
+        readonly List<RedBlink> _blinks = new List<RedBlink>();
+
+        void EmptyClick(object w, LookState st, object e)
+        {
+            try
+            {
+                if (w == null || st == null || st.Opacity > 0.001f) return;
+                var src = Get(e, "OriginalSource") as DependencyObject;
+                // empty = only plain backgrounds / layout panels between the click and the window (no button, list, text box, title bar...)
+                for (var d = src; d != null && !ReferenceEquals(d, w); d = VisualTreeHelper.GetParent(d))
+                {
+                    if (d is Thumb || d is ButtonBase || d is Selector || d is ListBoxItem || d is TextBox || d is ScrollBar || d is Slider || d is TextBlock || d is Image || d is TreeViewItem || d is TabItem) return;
+                }
+                object b;
+                var fr = Borders.TryGetValue(w, out b) ? b as Border : null;
+                if (fr == null) return;
+                foreach (var x in _blinks) if (ReferenceEquals(x.Window.Target, w)) { x.Start = UnityEngine.Time.unscaledTime; return; }
+                _blinks.Add(new RedBlink { Window = new WeakReference(w), Start = UnityEngine.Time.unscaledTime, Brush = fr.BorderBrush, Thickness = fr.BorderThickness });
+                if (_debug) Trace("empty place double click on '" + TextOf(Get(w, "Header")) + "': frame blinks");
+            }
+            catch (Exception ex) { Trace("EmptyClick: " + ex.Message); }
+        }
+
+        /// <summary>Drives the red blinks (nothing when there are none): on 0-0.12 s, off to 0.22 s, on to 0.34 s, then the frame as it was.</summary>
+        void RedBlinkStep(float now)
+        {
+            for (int i = _blinks.Count - 1; i >= 0; i--)
+            {
+                var x = _blinks[i]; var w = x.Window.Target;
+                object b; var fr = w != null && Borders.TryGetValue(w, out b) ? b as Border : null;
+                float t = now - x.Start;
+                bool on = t < 0.12f || (t >= 0.22f && t < 0.34f), done = t >= 0.34f;
+                if (fr == null) { _blinks.RemoveAt(i); continue; }
+                if (done)
+                {
+                    fr.BorderBrush = x.Brush; fr.BorderThickness = x.Thickness;
+                    LookState lk; if (Looks.TryGetValue(w, out lk)) FrameOpacity(w, lk.Opacity, lk.Ghost);
+                    _blinks.RemoveAt(i);
+                }
+                else if (on != x.On || t < 0.001f)
+                {
+                    x.On = on;
+                    if (on) { fr.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 0, 0)); fr.BorderThickness = new Thickness(3f, 0f, 3f, 3f); fr.Opacity = 1f; }
+                    else { fr.BorderBrush = x.Brush; fr.BorderThickness = x.Thickness; fr.Opacity = 0f; }
+                }
+            }
         }
 
         /// <summary>The header grid (title, buttons, gear) of a ghost window is invisible; it still takes the mouse, so the window shows again when the mouse comes.</summary>

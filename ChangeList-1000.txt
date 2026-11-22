@@ -1,10 +1,7 @@
-Version 2.6.0
-- One settings window for all four Alternative mods:
-  - Find any option by typing its name in the search box.
-  - Switch between the mods' settings with one click; your edits are kept.
-  - Choose the language once for all mods.
-  - Undo changes you have not applied yet.
-- Long settings tabs (Windows, Game Menus) are split into pages, so options are easier to find.
-- The settings window opens with only the settings of the window you came from; "Show all settings" is remembered until you quit the game.
-- Each desktop remembers the World View camera offset.
-- Text-by-background switching thresholds are now options.
+Version 2.7.0
+- Adaptive V-Sync now really works (before it never switched on). With several monitors it syncs to one of them; new option "Adaptive V-Sync monitor" (Windows / Performance).
+- New option "Frame counter on every monitor" (Windows / Performance): FPS in a small window you can drag; each screen (mission, menus) keeps its own place.
+- Tactical Display: unit labels are placed faster.
+- Fixed: the Event Log window opened and closed over and over at mission start, dropping the frame rate.
+- Several monitors: a window dragged to another monitor follows the mouse until you let go; double click on a title bar works on every monitor; the other monitor no longer shows over the loading screen; no second Tactical Display there.
+- A double click on an empty place of a fully transparent window makes its frame blink red.

@@ -89,6 +89,12 @@ namespace AlternativeGameInterface
 
         static bool LeadPrefix(object __instance)
         {
+            long t0 = Prof.T();
+            try { return LeadPrefixCore(__instance); } finally { Prof.Lap(Prof.LeadSet, t0); }
+        }
+
+        static bool LeadPrefixCore(object __instance)
+        {
             if (_leadBusy || !LeadOn()) return true;
             try { if (!LeadHeld(__instance)) return true; _leadBlocked++; return false; }
             catch (Exception e) { _leadFailed = true; Trace("formation update by leader: " + e.Message + " (switched off until the game is restarted)"); return true; }
@@ -96,12 +102,24 @@ namespace AlternativeGameInterface
 
         static bool LeadBearingPrefix(object __instance)
         {
+            long t0 = Prof.T();
+            try { return LeadBearingCore(__instance); } finally { Prof.Lap(Prof.LeadBearing, t0); }
+        }
+
+        static bool LeadBearingCore(object __instance)
+        {
             if (_leadBusy || !LeadOn() || _leadBearCalc == null) return true;
             try { return !LeadHeld(__instance); }
             catch { return true; }
         }
 
         static void LeadPostfix(object __instance)
+        {
+            long t0 = Prof.T();
+            try { LeadPostfixCore(__instance); } finally { Prof.Lap(Prof.LeadSet, t0); }
+        }
+
+        static void LeadPostfixCore(object __instance)
         {
             if (_leadBusy || !LeadOn()) return;
             try

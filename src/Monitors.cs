@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -120,6 +120,44 @@ namespace AlternativeGameInterface
             }
             Trace("monitors: SecondDisplayMapHandler.EnableSecondMonitor " + (en != null) + ", CameraManager.SetWorldDisplay " + (swd != null) +
                   ", WindowedDetached " + (detGet != null) + ", WindowHost " + (_hostType != null));
+        }
+
+        /// <summary>
+        /// The game's second-monitor view (SecondDisplayMapHandler: its camera "UI Camera 2" and NoesisView with the second-monitor map) is
+        /// switched on by the game only when its options change (Refresh). The prefix below keeps it off while the monitors are in use, but a
+        /// view already on (the game's World View monitor or second-monitor map set, then desktop mode switched on) stayed on over the
+        /// monitor's own view: a second Tactical Display there that took no proper input. Off: switched off when the monitors' views are
+        /// made; back: the game's own Refresh (its options decide) when they are removed.
+        /// </summary>
+        static void SecondMapHandler(bool restore)
+        {
+            try
+            {
+                var asm = GameAssembly();
+                var t = asm == null ? null : asm.GetType("SeaPower.SecondDisplayMapHandler");
+                var sg = asm == null ? null : asm.GetType("SeaPower.Singleton`1");
+                if (t == null || sg == null) return;
+                var g = sg.MakeGenericType(t);
+                const BindingFlags sf = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic, f = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                var ex = g.GetMethod("InstanceExists", sf, null, new[] { typeof(bool) }, null);
+                if (ex == null || !(bool)ex.Invoke(null, new object[] { false })) return;
+                var h = g.GetProperty("Instance", sf).GetValue(null, null);
+                if (h == null) return;
+                if (restore)
+                {
+                    var r = t.GetMethod("Refresh", f);
+                    if (r != null) { r.Invoke(h, null); Trace("monitors: the game's second-monitor view back to the game's options"); }
+                }
+                else
+                {
+                    var cam = t.GetField("_mapScreenCamera", f);
+                    var c = cam == null ? null : cam.GetValue(h) as UnityEngine.Camera;
+                    if (c == null || !c.enabled) return;
+                    var en = t.GetMethod("EnableSecondMonitor", f);
+                    if (en != null) { en.Invoke(h, new object[] { false, c.targetDisplay }); Trace("monitors: the game's second-monitor view (on display " + (c.targetDisplay + 1) + ") switched off"); }
+                }
+            }
+            catch (Exception e) { Trace("monitors: the game's second-monitor view: " + e.Message); }
         }
 
         // the game's second-monitor map is never enabled
@@ -407,7 +445,7 @@ namespace AlternativeGameInterface
             }
             if (!want)
             {
-                if (Monitors.Count > 0) { DestroyMonitors(); }
+                if (Monitors.Count > 0) { DestroyMonitors(); SecondMapHandler(true); }
                 return;
             }
             int n = DisplayCount();
@@ -417,12 +455,20 @@ namespace AlternativeGameInterface
                 _monNext = now + 1f;
                 DestroyMonitors();
                 for (int i = 1; i < n; i++) BuildMonitor(i);
+                SecondMapHandler(false);
             }
             else
             {
                 float ui = UiScaleNow();
                 foreach (var m in Monitors)
                 {
+                    // while a load screen covers the main display the other displays show no windows either (they were drawn there,
+                    // e.g. the World View with its 3D picture, before the mission was ready)
+                    if (m.Root != null)
+                    {
+                        var vis = LoadScreenRunning ? Visibility.Hidden : Visibility.Visible;
+                        if (m.Root.Visibility != vis) { m.Root.Visibility = vis; Trace("monitors: display " + (m.Index + 1) + " " + (LoadScreenRunning ? "hidden under the load screen" : "shown, the load screen is over")); }
+                    }
                     int w = 0, h = 0;
                     try { var d = UnityEngine.Display.displays[m.Index]; w = d.renderingWidth; h = d.renderingHeight; } catch { }
                     MonitorBackdrop(m);
@@ -518,6 +564,64 @@ namespace AlternativeGameInterface
 
         MonitorView _pressView; int _pressMask; float[] _lastDown = new float[3]; UnityEngine.Vector2 _lastDownPos;
         MethodInfo _mvDown, _mvUp, _mvDbl, _mvWheel;
+        [System.Runtime.InteropServices.DllImport("user32.dll")] static extern uint GetDoubleClickTime();
+        /// <summary>The system's double-click time (Windows setting, 0.5 s by default; at least 0.25 s).</summary>
+        static float DoubleClickSec() { try { return Math.Max(0.25f, GetDoubleClickTime() / 1000f); } catch { return 0.5f; } }
+
+        int _pressN;
+        /// <summary>Trace of a left press that reaches a view: on a monitor's view (where it landed, the element under it) and on the MAIN view while the mouse is on another display
+        /// (the press that grabs the Tactical Display instead of the window on the monitor). No press line on a monitor = the press never came to its view; a line with the
+        /// element chain = it came and the cause is in the element / its command. At most 40 lines.</summary>
+        void PressProbe(string where, FrameworkElement view, object args)
+        {
+            if (_pressN >= 40) return;
+            try
+            {
+                var e = args as MouseButtonEventArgs; if (e == null) return;
+                int md = MouseDisplay();
+                if (view.Tag == null && md <= 0) return;                  // the main view and the mouse on the main display: nothing to say
+                _pressN++;
+                var p = e.GetPosition(view);
+                var sb = new System.Text.StringBuilder("monitors: press on " + where + " at " + (int)p.X + "," + (int)p.Y + " (mouse display " + (md + 1) + ", RelativeMouseAt " + UnityEngine.Display.RelativeMouseAt(UnityEngine.Input.mousePosition) + "): ");
+                DependencyObject d = e.Source as DependencyObject;
+                for (int i = 0; i < 9 && d != null; i++, d = VisualTreeHelper.GetParent(d))
+                {
+                    var fe = d as FrameworkElement;
+                    sb.Append(i == 0 ? "" : " < ").Append(d.GetType().Name);
+                    if (fe != null && !string.IsNullOrEmpty(fe.Name)) sb.Append('#').Append(fe.Name);
+                }
+                Trace(sb.ToString());
+            }
+            catch (Exception ex) { _pressN = 40; Trace("monitors: press probe: " + ex.Message); }
+        }
+
+        int _probeN; float _probeAt; int _probeLast = -2; string _probeHead;
+        /// <summary>Trace for "windows on another monitor can be seen but not clicked": every move of the mouse to another display (as Display.RelativeMouseAt tells it), and the case that
+        /// says the display is not known although the mouse is outside the game's own window rectangle (RelativeMouseAt gives zero there: everything then goes to the main display).
+        /// At most 60 lines in a run, a sample every 1.5 s while the mouse stays outside.</summary>
+        void MouseProbe(float now, UnityEngine.Vector3 mp, UnityEngine.Vector3 rel)
+        {
+            if (_probeN >= 60 || Monitors.Count == 0) return;
+            try
+            {
+                int cd = rel == UnityEngine.Vector3.zero ? 0 : (int)rel.z;
+                bool outside = mp.x < 0f || mp.y < 0f || mp.x >= UnityEngine.Screen.width || mp.y >= UnityEngine.Screen.height;
+                bool lost = outside && cd == 0;                       // outside the main window and still "display 0": the game's mouse is the main display's
+                int key = cd * 4 + (lost ? 1 : 0) + (outside ? 2 : 0);
+                if (key == _probeLast && now - _probeAt < 1.5f) return;
+                if (key == _probeLast && !lost) return;
+                _probeLast = key; _probeAt = now; _probeN++;
+                if (_probeHead == null)
+                {
+                    var sb = new System.Text.StringBuilder("monitors: displays");
+                    for (int i = 0; i < UnityEngine.Display.displays.Length; i++) { var d = UnityEngine.Display.displays[i]; sb.Append(" [" + (i + 1) + ": system " + d.systemWidth + "x" + d.systemHeight + ", rendering " + d.renderingWidth + "x" + d.renderingHeight + ", active " + d.active + "]"); }
+                    sb.Append("; game window " + UnityEngine.Screen.width + "x" + UnityEngine.Screen.height + ", mode " + UnityEngine.Screen.fullScreenMode + ", main display of the game " + UnityEngine.PlayerPrefs.GetInt("UnitySelectMonitor", 0));
+                    _probeHead = sb.ToString(); Trace(_probeHead);
+                }
+                Trace("monitors: mouse " + (int)mp.x + "," + (int)mp.y + " -> RelativeMouseAt " + (int)rel.x + "," + (int)rel.y + " display " + (cd + 1) + (lost ? "  <- outside the game window but taken for the main display" : ""));
+            }
+            catch { }
+        }
 
         /// <summary>Buttons and wheel for the view of the display the mouse is on (positions from Display.RelativeMouseAt, y from the top of that display).
         /// A button released elsewhere goes to the view it was pressed on. Moves are NoesisView's own.</summary>
@@ -535,6 +639,7 @@ namespace AlternativeGameInterface
             }
             var mp = UnityEngine.Input.mousePosition;
             var rel = UnityEngine.Display.RelativeMouseAt(mp);
+            MouseProbe(now, mp, rel);
             {
                 int cd = rel == UnityEngine.Vector3.zero ? 0 : (int)rel.z;
                 float cx, cy;
@@ -554,7 +659,7 @@ namespace AlternativeGameInterface
                 if (UnityEngine.Input.GetMouseButtonDown(b) && over != null)
                 {
                     int y = over.H - (int)rel.y;
-                    bool dbl = now - _lastDown[b] < 0.35f && ReferenceEquals(_pressView, over) && Math.Abs(_lastDownPos.x - px) < 5f && Math.Abs(_lastDownPos.y - y) < 5f;
+                    bool dbl = now - _lastDown[b] < DoubleClickSec() && ReferenceEquals(_pressView, over) && Math.Abs(_lastDownPos.x - px) <= 10f && Math.Abs(_lastDownPos.y - y) <= 10f;
                     _lastDown[b] = dbl ? 0f : now; _lastDownPos = new UnityEngine.Vector2(px, y);
                     _pressView = over; _pressMask |= 1 << b;
                     (dbl && _mvDbl != null ? _mvDbl : _mvDown).Invoke(over.View, new object[] { px, y, btn });
@@ -610,7 +715,7 @@ namespace AlternativeGameInterface
 
         // ------------------------------------------------------------ a window dragged by its title bar from one display to another
 
-        sealed class Xfer { public WeakReference Vm, Win; public int From, To, Btn, Phase, Frame; public float Ox, Oy, Ix, Iy, T; }
+        sealed class Xfer { public WeakReference Vm, Win; public int From, To, Btn, Phase, Frame; public float Ox, Oy, Ix, Iy, T; }   // Ox, Oy: the grabbed point, UI units from the window's panel
         Xfer _xfer;
 
         static float LayoutScale(int disp)
@@ -625,20 +730,28 @@ namespace AlternativeGameInterface
         {
             try
             {
-                if (_xfer != null || UnityEngine.Time.frameCount - _dragFrame > 20) return false;
+                int ago = UnityEngine.Time.frameCount - _dragFrame;
                 var w = _dragWin == null ? null : _dragWin.Target;
                 string lab;
-                if (w == null || GetB(w, "Maximized") || DisplayOf(w) != old || HostOf(cur) == null || MatchPattern(w, out lab) == null) return false;
-                var vm = EntryOf(w); if (vm == null || OwnerOf(vm) == null) return false;
-                var panel = TemplateRootPanel(w); if (panel == null) return false;
+                // why a drag across displays did not start (traced when a title bar drag was seen in the last 2 s)
+                string why = _xfer != null ? "a transfer still going" : ago > 20 ? "last title bar drag " + ago + " frames ago" : w == null ? "no dragged window" :
+                    GetB(w, "Maximized") ? "maximized" : DisplayOf(w) != old ? "window on display " + (DisplayOf(w) + 1) + ", mouse left display " + (old + 1) :
+                    HostOf(cur) == null ? "no window host on display " + (cur + 1) : MatchPattern(w, out lab) == null ? "no window pattern" : null;
+                if (why != null)
+                {
+                    if (UnityEngine.Time.unscaledTime - _dragTime < 2f) Trace("monitors: drag to display " + (cur + 1) + " not started: " + why);
+                    return false;
+                }
+                var vm = EntryOf(w); if (vm == null || OwnerOf(vm) == null) { Trace("monitors: drag to display " + (cur + 1) + " not started: no host entry"); return false; }
+                var panel = TemplateRootPanel(w); if (panel == null) { Trace("monitors: drag to display " + (cur + 1) + " not started: no template panel"); return false; }
                 var s0 = panel.PointToScreen(new Point(0f, 0f)); var s1 = panel.PointToScreen(new Point(100f, 100f));
                 float kx = (s1.X - s0.X) / 100f, ky = (s1.Y - s0.Y) / 100f;
-                if (kx < 0.01f || ky < 0.01f) return false;
+                if (kx < 0.01f || ky < 0.01f) { Trace("monitors: drag to display " + (cur + 1) + " not started: scale " + kx + "," + ky); return false; }
                 int btn = UnityEngine.Input.GetMouseButton(0) ? 0 : UnityEngine.Input.GetMouseButton(1) ? 1 : 2;
                 _xfer = new Xfer
                 {
                     Vm = new WeakReference(vm), From = old, To = cur, Btn = btn, Phase = 1, T = UnityEngine.Time.unscaledTime,
-                    Ox = lastX - s0.X, Oy = lastY - s0.Y, Ix = GetF(w, "X", 0f) - s0.X / kx, Iy = GetF(w, "Y", 0f) - s0.Y / ky
+                    Ox = (lastX - s0.X) / kx, Oy = (lastY - s0.Y) / ky, Ix = GetF(w, "X", 0f) - s0.X / kx, Iy = GetF(w, "Y", 0f) - s0.Y / ky
                 };
                 // the press that began on the old display is over for the old view; the mouse events of the main view are not held back any more
                 _pressMask &= ~(1 << btn); if (old == 0) _mainPress &= ~(1 << btn);
@@ -653,7 +766,10 @@ namespace AlternativeGameInterface
         float PlaceUnderMouse(object w, Xfer x)
         {
             float sc = LayoutScale(x.To);
-            float tx = (_px - x.Ox) / sc + x.Ix, ty = Math.Max(0f, (_py - x.Oy) / sc + x.Iy);
+            // the grabbed point (UI units from the window's panel) under the mouse: Ox / Oy are in UI units - in pixels of the old display they put
+            // the window off by the difference of the two displays' scales (1.333 vs 1.0 px per unit): the press that goes on with the drag
+            // landed below the title bar (on the World View picture) and the drag was lost (trace a5259b3b)
+            float tx = _px / sc - x.Ox + x.Ix, ty = Math.Max(0f, _py / sc - x.Oy + x.Iy);
             SetF(w, "X", tx); SetF(w, "Y", ty);
             return tx + ty;
         }
@@ -665,35 +781,39 @@ namespace AlternativeGameInterface
         /// <summary>A window created by dragging to another display: it is placed by the transfer and by the user afterwards, the remembered layout is not applied to it.</summary>
         bool InTransfer(object w) { object o; return w != null && _xferWins.TryGetValue(w, out o); }
 
+        /// <summary>
+        /// A window dragged to another display follows the mouse from here on until the button is released - the mod moves it every frame
+        /// (no new press on the new display's view: that press had to land on the title bar, and a fast mouse that left the title bar before
+        /// it landed lost the drag). The mouse going on to yet another display moves the window there too.
+        /// Phase 1: waiting for the window on the new display's host (at most 4 s); 2: following.
+        /// </summary>
         void TransferStep(float now, int cd, float cx, float cy)
         {
             var x = _xfer; if (x == null) return;
             try
             {
-                if (now - x.T > 4f || !UnityEngine.Input.GetMouseButton(x.Btn)) { EndTransfer(); return; }
                 var vm = x.Vm.Target; if (vm == null) { EndTransfer(); return; }
-                int fc = UnityEngine.Time.frameCount;
+                if (!UnityEngine.Input.GetMouseButton(x.Btn)) { Trace("monitors: drag across displays ended on display " + (x.To + 1)); EndTransfer(); return; }
                 if (x.Phase == 1)
                 {
+                    if (now - x.T > 4f) { Trace("monitors: drag across displays: the window did not appear on display " + (x.To + 1)); EndTransfer(); return; }
                     var hostTo = HostOf(x.To);
                     if (x.Win == null || hostTo == null || !ReferenceEquals(OwnerOf(vm), hostTo)) return;
                     x.Phase = 2;
                     var old = NoesisOf(x.From);
                     if (old != null && _mvUp != null) { _mvUp.Invoke(old, new object[] { -1, -1, (MouseButton)x.Btn }); if (_mvMove != null) _mvMove.Invoke(old, new object[] { -100000, -100000 }); }
+                }
+                var w = x.Win == null ? null : x.Win.Target; if (w == null || !GetB(w, "IsLoaded")) return;
+                if (cd != x.To)
+                {
+                    // on to another display (back to the first one too): the window goes there and keeps following
+                    if (HostOf(cd) == null) return;
+                    SetWindowDisplay(w, cd);
+                    x.From = x.To; x.To = cd; x.Win = null; x.Phase = 1; x.T = now;
+                    Trace("monitors: '" + TextOf(Get(w, "Header")) + "' dragged on to display " + (cd + 1));
                     return;
                 }
-                if (cd != x.To) { EndTransfer(); return; }
-                var w = x.Win.Target; if (w == null || !GetB(w, "IsLoaded")) return;
                 PlaceUnderMouse(w, x);
-                if (x.Phase == 2) { x.Phase = 3; x.Frame = fc; return; } // the press goes on the next frame, when the window is laid out at that place
-                var view = NoesisOf(x.To);
-                if (view != null && _mvDown != null)
-                {
-                    _mvDown.Invoke(view, new object[] { (int)cx, (int)cy, (MouseButton)x.Btn });
-                    if (x.To > 0) { _pressView = ViewOfDisplay(x.To); _pressMask |= 1 << x.Btn; _lastDownPos = new UnityEngine.Vector2(cx, cy); }
-                    else _mainPress |= 1 << x.Btn;
-                }
-                EndTransfer();
             }
             catch (Exception e) { Trace("monitors: drag to another display: " + e.Message); EndTransfer(); }
         }
@@ -750,7 +870,7 @@ namespace AlternativeGameInterface
                 var view = NoesisOf(old);
                 if (view == null) return;
                 if (!held) { _mvMove.Invoke(view, new object[] { -100000, -100000 }); return; }
-                if (TryStartTransfer(old, cur, lastX, lastY)) return;
+                if (_xfer != null || TryStartTransfer(old, cur, lastX, lastY)) return;   // a window being carried across displays: TransferStep moves it
                 float w, h; DisplayPx(old, out w, out h);
                 // the edge the mouse left through: by where it was and where it was heading
                 int tx = lastX < w * 0.1f ? 0 : lastX > w * 0.9f ? (int)w - 1 : _dx > 0f ? (int)w - 1 : _dx < 0f ? 0 : (int)lastX;
@@ -825,6 +945,7 @@ namespace AlternativeGameInterface
 
                 m.Root = (FrameworkElement)GUI.ParseXaml(MonitorXaml);
                 m.Root.Tag = "AGI_MON" + index;
+                { var pr = m.Root; int di = index + 1; pr.PreviewMouseLeftButtonDown += (o, ea) => PressProbe("monitor " + di, pr, ea); }
                 m.Scale = (ScaleTransform)m.Root.FindName("Sc");
                 var items = (ItemsControl)m.Root.FindName("Items");
 
@@ -1012,7 +1133,7 @@ namespace AlternativeGameInterface
             try
             {
                 var xf = _xfer;
-                if (xf != null && xf.Phase <= 3 && ReferenceEquals(EntryOf(w), xf.Vm.Target)) { xf.Win = new WeakReference(w); try { _xferWins.Add(w, w); } catch { } PlaceUnderMouse(w, xf); }
+                if (xf != null && xf.Phase == 1 && ReferenceEquals(EntryOf(w), xf.Vm.Target)) { xf.Win = new WeakReference(w); try { _xferWins.Add(w, w); } catch { } PlaceUnderMouse(w, xf); }
             }
             catch { }
             int want = WantedDisplay(w);

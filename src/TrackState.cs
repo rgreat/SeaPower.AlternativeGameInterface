@@ -114,28 +114,38 @@ namespace AlternativeGameInterface
             "</Grid>";
 
         /// <summary>A field or a property of any visibility, own or inherited (null when absent).</summary>
-        static readonly Dictionary<string, MemberInfo> FieldVCache = new Dictionary<string, MemberInfo>();
-
+        /// <summary>A field or property found by name (FieldV): the member and a delegate that reads it. The key is a (type, name) pair: no string is built for a lookup (FieldV runs for every map label every frame).</summary>
+        struct FvKey : IEquatable<FvKey>
+        {
+            public Type T; public string N;
+            public bool Equals(FvKey o) { return ReferenceEquals(T, o.T) && string.Equals(N, o.N); }
+            public override bool Equals(object o) { return o is FvKey && Equals((FvKey)o); }
+            public override int GetHashCode() { return (T == null ? 0 : T.GetHashCode()) * 397 ^ (N == null ? 0 : N.GetHashCode()); }
+        }
+        sealed class FvMember { public FieldInfo F; public PropertyInfo P; public Func<object, object> Fast; }
+        static readonly Dictionary<FvKey, FvMember> FieldVCache = new Dictionary<FvKey, FvMember>();
+        /// <summary>The value of the field or property 'name' of o (any visibility, also of a base type); null when there is none.</summary>
         static object FieldV(object o, string name)
         {
             if (o == null) return null;
             var t0 = o.GetType();
-            string ck = t0.FullName + "|" + name;
-            MemberInfo mi;
-            if (!FieldVCache.TryGetValue(ck, out mi))
+            var key = new FvKey { T = t0, N = name };
+            FvMember m;
+            if (!FieldVCache.TryGetValue(key, out m))
             {
-                for (var ty = t0; ty != null && mi == null; ty = ty.BaseType)
+                m = new FvMember();
+                for (var ty = t0; ty != null && m.F == null && m.P == null; ty = ty.BaseType)
                 {
                     const BindingFlags bf = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-                    mi = ty.GetField(name, bf);
-                    if (mi == null) { var pr = ty.GetProperty(name, bf); if (pr != null && pr.GetIndexParameters().Length == 0) mi = pr; }
+                    m.F = ty.GetField(name, bf);
+                    if (m.F == null) { var pr = ty.GetProperty(name, bf); if (pr != null && pr.GetIndexParameters().Length == 0) m.P = pr; }
                 }
-                FieldVCache[ck] = mi;
+                m.Fast = m.F != null ? FastGet.Field(m.F) : m.P != null ? FastGet.Property(m.P) : null;
+                FieldVCache[key] = m;
             }
-            var f = mi as FieldInfo;
-            if (f != null) return f.GetValue(o);
-            var p = mi as PropertyInfo;
-            return p == null ? null : p.GetValue(o, null);
+            if (m.Fast != null) return m.Fast(o);
+            if (m.F != null) return m.F.GetValue(o);
+            return m.P == null ? null : m.P.GetValue(o, null);
         }
 
         static readonly string[] TrackUnitLists = { "_taskforceVessels", "_taskforceSubmarines", "_taskforceAircraft", "_taskforceHelicopters", "_taskforceLandUnits" };

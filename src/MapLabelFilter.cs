@@ -28,7 +28,7 @@ namespace AlternativeGameInterface
         ConfigEntry<float> _glSpread, _glSpreadAir;
         static string _glPlaceDone;                                  // the placement the descriptor holds now (null: the game's own, not touched yet)
         static object _glContactDescr;
-        static PropertyInfo _gdSide, _gcRegistry, _grLabels;
+        static PropertyInfo _gdSide, _grLabels; static Acc _gcRegistry;
         static FieldInfo _gcNeedsSeed;
         static object _glGameSide;
 
@@ -36,7 +36,7 @@ namespace AlternativeGameInterface
         sealed class GlDec { public int C, Si, Sh; public bool Drop; public float T; }
         static readonly ConditionalWeakTable<object, GlDec> GlDecs = new ConditionalWeakTable<object, GlDec>();
         /// <summary>The natural sizes of the lines of a label (all lines, as the game measured them in ReadSizes) and the shape of the unit text they were measured with (per contact line: length, line breaks).</summary>
-        sealed class GlNat { public float[] W, H; public int[] Shape; public int Gen; }
+        sealed class GlNat { public float[] W, H; public int[] Shape; public int Gen; public float ShapeAt; }
         /// <summary>The cut applied to a label now: bit q = contact line q is not drawn (its size is zero in LineSizes, its presenter line is collapsed).</summary>
         sealed class GlCutState { public int Applied; }
         static readonly ConditionalWeakTable<object, GlCutState> GlCuts = new ConditionalWeakTable<object, GlCutState>();
@@ -44,12 +44,12 @@ namespace AlternativeGameInterface
         sealed class GlSize { public float Size; public float At; }
         static readonly ConditionalWeakTable<object, GlNat> GlNats = new ConditionalWeakTable<object, GlNat>();      // label -> its natural line sizes
         static readonly ConditionalWeakTable<object, GlSize> GlSizes = new ConditionalWeakTable<object, GlSize>();
-        static FieldInfo _glActive, _glPx;
-        static FieldInfo _gcEligible, _gcRealized, _gcActiveIndex, _gcRep, _gcRepScore, _gcHead, _gcLineSizes, _gcViewPx, _gcAggOf, _gmMembers;
-        static PropertyInfo _gcGroup, _gcContent, _gcDescr, _gdIcon, _ggKey;
-        static FieldInfo _f2x, _f2y;
+        static Acc _glActive, _glPx;
+        static Acc _gcEligible, _gcRealized, _gcActiveIndex, _gcRep, _gcRepScore, _gcHead, _gcLineSizes, _gcViewPx, _gcAggOf, _gmMembers;
+        static Acc _gcGroup, _gcContent, _gcDescr, _gdIcon, _ggKey;
+        static Acc _f2x, _f2y;
         static bool _glHooked, _glFailed, _glNamesOk;
-        static FieldInfo _gcHeadContent, _gcAnchor, _gcSlot, _gcIndex;
+        static Acc _gcHeadContent, _gcAnchor, _gcSlot, _gcIndex;
         static MethodInfo _gcBump, _grUnreg, _grSetAnchor, _grRegister;
         static PropertyInfo _grGroups;
 
@@ -174,7 +174,7 @@ namespace AlternativeGameInterface
             }
             foreach (var gr in _glGroupsNow)
             {
-                var key = _ggKey.GetValue(gr, null); if (key == null || key.GetType().Name != "UnitFormation") continue;
+                var key = _ggKey.GetValue(gr, null); if (key == null || !GlIsFormation(key)) continue;
                 var mem = _gmMembers.GetValue(gr) as IList; if (mem == null) continue;
                 object head = null;
                 for (int k = 0; k < mem.Count; k++) { var l = mem[k]; if (l == null || GlIcon(l)) continue; if (_gcHead.GetValue(l) != null) head = l; }
@@ -192,7 +192,7 @@ namespace AlternativeGameInterface
                 // the name label X: form 0 = the name only; form 1 (a formation of aircraft) = the name over the leader's contact lines, which the filter cuts (it keeps line 3 for an unselected formation).
                 // The form does not follow the selection; X is made again only when the form or the leader changes.
                 object lvm = _gcContent.GetValue(nm.Leader, null);
-                int form = lvm != null && lvm.GetType().Name == "MapUnitViewModel" && _grSetHead != null && GlAirInfoOn() && GlAirLabel(nm.Leader) ? 1 : 0;
+                int form = lvm != null && GlIsUnitVm(lvm) && _grSetHead != null && GlAirInfoOn() && GlAirLabel(nm.Leader) ? 1 : 0;
                 if (nm.X != null && (nm.Form != form || (form == 1 && !ReferenceEquals(nm.XVm, lvm)))) GlNameRemove(reg, nm);
                 if (nm.X == null)
                 {
@@ -312,14 +312,35 @@ namespace AlternativeGameInterface
             Trace("patched MapLabelLayer.Gate1 (GroupNameOnly / LabelOverlapFilter)");
         }
 
-        static PropertyInfo _glFriendlyP;
+        /// <summary>The view model is a MapUnitViewModel / the group key is a UnitFormation: the type is compared by reference after the first match (Type.Name builds a string on every call).</summary>
+        static Type _glMvmT, _glFormT;
+        static bool GlIsUnitVm(object o)
+        {
+            if (o == null) return false;
+            var t = o.GetType(); if (ReferenceEquals(t, _glMvmT)) return true;
+            if (t.Name != "MapUnitViewModel") return false;
+            _glMvmT = t; return true;
+        }
+        static bool GlIsFormation(object o)
+        {
+            if (o == null) return false;
+            var t = o.GetType(); if (ReferenceEquals(t, _glFormT)) return true;
+            if (t.Name != "UnitFormation") return false;
+            _glFormT = t; return true;
+        }
+
+        static PropertyInfo _glFriendlyP; static Func<object, object> _glFriendlyG;
         /// <summary>MapUnitViewModel.IsFriendlyOtherSide: the unit shows the 'FRND' badge left of its icon.</summary>
         static bool GlFriendlyMarker(object vm)
         {
             try
             {
-                if (_glFriendlyP == null || _glFriendlyP.DeclaringType != vm.GetType()) _glFriendlyP = vm.GetType().GetProperty("IsFriendlyOtherSide", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                var v = _glFriendlyP == null ? null : _glFriendlyP.GetValue(vm, null); return v is bool && (bool)v;
+                if (_glFriendlyP == null || _glFriendlyP.DeclaringType != vm.GetType())
+                {
+                    _glFriendlyP = vm.GetType().GetProperty("IsFriendlyOtherSide", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    _glFriendlyG = FastGet.Property(_glFriendlyP);
+                }
+                var v = _glFriendlyP == null ? null : _glFriendlyG != null ? _glFriendlyG(vm) : _glFriendlyP.GetValue(vm, null); return v is bool && (bool)v;
             }
             catch { return false; }
         }
@@ -344,7 +365,7 @@ namespace AlternativeGameInterface
             var arg = new object[] { "RelationshipMarkerTop" };
             for (int i = 0; i < act.Count; i++)
             {
-                var vm = _gcContent.GetValue(act[i], null); if (vm == null || vm.GetType().Name != "MapUnitViewModel") continue;
+                var vm = _gcContent.GetValue(act[i], null); if (vm == null || !GlIsUnitVm(vm)) continue;
                 bool fr = GlFriendlyMarker(vm);
                 MarkSeen m; if (!GlMarks.TryGetValue(vm, out m)) { m = new MarkSeen { Gen = -1 }; GlMarks.Add(vm, m); }
                 if (m.Gen == _glMarkGen && m.Friendly == fr) continue;
@@ -437,19 +458,27 @@ namespace AlternativeGameInterface
             catch { }
         }
 
+        static float _glExtAt;
         static void LabelFilterPostfix(object __instance)
+        {
+            long t0 = Prof.T();
+            try { LabelFilterPass(__instance); } finally { Prof.Lap(Prof.LblFilter, t0); }
+        }
+
+        static void LabelFilterPass(object __instance)
         {
             var a = Active;
             if ((object)a == null || !_glHooked || _glFailed) return;
-            if (GlFixed())
+            if (GlFixed() && UnityEngine.Time.unscaledTime - _glExtAt >= 0.25f)        // is the extent of an icon known: four times a second is enough
             {
+                _glExtAt = UnityEngine.Time.unscaledTime;
                 try
                 {
                     var act = _glActive == null ? null : _glActive.GetValue(__instance) as IList;
                     if (act != null) for (int i = 0; i < act.Count && !_glNeedExt; i++)
                     {
                         var lab = act[i]; if (GlIcon(lab)) continue;
-                        var vm = _gcContent.GetValue(lab, null); if (vm == null || vm.GetType().Name != "MapUnitViewModel") continue;
+                        var vm = _gcContent.GetValue(lab, null); if (vm == null || !GlIsUnitVm(vm)) continue;
                         GlExt e; if (!GlExts.TryGetValue(vm, out e) || !Equals(e.Type, FieldV(vm, "VisualType")) || !Equals(e.Posture, FieldV(vm, "VisualPosture"))) _glNeedExt = true;
                     }
                 }
@@ -498,14 +527,14 @@ namespace AlternativeGameInterface
 
         static bool GlSelected(object vm)
         {
-            if (vm == null || vm.GetType().Name != "MapUnitViewModel") return false;
+            if (vm == null || !GlIsUnitVm(vm)) return false;
             return FieldV(vm, "Selected") is bool && (bool)FieldV(vm, "Selected");
         }
 
         /// <summary>Size of the unit of a view model: displacement of a vessel that is known (ours or identified), else 0. Kept for two seconds.</summary>
         static float GlUnitSize(object vm)
         {
-            if (vm == null || vm.GetType().Name != "MapUnitViewModel") return 0f;
+            if (vm == null || !GlIsUnitVm(vm)) return 0f;
             float now = UnityEngine.Time.unscaledTime;
             GlSize s;
             if (!GlSizes.TryGetValue(vm, out s)) { s = new GlSize { At = -100f }; GlSizes.Add(vm, s); }
@@ -544,7 +573,7 @@ namespace AlternativeGameInterface
 
         /// <summary>With the solver switched off in the game's map settings (SolvedLabels) ArrangeLabels ignores the slot and puts the box at the old top-left place; _wasSolved = true makes it use the slot.</summary>
         static readonly Dictionary<object, int> _glSides = new Dictionary<object, int>();           // label -> the side chosen by the overlap filter (the game's Slot: 0 E, 2 S, 4 W, 6 N)
-        static MethodInfo[] _glLineGet; static Type _glLineGetType;
+        static MethodInfo[] _glLineGet; static Func<object, object>[] _glLineFast; static Type _glLineGetType;
         /// <summary>Current text of the contact line q (0-3) of a unit view model, as the label shows it; null when unknown.</summary>
         static string GlLineText(object vm, int q)
         {
@@ -553,10 +582,10 @@ namespace AlternativeGameInterface
                 var t = vm.GetType();
                 if (_glLineGet == null || _glLineGetType != t)
                 {
-                    _glLineGet = new MethodInfo[4]; _glLineGetType = t;
-                    for (int k = 0; k < 4; k++) { var pr = t.GetProperty("ContactInfoLine" + (k + 1)); _glLineGet[k] = pr == null ? null : pr.GetGetMethod(); }
+                    _glLineGet = new MethodInfo[4]; _glLineFast = new Func<object, object>[4]; _glLineGetType = t;
+                    for (int k = 0; k < 4; k++) { var pr = t.GetProperty("ContactInfoLine" + (k + 1)); _glLineGet[k] = pr == null ? null : pr.GetGetMethod(); _glLineFast[k] = pr == null ? null : FastGet.Property(pr); }
                 }
-                var m = _glLineGet[q]; if (m == null) return null; var r = m.Invoke(vm, null); return r == null ? "" : r.ToString();       // the getter postfix has removed the empty lines already
+                var m = _glLineGet[q]; if (m == null) return null; var fg = _glLineFast[q]; var r = fg != null ? fg(vm) : m.Invoke(vm, null); return r == null ? "" : r.ToString();       // the getter postfix has removed the empty lines already
             }
             catch { return null; }
         }
@@ -567,6 +596,17 @@ namespace AlternativeGameInterface
             for (int q = 0; q < 4; q++) { var t = GlLineText(vm, q) ?? ""; int nl = 0; foreach (char c in t) if (c == '\n') nl++; r[q * 2] = t.Length; r[q * 2 + 1] = nl; }
             r[8] = _glBadgeTplOn && GlFriendlyMarker(vm) ? 1 : 0;                      // the badge row of the first line
             return r;
+        }
+        /// <summary>The same as GlSameShape(old, GlShape(vm)) without building the shape: stops at the first line that differs.</summary>
+        static bool GlShapeIs(object vm, int[] old)
+        {
+            if (old == null) return false;
+            for (int q = 0; q < 4; q++)
+            {
+                var t = GlLineText(vm, q) ?? ""; int nl = 0; for (int k = 0; k < t.Length; k++) if (t[k] == '\n') nl++;
+                if (old[q * 2] != t.Length || old[q * 2 + 1] != nl) return false;
+            }
+            return old[8] == (_glBadgeTplOn && GlFriendlyMarker(vm) ? 1 : 0);
         }
         static bool GlSameShape(int[] a, int[] b) { if (a == null || b == null) return false; for (int k = 0; k < 9; k++) if (a[k] != b[k]) return false; return true; }
         /// <summary>The text without empty lines (the text of one label line may carry a line break before / between / after its parts).</summary>
@@ -603,28 +643,39 @@ namespace AlternativeGameInterface
         static GlNat GlSyncSizes(object layer, object lab)
         {
             int lc = GlLineCount(lab, _gcHead.GetValue(lab) != null);
-            var vm = _gcContent.GetValue(lab, null); bool unit = vm != null && vm.GetType().Name == "MapUnitViewModel";
+            var vm = _gcContent.GetValue(lab, null); bool unit = vm != null && GlIsUnitVm(vm);
             GlNat nat; GlNats.TryGetValue(lab, out nat);
-            if (nat == null || nat.W == null || nat.W.Length != lc || nat.Gen != _glNatGen || (unit && !GlSameShape(nat.Shape, GlShape(vm))))
-                if (GlHostMeasure(layer, lab)) GlNats.TryGetValue(lab, out nat);
+            bool need = nat == null || nat.W == null || nat.W.Length != lc || nat.Gen != _glNatGen;
+            if (!need && unit)                                                        // the shape of the text (its digits change all the time): looked at 7 times a second, not at every pass
+            {
+                float tn = UnityEngine.Time.unscaledTime;
+                if (tn - nat.ShapeAt >= 0.15f || tn < nat.ShapeAt) { nat.ShapeAt = tn; need = !GlShapeIs(vm, nat.Shape); }
+            }
+            if (need && GlHostMeasure(layer, lab)) GlNats.TryGetValue(lab, out nat);
             return nat != null && nat.W != null && nat.W.Length == lc ? nat : null;
         }
         static bool _glCutErr;
-        static List<string> GlDbgSizes(object lab) { var r = new List<string>(); try { var ls = _gcLineSizes.GetValue(lab) as Array; if (ls != null) foreach (var e in ls) r.Add(((float)_f2x.GetValue(e)).ToString("0") + "x" + ((float)_f2y.GetValue(e)).ToString("0")); } catch { } return r; }
+        static List<string> GlDbgSizes(object lab) { var r = new List<string>(); try { var ls = _gcLineSizes.GetValue(lab) as Array; if (ls != null) foreach (var e in ls) r.Add((_f2x.GetFloat(e)).ToString("0") + "x" + (_f2y.GetFloat(e)).ToString("0")); } catch { } return r; }
         static FieldInfo _glPresF, _glEmptyF; static object _glZero;
 
         /// <summary>After every measure of a label (the game's own: a presenter or the hidden host; and the mod's GlHostMeasure): the sizes the game read are the natural ones (all lines shown, the text as it is),
         /// they are kept, then the cut of the label is applied to them.</summary>
         static void ReadSizesPostfix(object __instance, object label)
         {
+            long t0 = Prof.T();
+            try { ReadSizesPass(__instance, label); } finally { Prof.Lap(Prof.LblSizes, t0); }
+        }
+
+        static void ReadSizesPass(object __instance, object label)
+        {
             try
             {
                 var ls = _gcLineSizes.GetValue(label) as Array; if (ls == null) return;
                 GlNat nat; if (!GlNats.TryGetValue(label, out nat)) { nat = new GlNat(); GlNats.Add(label, nat); }
                 if (nat.W == null || nat.W.Length != ls.Length) { nat.W = new float[ls.Length]; nat.H = new float[ls.Length]; }
-                for (int q = 0; q < ls.Length; q++) { var e = ls.GetValue(q); nat.W[q] = (float)_f2x.GetValue(e); nat.H[q] = (float)_f2y.GetValue(e); }
+                for (int q = 0; q < ls.Length; q++) { var e = ls.GetValue(q); nat.W[q] = _f2x.GetFloat(e); nat.H[q] = _f2y.GetFloat(e); }
                 var vm = _gcContent.GetValue(label, null);
-                nat.Shape = vm != null && vm.GetType().Name == "MapUnitViewModel" ? GlShape(vm) : null; nat.Gen = _glNatGen;
+                nat.Shape = vm != null && GlIsUnitVm(vm) ? GlShape(vm) : null; nat.Gen = _glNatGen;
                 GlCutState st; if (GlCuts.TryGetValue(label, out st)) st.Applied = 0;      // LineSizes and the presenter's flags are fresh: nothing is cut in them
                 int want; _glCut.TryGetValue(label, out want);
                 GlApplyCut(__instance, label, want);
@@ -657,6 +708,12 @@ namespace AlternativeGameInterface
         }
 
         static void ArrangePrefix(object __instance, ref bool ____wasSolved)
+        {
+            long t0 = Prof.T();
+            try { ArrangePass(__instance, ref ____wasSolved); } finally { Prof.Lap(Prof.LblArrange, t0); }
+        }
+
+        static void ArrangePass(object __instance, ref bool ____wasSolved)
         {
             try                                                                          // the cut of every text label wanted in this pass (none when the filters are off)
             {
@@ -696,9 +753,9 @@ namespace AlternativeGameInterface
             {
                 var lab = active[i]; if (!GlIcon(lab)) continue;
                 var gr = _gcGroup.GetValue(lab, null); if (gr == null) continue;
-                var key = _ggKey.GetValue(gr, null); if (key == null || key.GetType().Name != "UnitFormation") continue;
+                var key = _ggKey.GetValue(gr, null); if (key == null || !GlIsFormation(key)) continue;
                 if (!GlNear(gr, lab)) continue;                                              // a unit beyond the limit is independent: not in the box of the formation
-                var p = px[i]; float x = (float)_f2x.GetValue(p), y = (float)_f2y.GetValue(p);
+                var p = px[i]; float x = _f2x.GetFloat(p), y = _f2y.GetFloat(p);
                 if (bb == null) bb = new Dictionary<object, float[]>();
                 // the member's drawn extents about its anchor (measured icon, a selected one at least the selection frame); b: anchors box 0-3, edges of the drawn icons 4-7
                 var mvm = _gcContent.GetValue(lab, null); GlExt me; float eL = 11.25f, eT = 11.25f, eR = 11.25f, eB = 11.25f;
@@ -798,7 +855,7 @@ namespace AlternativeGameInterface
                 {
                     var e = st.Pop();
                     var c = e as Noesis.Canvas;
-                    if (c != null && c.Name == "UnitIcon" && c.DataContext != null && c.DataContext.GetType().Name == "MapUnitViewModel") { GlMeasure(c); continue; }
+                    if (c != null && c.Name == "UnitIcon" && c.DataContext != null && GlIsUnitVm(c.DataContext)) { GlMeasure(c); continue; }
                     int n = Noesis.VisualTreeHelper.GetChildrenCount(e);
                     for (int k = 0; k < n; k++) { var ch = Noesis.VisualTreeHelper.GetChild(e, k); if (ch != null) st.Push(ch); }
                 }
@@ -847,6 +904,10 @@ namespace AlternativeGameInterface
             catch { return false; }
         }
 
+        static readonly RectGrid _glGrid = new RectGrid();
+        static readonly Dictionary<object, bool> _glGroupSel = new Dictionary<object, bool>(); static readonly Dictionary<object, float> _glGroupSize = new Dictionary<object, float>();
+        static readonly HashSet<object> _glHasName = new HashSet<object>(), _glLeaders = new HashSet<object>(); static readonly List<int> _glIdx = new List<int>();
+        static readonly List<int> _glNe = new List<int>();
         static void LabelFilter(object layer, bool grp, bool overlap)
         {
             var active = _glActive.GetValue(layer) as IList; var px = _glPx.GetValue(layer) as IList;
@@ -855,18 +916,18 @@ namespace AlternativeGameInterface
             int n = active.Count;
             var drop = new bool[n]; var low = new bool[n];                        // low: the label of a unit of an unselected formation: the last in the order, kept only where it fits
             _glShift.Clear();
-            var groupSel = new Dictionary<object, bool>();
-            var groupSize = new Dictionary<object, float>();
+            var groupSel = _glGroupSel; groupSel.Clear();
+            var groupSize = _glGroupSize; groupSize.Clear();
 
             // the formations among the active labels: selection (GlGroupSel) and the biggest unit
-            var hasName = new HashSet<object>();
+            var hasName = _glHasName; hasName.Clear();
             for (int i = 0; i < n; i++)
             {
                 var lab = active[i]; if (GlIcon(lab)) continue;
                 var gr = GlGroupOf(lab);
                 if (gr == null) continue;
                 var key = _ggKey.GetValue(gr, null);
-                if (key == null || key.GetType().Name != "UnitFormation") continue;
+                if (key == null || !GlIsFormation(key)) continue;
                 if (GlUnits(gr) < 2) continue;                                        // one unit: not a formation for the filters
                 if (GlIsName(lab)) hasName.Add(gr);
                 if (!groupSel.ContainsKey(gr))
@@ -900,9 +961,9 @@ namespace AlternativeGameInterface
 
             if (overlap)
             {
-                var idx = new List<int>();
+                var idx = _glIdx; idx.Clear();
                 var size = new float[n]; var sel = new bool[n]; var tier = new int[n];
-                var leaders = new HashSet<object>(); foreach (var nm0 in _glNames.Values) if (nm0.Leader != null) leaders.Add(nm0.Leader);
+                var leaders = _glLeaders; leaders.Clear(); foreach (var nm0 in _glNames.Values) if (nm0.Leader != null) leaders.Add(nm0.Leader);
                 for (int i = 0; i < n; i++)
                 {
                     var lab = active[i];
@@ -922,18 +983,17 @@ namespace AlternativeGameInterface
                 bool fixedSide = GlFixed();
                 var gboxes = fixedSide ? GlGroupBoxes(active, px) : null;                    // the name label of a formation sits around the whole formation
                 bool dbg = Periodic && UnityEngine.Time.unscaledTime - _glDbgAt > 2f; if (dbg) { _glDbgAt = UnityEngine.Time.unscaledTime; Trace("labels: pass, active " + n + ", place " + (_inst._glPlace == null ? "" : _inst._glPlace.Value)); }
-                var kept = new List<float[]>();
-                var icons = new List<float[]>();                                       // the drawn icons (a selected one with its frame) are places already taken
+                var grid = _glGrid; grid.Reset(UnityEngine.Screen.width, UnityEngine.Screen.height);      // the boxes already placed and the drawn icons (a selected one with its frame): places already taken
                 bool badgeIn = _glBadgeTplOn;
                 for (int i = 0; i < n; i++)
                 {
                     var il = active[i]; if (!GlIcon(il) || drop[i]) continue;
-                    var ip = px[i]; float ix = (float)_f2x.GetValue(ip), iy = (float)_f2y.GetValue(ip);
+                    var ip = px[i]; float ix = _f2x.GetFloat(ip), iy = _f2y.GetFloat(ip);
                     var ivm = _gcContent.GetValue(il, null); GlExt ie; float eL = 11.25f, eT = 11.25f, eR = 11.25f, eB = 11.25f;
                     if (ivm != null && GlExts.TryGetValue(ivm, out ie)) { eL = ie.L; eT = ie.T; eR = ie.R; eB = ie.B; }
                     if (GlSelected(ivm)) { eL = Math.Max(eL, GlSelFrame); eT = Math.Max(eT, GlSelFrame); eR = Math.Max(eR, GlSelFrame); eB = Math.Max(eB, GlSelFrame); }
-                    icons.Add(new[] { ix - eL, iy - eT, eL + eR, eT + eB });
-                    if (ivm != null && !badgeIn && GlFriendlyMarker(ivm)) icons.Add(new[] { ix - 14.75f - 30f, iy - 11.25f, 30f, 22.5f });      // the game's 'FRND' badge: left of the icon, centred on it (MarkerTopPrefix)
+                    grid.Add(ix - eL, iy - eT, eL + eR, eT + eB);
+                    if (ivm != null && !badgeIn && GlFriendlyMarker(ivm)) grid.Add(ix - 14.75f - 30f, iy - 11.25f, 30f, 22.5f);      // the game's 'FRND' badge: left of the icon, centred on it (MarkerTopPrefix)
                 }
                 float dirX = 0f, dirY = 0f;                                           // the chosen side of the icon (screen y down)
                 if (fixedSide) { string pv = _inst._glPlace.Value; dirY = pv == "Bottom" ? 1f : pv == "Top" ? -1f : 0f; dirX = pv == "Right" ? 1f : pv == "Left" ? -1f : 0f; }
@@ -941,10 +1001,10 @@ namespace AlternativeGameInterface
                 {
                     var lab = active[i];
                     var vp = _gcViewPx.GetValue(lab);
-                    float ax = (float)_f2x.GetValue(vp), ay = (float)_f2y.GetValue(vp); float[] gb = null;
+                    float ax = _f2x.GetFloat(vp), ay = _f2y.GetFloat(vp); float[] gb = null;
                     if (gboxes != null && gboxes.TryGetValue(lab, out gb)) { ax = gb[0]; ay = gb[1]; }
                     var vm = _gcContent.GetValue(lab, null);
-                    bool unit = vm != null && vm.GetType().Name == "MapUnitViewModel";
+                    bool unit = vm != null && GlIsUnitVm(vm);
                     bool head = _gcHead.GetValue(lab) != null;
                     int blank; _glCut.TryGetValue(lab, out blank);
                     // the natural sizes of the lines (ReadSizesPostfix); measured now when there are none, the label has another number of lines, or the shape of its text changed
@@ -954,7 +1014,7 @@ namespace AlternativeGameInterface
                     float[] lw = nat.W, lh = nat.H;
                     int first = head ? 1 : 0;
                     int best = -1; bool isX = _glXs.Contains(lab); float shiftDone = 0f; bool ours = unit && !head && GlOurs(vm);
-                    var ne = new List<int>();                                          // the contact lines that can be drawn: with text, not cut by the base cut
+                    var ne = _glNe; ne.Clear();                                          // the contact lines that can be drawn: with text, not cut by the base cut
                     for (int q = first; q < lw.Length; q++) if (lw[q] > 0.5f && lh[q] > 0.5f && (blank & (1 << (q - first))) == 0) ne.Add(q);
                     int vn = ne.Count;
                     int bestMask = 0, bc = -1, bsi = 0, bsh = 0;
@@ -979,18 +1039,14 @@ namespace AlternativeGameInterface
                         float x, y; int chosen = -1;
                         if (fixedSide) { int sd = cdy > 0f ? 2 : cdy < 0f ? 6 : cdx < 0f ? 4 : 0; float bs = gb != null ? (sd == 2 ? gb[5] : sd == 6 ? gb[3] : sd == 0 ? gb[4] : gb[2]) + GlGap : GlBase(vm, sd); bs += sh; float ex = Math.Abs(cdx) * w * 0.5f + Math.Abs(cdy) * h * 0.5f; x = ax + cdx * (bs + ex) - w * 0.5f; y = ay + cdy * (bs + ex) - h * 0.5f; chosen = sd; }
                         else { x = ax + 14.75f; y = ay - 21.25f; }
-                        bool hit = false;
-                        if (!sel[i] || isX) foreach (var r in kept)                       // a selected unit is never cut or dropped: all lines, the others make room
-                            if (x + 1f < r[0] + r[2] && r[0] + 1f < x + w && y + 1f < r[1] + r[3] && r[1] + 1f < y + h) { hit = true; break; }
-                        if (!sel[i] || isX) foreach (var r in icons)
-                            if (x + 1f < r[0] + r[2] && r[0] + 1f < x + w && y + 1f < r[1] + r[3] && r[1] + 1f < y + h) { hit = true; break; }
+                        bool hit = (!sel[i] || isX) && grid.Hit(x, y, w, h);              // a selected unit is never cut or dropped: all lines, the others make room
                         if (!hit)
                         {
                             bc = c; bsi = si; bsh = sh;
                             best = first + c; shiftDone = sh; if (chosen >= 0) _glSides[lab] = chosen;
                             for (int q = 0; q < vn; q++) if (!(second ? q == 1 : q < c)) bestMask |= 1 << (ne[q] - first);      // the lines that do not fit
                             if (dbg) { GlExt de; string en = vm != null && GlExts.TryGetValue(vm, out de) ? de.L + "/" + de.T + "/" + de.R + "/" + de.B : "-"; Trace("  label " + (unit ? GlLineText(vm, 0) : "?") + " X=" + isX + " sel=" + sel[i] + " anchor " + ax.ToString("0") + "," + ay.ToString("0") + " side " + chosen + " (try " + si + ") lines " + c + "/" + vn + " shift " + sh + " box " + x.ToString("0") + "," + y.ToString("0") + " " + w.ToString("0") + "x" + h.ToString("0") + " ext L/T/R/B " + en + " text [" + (unit ? GlLineText(vm, 0) + "|" + GlLineText(vm, 1) + "|" + GlLineText(vm, 2) + "|" + GlLineText(vm, 3) : "") + "] cut " + (blank | bestMask) + " size " + string.Join(",", GlDbgSizes(lab))); }
-                            kept.Add(new[] { x, y, w, h }); break;
+                            grid.Add(x, y, w, h); break;
                         }
                     }
                     }

@@ -95,8 +95,8 @@ namespace AlternativeGameInterface
         // with the mod off or gone, simply has ordinary vertical sync. That it is the adaptive one is kept here (General/AdaptiveVSync).
         bool _avOff;                        // adaptive mode has switched the vertical sync off for now (the frames do not keep up with the screen)
         bool _avWas;                        // the mode was active in the last check
-        float _avWindow, _avSwitched;
-        int _avFrames, _avLate, _avOver;
+        float _avWindow, _avSwitched, _avDtSum;
+        int _avFrames;
         static MethodInfo _iniReadInt;
 
         /// <summary>The game's saved V-Sync option (0 off, 1 every, 2 every other): its options.ini in memory.</summary>
@@ -116,9 +116,14 @@ namespace AlternativeGameInterface
                     foreach (var m in ini.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public))
                     {
                         var p = m.GetParameters();
-                        if (m.Name == "readValue" && !m.IsGenericMethodDefinition && p.Length == 3 && p[0].ParameterType == typeof(string) && p[1].ParameterType == typeof(string) && p[2].ParameterType == typeof(int)) { _iniReadInt = m; break; }
+                        // readValue(section, key, int default[, bool performLogging = true]): the game's has the 4th parameter (already in 0.8.7) -
+                        // the old 3-parameter match never found it, the option read as 0 and Adaptive V-Sync never switched on
+                        if (m.Name == "readValue" && !m.IsGenericMethodDefinition && (p.Length == 3 || p.Length == 4 && p[3].ParameterType == typeof(bool)) &&
+                            p[0].ParameterType == typeof(string) && p[1].ParameterType == typeof(string) && p[2].ParameterType == typeof(int)) { _iniReadInt = m; break; }
                     }
-                return _iniReadInt == null ? 0 : (int)_iniReadInt.Invoke(ini, new object[] { "QualitySettings", "VSync", 0 });
+                if (_iniReadInt == null) { if (_traceOnce.Add("vsync-ini")) Trace("V-Sync option: IniHandler.readValue(string, string, int) not found - read as off"); return 0; }
+                var args = _iniReadInt.GetParameters().Length == 4 ? new object[] { "QualitySettings", "VSync", 0, false } : new object[] { "QualitySettings", "VSync", 0 };
+                return (int)_iniReadInt.Invoke(ini, args);
             }
             catch { return 0; }
         }
@@ -129,8 +134,11 @@ namespace AlternativeGameInterface
         {
             if (_vsyncAdaptive == null) return;
             bool want = _vsyncItem.Value && _vsyncAdaptive.Value && GameVsyncOptionCached(now) == 1;
-            if (!want) { if (_avWas) AdaptiveVSyncRelease(); return; }
-            if (!_avWas) { _avWas = true; _avOff = false; _avWindow = now; _avSwitched = now; _avFrames = _avLate = _avOver = 0; UnityEngine.QualitySettings.vSyncCount = 1; Trace("adaptive V-Sync on"); }
+            if (!want) { if (_avWas || _mvOn) AdaptiveVSyncRelease(); return; }
+            // more than one active display: Unity's vertical sync would wait for every monitor - the mod syncs to the fastest one (MultiVSync.cs)
+            if (ActiveDisplays() > 1) { if (_avWas) { _avWas = false; _avOff = false; } MultiVSyncStep(now, dt); return; }
+            if (_mvOn) MultiVSyncOff();
+            if (!_avWas) { _avWas = true; _avOff = false; _avWindow = now; _avSwitched = now; _avFrames = 0; UnityEngine.QualitySettings.vSyncCount = 1; Trace("adaptive V-Sync on"); }
 
             double hz = 60.0;
             try { hz = UnityEngine.Screen.currentResolution.refreshRateRatio.value; } catch { }
@@ -142,28 +150,31 @@ namespace AlternativeGameInterface
                 if (_avOff) { _avOff = false; _avSwitched = now; UnityEngine.QualitySettings.vSyncCount = 1; }
                 return;
             }
-            _avFrames++;
-            if (dt > interval * 1.5f) _avLate++;
-            if (dt > interval * 0.85f) _avOver++;
-            if (now - _avWindow < 0.5f) return;
-            int frames = _avFrames, late = _avLate, over = _avOver;
-            _avWindow = now; _avFrames = _avLate = _avOver = 0;
+            _avFrames++; _avDtSum += dt;
+            if (now - _avWindow < (_avOff ? 0.5f : 2f)) return;
+            int frames = _avFrames; float mean = _avDtSum / Math.Max(1, frames);
+            _avWindow = now; _avFrames = 0; _avDtSum = 0f;
             if (frames < 8) return;
             if (!_avOff)
             {
-                if (late * 4 >= frames && now - _avSwitched > 1.5f)
+                if (mean > interval * 1.2f && now - _avSwitched > 1.5f)
                 {
                     _avOff = true; _avSwitched = now; UnityEngine.QualitySettings.vSyncCount = 0;
-                    Trace("adaptive V-Sync: frames do not keep up with " + hz.ToString("0") + " Hz (" + late + " of " + frames + " late), vertical sync off");
+                    Trace("adaptive V-Sync: frames do not keep up with " + hz.ToString("0") + " Hz (average " + (mean * 1000f).ToString("0.0") + " ms), vertical sync off");
                 }
             }
-            else if (over == 0 && now - _avSwitched > 3f)
+            else if (AdaptiveFits(mean, interval))
             {
                 _avOff = false; _avSwitched = now; UnityEngine.QualitySettings.vSyncCount = 1;
                 Trace("adaptive V-Sync: frames are well inside the refresh time, vertical sync on");
             }
             else if (UnityEngine.QualitySettings.vSyncCount != 0) UnityEngine.QualitySettings.vSyncCount = 0;   // the game's Apply set it again
         }
+
+        /// <summary>The frames of the last 2 s are comfortably inside the refresh time: the average frame is under 80 % of one refresh (the average, not single frames: one long frame does not decide).
+        /// (A single frame over 85 % of a refresh - a garbage collection, a label pass - used to keep the vertical sync off for good in a paused game, where
+        /// the frames run at 100+ fps and such a frame comes every second or so.)</summary>
+        static bool AdaptiveFits(float mean, float interval) { return mean < interval * 0.8f; }
 
         float _avIniAt; int _avIni;
         int GameVsyncOptionCached(float now)
@@ -175,6 +186,7 @@ namespace AlternativeGameInterface
         /// <summary>Back to the game's own setting.</summary>
         void AdaptiveVSyncRelease()
         {
+            if (_mvOn) { MultiVSyncOff(); _avWas = true; }
             if (!_avWas) return;
             _avWas = false; _avOff = false;
             UnityEngine.QualitySettings.vSyncCount = GameVsyncOption();

@@ -50,7 +50,7 @@ namespace AlternativeGameInterface
                 Dictionary<object, int> iconAt = null;                                       // unit view model -> index of its icon label in the active list
                 foreach (var gr in groups)
                 {
-                    var key = _ggKey.GetValue(gr, null); if (key == null || key.GetType().Name != "UnitFormation") continue;
+                    var key = _ggKey.GetValue(gr, null); if (key == null || !GlIsFormation(key)) continue;
                     var mem = _gmMembers.GetValue(gr) as IList; if (mem == null || mem.Count < 2) continue;
                     var near = GlNearSet(gr);
                     object lead = null; GlName nm;

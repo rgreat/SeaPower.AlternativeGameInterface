@@ -82,6 +82,8 @@ namespace AlternativeGameInterface
                 Add(TWindows, "Text by background", p._textDownE, 'f', "Text turns light below", "brightness 0 - 1", 0.01f, 0.05f, 0.95f);
                 Add(TWindows, "Performance", p._vsyncItem, 'b', "Add Adaptive V-Sync", "in the V-Sync list");
                 Add(TWindows, "Performance", p._fpsNone, 'b', "Remove frame rate limit", "slider off");
+                Add(TWindows, "Performance", p._monFps, 'b', "Frame counter on every monitor", "FPS in a small window");
+                Add(TWindows, "Performance", p._vsyncMonitor, 'd', "Adaptive V-Sync monitor", "");
 
                 {
                     int from = Fields.Count;
@@ -150,6 +152,7 @@ namespace AlternativeGameInterface
                 Add(TDebug, "Game", p._showVersion, 'm', "Game version watermark", "");
                 Add(TDebug, "Mod log", p._debugEntry, 'b', "Debug trace", "");
                 Add(TDebug, "Mod log", p._debugAllEntry, 'b', "Trace of periodic data", "");
+                Add(TDebug, "Diagnostics", p._monFpsInfo, 'b', "Diagnostics in the frame counter", "monitor, refresh rate, V-Sync");
                 Add(TDebug, "Diagnostics", p._snapshot, 'a', "Take a snapshot now", "");
                 Add(TDebug, "Diagnostics", p._collectGarbage, 'a', "Collect garbage now", "");
                 Add(TDebug, "Diagnostics", p._shotTabs, 'a', "Screenshot all tabs of all mods now", "");
@@ -820,7 +823,7 @@ namespace AlternativeGameInterface
                 var mark = Label(g, f);
                 Action refresh;
                 if (f.Kind == 'p') return PadRow(f);
-                FrameworkElement editor = f.Kind == 'a' ? ActionEditor(f, out refresh) : f.Kind == 'b' ? BoolEditor(f, mark, out refresh) : f.Kind == 'f' ? NumberEditor(f, mark, out refresh) : f.Kind == 'l' ? LanguageEditor(f, mark, out refresh) : f.Kind == 'm' ? ChoiceEditor(f, mark, out refresh) : TextEditor(f, mark, out refresh);
+                FrameworkElement editor = f.Kind == 'a' ? ActionEditor(f, out refresh) : f.Kind == 'b' ? BoolEditor(f, mark, out refresh) : f.Kind == 'f' ? NumberEditor(f, mark, out refresh) : f.Kind == 'l' ? LanguageEditor(f, mark, out refresh) : f.Kind == 'm' ? ChoiceEditor(f, mark, out refresh) : f.Kind == 'd' ? DisplayEditor(f, mark, out refresh) : TextEditor(f, mark, out refresh);
                 Grid.SetColumn(editor, 1);
                 g.Children.Add(editor);
 
@@ -1039,6 +1042,18 @@ namespace AlternativeGameInterface
                 var labels = new List<string>();
                 foreach (var c in codes) labels.Add(Show(f, c));
                 return CodeCombo(f, codes, labels, 180f, mark, out refresh);
+            }
+
+            /// <summary>A display of the computer: Auto or one of the displays, shown with name, size and refresh rate.</summary>
+            static FrameworkElement DisplayEditor(Field f, Action mark, out Action refresh)
+            {
+                var codes = new List<string> { "Auto" };
+                var labels = new List<string> { Loc.Or("val.display.auto", "Auto (the fastest)") };
+                int n = 1; try { n = UnityEngine.Display.displays.Length; } catch { }
+                for (int i = 0; i < n; i++) { codes.Add((i + 1).ToString(CultureInfo.InvariantCulture)); labels.Add(AlternativeGameInterfacePlugin.DisplayLabel(i)); }
+                var cur = (Convert.ToString(Get(f), CultureInfo.InvariantCulture) ?? "").Trim();
+                if (!codes.Contains(cur)) { codes.Add(cur); labels.Add(cur + " - " + Loc.Or("val.display.missing", "not connected")); }
+                return CodeCombo(f, codes, labels, 255f, mark, out refresh);   // the editor column is 260 wide: wider, the drop-down button was cut off
             }
 
             /// <summary>Key name, colour (with a swatch) or a short text.</summary>

@@ -2,11 +2,11 @@
 
 A Sea Power mod that makes the game's windows smarter (formerly "Smart Windows").
 
-**Version 2.6.0**
+**Version 2.7.0**
 
 Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several monitors, windows that remember their place and state, transparency, a richer interface for missions and campaigns.
 
-### Requires **Anchor Chain** or **R.A.T.S. Keel**
+### Requires **R.A.T.S. Keel** or **Anchor Chain**
 
 ## Features
 
@@ -56,16 +56,16 @@ Alternative Game Interface: a flexible Sea Power UI. Desktop mode with several m
 28. Moving a window over the 3D view no longer turns the camera; IMGUI windows of other mods (Camera Offset) can be grabbed over the game's.
 29. Desktop mode: the other monitors work like the main one for windows (Monitor in the window's menu).
 30. Tactical Display: unit labels on a chosen side, without overlaps (other sides first, then fewer lines); formation names around the formation (with distance and altitude for flights), formation lines, FRND inside the label; Shift + wheel zooms finer. A contact's position ellipse never reaches nearer than the sensor; many sonobuoys shrink and lose their text.
-31. Video options: the Frame Rate Limit slider goes up to 250, with a "Remove frame rate limit" check box; the V-Sync list gets "Adaptive V-Sync".
+31. Video options: the Frame Rate Limit slider goes up to 250, with a "Remove frame rate limit" check box; the V-Sync list gets "Adaptive V-Sync" (with several monitors it syncs to the one you choose); an optional FPS counter on every monitor.
 
 ## Compatibility
 
 - Supports Sea Power version 0.9.2 and newer.
-- Loaders: Anchor Chain or R.A.T.S. Keel.
+- Loaders: R.A.T.S. Keel or Anchor Chain.
 
 ## Install
 
-1. Subscribe to [Anchor Chain](https://steamcommunity.com/workshop/filedetails/?id=3380210757) or [RATS Keel](https://steamcommunity.com/workshop/filedetails/?id=3835527459) (temporarily unavailable) and follow instructions on mods page.
+1. Subscribe to [RATS Keel](https://steamcommunity.com/workshop/filedetails/?id=3835527459) or [Anchor Chain](https://steamcommunity.com/workshop/filedetails/?id=3380210757) and follow instructions on mods page.
 2. Subscribe to this mod.
 3. Start **Sea Power**.
 4. Enable the mod in the game's **Mod Manager** and press the **Apply** button.

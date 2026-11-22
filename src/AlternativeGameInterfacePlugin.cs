@@ -45,7 +45,7 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
-        public const string PluginVersion = "2.6.0"; // also <Version> in AlternativeGameInterface.csproj
+        public const string PluginVersion = "2.7.0"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
         const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
@@ -121,7 +121,7 @@ namespace AlternativeGameInterface
         {
             public AlternativeGameInterfacePlugin Plugin;
             public WeakReference Window;
-            public void DoubleClick(object sender, object e) { if (Enabled && Plugin._dblClickMax.Value) Plugin.ToggleMaximized(Window.Target, e); }
+            public void DoubleClick(object sender, object e) { if (Enabled && Plugin._dblClickMax.Value) Plugin.ToggleMaximized(Plugin.WindowAbove(sender) ?? Window.Target, e); }
         }
 
         /// <summary>Receives the Loaded event of a Damage Control tab (SeapowerUI.DamageControlView).</summary>
@@ -226,6 +226,7 @@ namespace AlternativeGameInterface
         readonly List<string> _osPatterns = new List<string>(), _osPatternsSq = new List<string>();
         readonly Dictionary<string, ConfigEntry<string>> _osEntries = new Dictionary<string, ConfigEntry<string>>();
         static volatile int LoadScreenCount;   // finished load screens
+        static volatile bool LoadScreenRunning; // a load screen is on (from its coroutine's first step to its end)
         static int Generation;                 // started load screens: windows of an older scene have an older generation
         static WeakReference _loadIter = new WeakReference(null);
         sealed class GenBox { public int Gen; }
@@ -557,6 +558,7 @@ namespace AlternativeGameInterface
             _debugAllEntry = Config.Bind("Debug", "TracePeriodic", false,
                 "With the debug trace on: also the diagnostics that write all the time (every label of the Tactical Display every 2 s, the formation update by the leader, window snapping, the profiler and its frame stamps). Off: the trace has only events, a small file. Turn it on for a short test: the file grows by megabytes.");
             _debugAll = _debugAllEntry.Value;
+            BindMonitorFps();
             _language = Config.Bind("General", "Language", "",
                 "Language of the mod's texts: a code of a game language (en, ru ...); empty = the game's own language. The texts are in the files lang/<code>.ini in the mod folder - edit them to translate.");
             Loc.Trace = Trace;
@@ -708,6 +710,7 @@ namespace AlternativeGameInterface
             if (__instance == null || ReferenceEquals(_loadIter.Target, __instance)) return;
             _loadIter = new WeakReference(__instance);
             Generation++;
+            LoadScreenRunning = true;
             // the screen the settings window is on goes away: it closes (its unapplied changes dropped, as Cancel)
             try { if (SettingsWindow.Exists) { Trace("settings window: closed by a new load screen (changes not applied are dropped)"); SettingsWindow.Discard(); } } catch { }
         }
@@ -715,7 +718,7 @@ namespace AlternativeGameInterface
         // MoveNext() returns false when the coroutine is finished
         static void LoadScreenPostfix(bool __result)
         {
-            if (!__result) { LoadScreenDone = true; ModsChanged = true; LoadScreenCount++; }
+            if (!__result) { LoadScreenDone = true; ModsChanged = true; LoadScreenCount++; LoadScreenRunning = false; }
         }
 
         // the game has just written the Mods menu's list (Apply): re-read our tick
@@ -1007,10 +1010,10 @@ namespace AlternativeGameInterface
         }
 
         // runs after the game's own (clamping) drag handling: redo the move with our looser limits
-        public static int _dragFrame; public static WeakReference _dragWin;      // the window being dragged by its title bar (for dragging across displays)
+        public static int _dragFrame; public static float _dragTime; public static WeakReference _dragWin;      // the window being dragged by its title bar (for dragging across displays)
         static void DragPostfix(object __instance, object e, float[] __state)
         {
-            _dragFrame = UnityEngine.Time.frameCount; _dragWin = new WeakReference(__instance);
+            _dragFrame = UnityEngine.Time.frameCount; _dragTime = UnityEngine.Time.unscaledTime; _dragWin = new WeakReference(__instance);
             if ((object)Active != null) Active.NewsUserChanged(__instance, "moved");
             if ((object)Active != null && __state != null && (Active._dragOutside.Value || Active._snapOn.Value)) Active.AfterDrag(__instance, e, __state);
         }
@@ -1865,6 +1868,7 @@ namespace AlternativeGameInterface
         }
 
         /// <summary>Subscribes to the double-click of the window's header Thumb (once per Thumb).</summary>
+        const string HeaderMark = "AlternativeGameInterface.header";
         void HookHeader(object w)
         {
             try
@@ -1872,8 +1876,11 @@ namespace AlternativeGameInterface
                 var thumb = Get(w, "HeaderThumb");
                 HeaderHandler h;
                 if (thumb == null || HeaderHooks.TryGetValue(thumb, out h)) return;
+                // Noesis keeps its managed proxies weakly: after a GC the same native Thumb comes back as another proxy object, so the table above
+                // does not know it and a second handler was added (one double click = two toggles = no change). The mark is kept by the native Thumb itself.
+                if (Get(thumb, "Tag") as string == HeaderMark) return;
                 h = new HeaderHandler { Plugin = this, Window = new WeakReference(w) };
-                if (Hook(thumb, "MouseDoubleClick", h, "DoubleClick")) HeaderHooks.Add(thumb, h);
+                if (Hook(thumb, "MouseDoubleClick", h, "DoubleClick")) { HeaderHooks.Add(thumb, h); SetV(thumb, "Tag", HeaderMark); }
             }
             catch (Exception e) { Trace("HookHeader: " + e.Message); }
         }
@@ -1882,8 +1889,10 @@ namespace AlternativeGameInterface
         {
             try
             {
-                if (w == null || !GetB(w, "CanResize")) return; // fixed-size dialogs stay as they are
+                if (w == null || !GetB(w, "CanResize")) { Trace("double-click on a title bar: " + (w == null ? "window gone" : "'" + TextOf(Get(w, "Header")) + "' cannot be resized") + ", nothing done"); return; } // fixed-size dialogs stay as they are
                 bool max = GetB(w, "Maximized");
+                var fe0 = w as Noesis.FrameworkElement;
+                Trace("double-click on '" + TextOf(Get(w, "Header")) + "': Maximized " + max + " -> " + !max + ", size " + (fe0 == null ? "?" : fe0.ActualWidth.ToString("0") + "x" + fe0.ActualHeight.ToString("0")) + ", loaded " + (fe0 != null && fe0.IsLoaded));
                 SetV(w, "Maximized", !max); // the game's own maximize / restore (visual state + animation, events)
                 if (max) ClearMaximized(w, "double-click");
                 if (e != null) SetV(e, "Handled", true);
@@ -3171,6 +3180,8 @@ namespace AlternativeGameInterface
         {
             if (!_loadHookTried) TryInstallLoadScreenHook();
             if (ModsChanged) RefreshEnabled();
+            if (_blinks.Count > 0) try { RedBlinkStep(Time.unscaledTime); } catch { }
+            try { MonitorFpsStep(); } catch (Exception e) { TraceOnce("monitor fps", e); }
             if (!Enabled)
             {
                 if (_dirty) Save();
@@ -3190,7 +3201,7 @@ namespace AlternativeGameInterface
             try { AutoLoadStep(); } catch (Exception e) { TraceOnce("auto load", e); }
 
             pp = Prof.T();
-            FpsLimitStep(Time.unscaledTime); AdaptiveVSyncStep(Time.unscaledTime, Time.unscaledDeltaTime); ScanStep(Time.unscaledTime); XamlDumpStep(Time.unscaledTime); SnapshotStep(Time.unscaledTime); SettingsShotsStep();
+            FpsLimitStep(Time.unscaledTime); AdaptiveVSyncStep(Time.unscaledTime, Time.unscaledDeltaTime); RenderProbeStep(Time.unscaledTime, Time.unscaledDeltaTime); ScanStep(Time.unscaledTime); XamlDumpStep(Time.unscaledTime); SnapshotStep(Time.unscaledTime); SettingsShotsStep();
             Prof.Lap(Prof.Fps, pp);
             for (; _registered < Created.Count; _registered++)
                 _tracked.Add(new Tracked { Ref = Created[_registered] });
@@ -3555,6 +3566,8 @@ namespace AlternativeGameInterface
                         // a toggle button: the window is open only if the host has it; without a host yet nothing can be opened
                         var hosted = HostedOpen(key);
                         if (!hosted.HasValue) continue;
+                        float pr; bool justPressed = _osPressedAt.TryGetValue(key, out pr) && Time.unscaledTime - pr < OsHostWait && Time.unscaledTime >= pr;
+                        if (want && swState == true && !hosted.Value && justPressed) continue;       // pressed a moment ago: the host takes the new window a few frames later (releasing the button now closed it again: the window was made and closed every frame for seconds)
                         if (want && swState == true && !hosted.Value)
                         {
                             // pressed, but its window was never opened (pressed before the host was ready): press it again
@@ -3582,6 +3595,7 @@ namespace AlternativeGameInterface
                         if (!ok) Trace("open/close '" + key + "': CloseWindowNow did not close it, using the game's switch");
                     }
                     if (!ok) ok = SetOpenViaGame(key, want, true);
+                    if (ok && want) _osPressedAt[key] = Time.unscaledTime;
                     if (!ok && win != null) ok = SetOpen(win, want);
                     if (ok) { if (_osTraced.Add("ok " + key)) Verbose("'" + key + "' " + (want ? "opened" : "closed") + " as last time"); }
                     else if (want && sw != null && !OsSoft)
@@ -3785,7 +3799,8 @@ namespace AlternativeGameInterface
         // right after the restore: states to hold for a few seconds (the game may still switch a HUD window by itself)
         readonly Dictionary<string, bool> _osEnforce = new Dictionary<string, bool>();
         float _osEnforceUntil;
-        const float OsEnforceTime = 3f;
+        const float OsEnforceTime = 3f, OsHostWait = 1.5f;
+        readonly Dictionary<string, float> _osPressedAt = new Dictionary<string, float>();      // when the game's button of a window was last pressed to open it
         // windows to open as soon as the game lets us (Unit Status: only once a unit is selected), until this time
         readonly List<string> _osWantOpen = new List<string>();
         float _osWantOpenUntil;

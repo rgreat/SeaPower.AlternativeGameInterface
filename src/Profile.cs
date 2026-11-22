@@ -14,12 +14,12 @@ namespace AlternativeGameInterface
         public static bool On;
         public const int Update = 0, Late = 1, Monitors = 2, Misc = 3, Loop = 4, Step = 5, Open = 6, Fit = 7, Pin = 8, Look = 9, MapMode = 10, KeepMap = 11,
             EvLog = 12, DcFit = 13, Picker = 14, Sono = 15, UStat = 16, RCur = 17, Dock = 18, Upg = 19, LOrd = 20, OsPoll = 21, RefTabs = 22,
-            PMouse = 23, PGui = 24, PVeh = 25, PPipR = 26, PRemap = 27, PRects = 28, PBlit = 29, Pre = 30, Fps = 31, Tail = 32, Count = 33;
+            PMouse = 23, PGui = 24, PVeh = 25, PPipR = 26, PRemap = 27, PRects = 28, PBlit = 29, Pre = 30, Fps = 31, Tail = 32, LblFilter = 33, LblArrange = 34, LblSizes = 35, LeadSet = 36, LeadBearing = 37, Count = 38;
         static readonly string[] Names =
         {
             "Update (all)", "LateUpdate (World View picture)", "MonitorsStep", "other steps before the windows", "windows loop (all)", "Step", "TrackOpenState", "FitMaximized", "PinStep", "LookStep",
             "MapModeStep", "KeepMapViewStep", "EventLogStep", "DcFitStep", "PickerStep", "SonobuoyStep", "Unit Status steps", "ResizeCursorStep", "DockReachStep", "UpgradeStep",
-            "LoadoutOrderStep", "open-state polling", "RefTabsStep", "patch MouseControlState", "patch NoesisView.OnGUI", "patch Vehicle transfer", "patch PIP render", "patch mouse remap", "patch SetRects", "patch PIP blit", "steps before the hook (menu background, load screen)", "limit / scan / dump / snapshot steps", "after the windows (probes, saving)"
+            "LoadoutOrderStep", "open-state polling", "RefTabsStep", "patch MouseControlState", "patch NoesisView.OnGUI", "patch Vehicle transfer", "patch PIP render", "patch mouse remap", "patch SetRects", "patch PIP blit", "steps before the hook (menu background, load screen)", "limit / scan / dump / snapshot steps", "after the windows (probes, saving)", "map labels: filter pass (Gate1)", "map labels: ArrangeLabels cuts", "map labels: ReadSizes", "patch Location setter (formation by leader): prefix + postfix", "patch VelocityBearing setter (formation by leader)"
         };
         static readonly long[] Ticks = new long[Count];
         static readonly int[] Calls = new int[Count];

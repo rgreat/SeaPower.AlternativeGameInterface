@@ -79,6 +79,7 @@ namespace AlternativeGameInterface
         ConfigEntry<bool> _fpsNone;
         ConfigEntry<bool> _vsyncAdaptive;
         ConfigEntry<bool> _vsyncItem;
+        ConfigEntry<string> _vsyncMonitor;
 
         void BindCursorConfig()
         {
@@ -93,6 +94,9 @@ namespace AlternativeGameInterface
             _vsyncAdaptive = Config.Bind("General", "AdaptiveVSync", false,
                 "Set by the extra item \"Adaptive V-Sync\" of the V-Sync list in the game's video options (it is saved there as ordinary vertical sync, so the game works without this mod too): " +
                 "vertical sync is on while the frames keep up with the screen and off while they do not.");
+            _vsyncMonitor = Config.Bind("General", "AdaptiveVSyncDisplay", "Auto",
+                "Adaptive V-Sync with more than one active display (Unity would wait for every monitor): the frames are synced to one monitor, " +
+                "the others get them without vertical sync. Auto = the fastest monitor (the highest refresh rate); 1, 2 ... = that display (the list in the settings window shows their names, sizes and rates).");
             _fixCursors = Config.Bind("General", "FixGameResizeCursors", true,
                 "Outside a mission the game shows the plain arrow on the resize edges of its windows (News, Task Force Builder): its cursors are not loaded and no cursor handler is installed. " +
                 "On: the mod reads the game's cursors and installs the handler the missions use.");
