@@ -16,7 +16,7 @@ namespace AlternativeGameInterface
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
-        ConfigEntry<bool> _newsFit, _newsLookDone;
+        ConfigEntry<bool> _newsFit;
         sealed class NewsState { public float CW, CH, K, L, T, R, B, At; public int Phase; }
         static readonly ConditionalWeakTable<object, NewsState> NewsFitted = new ConditionalWeakTable<object, NewsState>();   // window -> the canvas size it was fitted for, the target on the screen
 
@@ -25,13 +25,11 @@ namespace AlternativeGameInterface
         void BindNewsFitConfig()
         {
             _newsFit = Config.Bind("General", "FitNewsWindow", true,
-                "Main menu: the News window fills the free area right of the menu, from the top down to the loading tip bar, fully transparent with the content at 120 %. Switched off by itself when the user moves, resizes or restyles the News window (or had done so before); switching it on forgets the window's own place, size and look.");
-            _newsLookDone = Config.Bind("General", "NewsLookApplied", false, "Written by the plugin: FitNewsWindow was applied to the News window (its look given); false = the next fit forgets the News window's own place, size and look first.");
+                "Main menu: the News window fills the free area right of the menu, from the top down to the loading tip bar, fully transparent with the content at 120 %. Switched off by itself when the user moves, resizes or restyles the News window after it was switched on; switching it on forgets the window's own place, size and look.");
             _newsFit.SettingChanged += (s, e) =>
             {
                 if (!_newsFit.Value || _newsSwitching) return;
                 // switched on: the user's own place, size and look of the News window are forgotten, the mode is applied again
-                _newsLookDone.Value = false;
                 foreach (var t in _tracked) { var w = t.Ref.Target; if (w != null && IsNewsWindow(w)) { NewsFitted.Remove(w); NewsReset(w); NewsFitNow(w, UnityEngine.Time.unscaledTime); } }
             };
         }
@@ -68,45 +66,11 @@ namespace AlternativeGameInterface
             Trace("news fit: the News window's own place, size and look forgotten");
         }
 
-        /// <summary>At start, before any window: the mode never applied yet and the News window has the user's own place or look -> the option
-        /// goes off right now, so the check box shows it and the window is not fitted by any path.</summary>
-        void NewsOwnedAtStart()
-        {
-            try
-            {
-                if (_newsFit == null || !_newsFit.Value || _newsLookDone.Value) return;
-                string sq = Squash("News"), key = null;
-                for (int i = 0; i < _patterns.Count; i++) if (GlobMatch(_patternsSq[i], sq)) { key = _patterns[i]; break; }
-                if (key == null) return;
-                Layout l;
-                if (!_saved.TryGetValue(key, out l) && !LookMap().ContainsKey(key)) return;
-                _newsSwitching = true;
-                try { _newsFit.Value = false; } finally { _newsSwitching = false; }
-                Trace("news fit: switched off at start - the News window has the user's own place or look");
-            }
-            catch (Exception e) { Trace("news fit (start): " + e.Message); }
-        }
-
-        /// <summary>The first time (the mode never applied yet): a News window the user has already placed or styled keeps that, and the mode goes off.</summary>
-        bool NewsUserOwned(object w)
-        {
-            if (_newsLookDone.Value) return false;
-            string label, key = MatchPattern(w, out label);
-            if (key == null) return false;
-            Layout l;
-            bool own = _saved.TryGetValue(key, out l) || LookMap().ContainsKey(key);
-            if (!own) return false;
-            _newsSwitching = true;
-            try { _newsFit.Value = false; } finally { _newsSwitching = false; }
-            Trace("news fit: switched off - the News window has the user's own place or look");
-            return true;
-        }
-
         /// <summary>Window Loaded (after its first layout, before its first frame is drawn): the News window is hidden and fitted right here,
         /// so it does not show first where the game put it and jump; it is shown again by the next step, once laid out at its new place.</summary>
         void NewsFitLoaded(object w)
         {
-            if (_newsFit == null || !_newsFit.Value || !IsNewsWindow(w) || NewsUserOwned(w)) return;
+            if (_newsFit == null || !_newsFit.Value || !IsNewsWindow(w)) return;
             var fe = w as FrameworkElement;
             if (fe == null) return;
             if (!NewsHidden.TryGetValue(w, out _)) { NewsHidden.Add(w, new[] { fe.Opacity, UnityEngine.Time.unscaledTime }); fe.Opacity = 0f; }
@@ -128,7 +92,7 @@ namespace AlternativeGameInterface
         void NewsFitStep(Tracked t, object w, float now)
         {
             if (_newsFit == null || !_newsFit.Value) { NewsShow(w); return; }
-            if (!t.WasActive || GetF(w, "ActualWidth", 0f) < 1f || !IsNewsWindow(w) || NewsUserOwned(w)) return;
+            if (!t.WasActive || GetF(w, "ActualWidth", 0f) < 1f || !IsNewsWindow(w)) return;
             NewsState ns;
             if (NewsFitted.TryGetValue(w, out ns) && ns.Phase == 1 && now >= ns.At) NewsCorrect(w, ns);
             NewsFitNow(w, now);
@@ -192,20 +156,23 @@ namespace AlternativeGameInterface
                 ns.K = k; ns.L = mRight.X; ns.T = cTop.Y; ns.R = cEnd.X; ns.B = bottomPx;
                 if (!measured) { ns.Phase = 1; ns.At = now + 0.2f; }   // the insets are an estimate: checked against the frame once laid out
                 Trace("news fit: " + Fmt(x) + "," + Fmt(y) + " " + Fmt(wdt) + " x " + Fmt(hgt) + " (tip bar " + (tip != null ? "found" : "none") + ", edges " + (measured ? "measured" : "estimated") + ")");
-                // the first look: fully transparent, content 120 %, text contrast
-                if (!_newsLookDone.Value)
+                // the look: fully transparent, content 120 %, text contrast (the window's own place and look, if any are kept, are forgotten first:
+                // a tick means the fit, whatever was there before; the user's own change of the window switches the tick off)
+                string label, key = MatchPattern(w, out label);
+                if (key != null)
                 {
-                    _newsLookDone.Value = true;
-                    string label, key = MatchPattern(w, out label);
-                    if (key != null && !LookMap().ContainsKey(key))
+                    bool own = _saved.ContainsKey(key);
+                    float[] lk; bool same = LookMap().TryGetValue(key, out lk) && lk != null && lk.Length >= 3 && lk[0] == 0f && lk[1] == 1.2f && lk[2] == 1f;
+                    if (own) ResetLayouts(key);
+                    if (!same)
                     {
                         LookMap()[key] = new[] { 0f, 1.2f, 1f };
                         SaveLooks();
                         LookState ls;
                         var panel = Looks.TryGetValue(w, out ls) && ls.Panel != null ? ls.Panel.Target as Panel : null;
                         if (panel != null) { ls.Next = 0f; ApplyLook(w, panel); }
-                        Trace("news fit: look 0 % / 120 % / contrast");
                     }
+                    if (own || !same) Trace("news fit: " + (own ? "the window's own place forgotten, " : "") + "look 0 % / 120 % / contrast");
                 }
             }
             catch (Exception e) { Trace("news fit: " + e.Message); }

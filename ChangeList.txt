@@ -1,3 +1,37 @@
+Version 2.9.2
+- Event Log: long lines of the log are wrapped to the window width instead of being cut at its edge (new option "Wrap long lines", Event Log tab, Layout, on by default).
+- Unit Reference: the country drop-down is replaced by a menu of the mod with flags and the number of unit types found in the open tab (variants, squadrons and loadouts of one unit count once) after each name (with the current search, date, Armed only and Source filters; "All" = the total), and a switch at the top of the menu ("A-Z" / "9-1") sorts the countries alphabetically or by that number (the most first; the default); the last choice is kept in [UnitReference] CountriesByCount. The saved country is stored by its plain name.
+- Fixed: a "Windows to remember" list saved as an earlier default (without Standing Orders and Formation Editor) is replaced once by the current default, so the Formation Editor window is remembered and gets its gear; a list the user changed is kept.
+- Tactical Display: with the Map Layers item "Weapon Sonobuoys" switched off the text of the sonobuoys is removed too (the game hides only the icons and leaves their labels). Part of "Compact sonobuoys".
+- Settings window: the "Show all settings" / "Show fewer settings" button is picked out by colour.
+- Debug trace: the number of sonobuoy icons found in a map window.
+
+Version 2.9.1
+- Fixed (2.9.0): the options "Pause after loading a save" and "Hide briefing when loading a save" did nothing, and the formation scales kept in a save were not read back: the two hooks of the load (SaveLoadManager.LoadMetadata / StartTimer) had lost their handler methods and failed to install. Both game branches (release and beta) were affected.
+
+Version 2.9.0
+- The windows "Standing Orders" and "Formation Editor" are remembered by default (the default of "Windows to remember", new installs and resets only; a saved list is kept).
+- Release game: a failed start of one feature no longer stops the rest of the mod. Before, it left the gear of the windows, "News window fills the free area", saved window layouts, Unit Reference tabs and several other features not working. Each feature now starts on its own.
+- Formation editor (in a mission and in the campaign's mission preparation): the scale slider of the range rings moves in 1 nm steps instead of 0.05 (new option "Scale slider step", new hidden "Formation Editor" tab, 1 nm by default; 0.05 gives the game's step back), and a row of buttons 1 - 5 nm under it sets the scale at once (option "Scale buttons 1 - 5 nm", on). With a step over 0.05 the slider's lowest value is the step.
+- Formation editor in a mission: the scale of each formation is remembered (the game forgets it when the editor is closed) and kept in the saved game (option "Remember the scale of each formation", on). A formation with no remembered scale opens at the smallest scale that holds all its units, not below the minimal scale (options "Minimize the scale of a new formation", on, and "Minimal scale", 1 - 10 nm, 2 by default). A disbanded formation's scale is forgotten. All in the Formation Editor tab.
+- Release game: after a load the Event Log window is no longer made again several times (the mod re-pressed its button on a timer while the window was up).
+- New "Formation Manager" settings tab, hidden until the gear of that window (or "Show all settings") opens it: "One click goes to the unit" moved there from In Mission; new "Double click centers the map" (off by default) also centers the Tactical Display map on the unit (not on a formation row, where the double click opens / closes the branch), as the C key does for the selected one.
+- Unit Reference: tabs. A strip of tabs above the page of a unit, weapon or sensor: a double click on an entry in the tree adds a tab with its page and shows it (the same unit is not added twice); a Unit Reference that the game would open as a new window for a unit, weapon or sensor (the unit's menu, the links of a page, the campaign) becomes a tab of the open window instead. The tree follows the shown tab; the cross on a tab closes it (with one tab left the strip is hidden); with Shift held the double click (or the new window the game opens) gives a new window with the tree hidden instead of a tab (the tree choice remembered for the next window is not changed); a unit whose page has the loadout drop-down shows its name without the "[variant]" tail. New option "Tabs for opened units" (Unit Reference tab, on by default).
+- New option "Pause after loading a save" (In Mission tab, on by default): a saved mission is paused as soon as it is loaded, as with the pause key; when its briefing is shown the pause comes after the Play button of the briefing. The game leaves a loaded mission running when it has no briefing.
+- New option "Hide briefing when loading a save" (In Mission tab, off by default): the briefing of a saved mission is closed at once, as if Play was pressed (the game shows it as always and the mod then presses its Play button); a mission started from the beginning still shows it.
+
+Version 2.8.1
+- Main menu, "News window fills the free area": the tick applies the size and look whatever the window had before (its own saved place and look are forgotten); the tick is switched off only by a move, resize or restyle made after it was switched on. Before, a News window placed or styled earlier switched the tick off at start or kept the fit from applying.
+
+Version 2.8.0
+- New option "Formation Manager: click goes to the unit" (In Mission tab, off by default): one click on a unit or a formation in the Formation Manager selects the unit and moves the camera to it, like the double click. The double click works as before.
+- Several monitors: a World View window moved to another monitor keeps the compass tape the mod puts into it; the map draw toolbar of the Tactical Display window moves with the window and returns with it.
+- Adaptive V-Sync (Windows / Performance): the refresh rate of every monitor is taken from the system's display settings (the measure of the vblank intervals is only a fallback and a check, a median of the last 32 intervals). Before, a wrong first measure let the FPS run above the limit (100+ at 75 Hz) until the option was switched back and forth.
+- Save game / Load game windows (pause menu, main menu, campaign) remember the sort order set by a click on the Name or Date Modified header, next to the folder: new option "Remember sort order" (Game Menus / Save and load, on by default). Campaign saves and mission saves keep their own order; it is applied when the window opens and after every change of folder.
+- Campaign screen: the Load game window opened by "Open Load game on entering Scenarios and Campaign" is closed when you click a campaign (the starting conditions open); a window you opened yourself stays. New option "Close Load game when a campaign is chosen" (Game Menus / Save and load, on by default).
+- The frame counter boxes (Windows / Performance, "Frame counter on every monitor") no longer jump to wrong places while they are dragged.
+- Tactical Display: label lines whose text was read with a width of 0 are measured again (a whole line subtree is invalidated), the box is checked against the drawn lines and the text itself; labels keep clear of places taken by other mods.
+
 Version 2.7.1
 - Tactical Display: the name and distance lines of a map label are no longer cut at the width of the other lines (a line with text whose size was read as 0 is measured again).
 

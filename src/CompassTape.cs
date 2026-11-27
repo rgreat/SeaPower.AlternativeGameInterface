@@ -12,7 +12,8 @@ namespace AlternativeGameInterface
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
-        static WeakReference _tapeCanvas; WeakReference _tapeHome, _tapeStyled;      // the tape, its original panel
+        static WeakReference _tapeCanvas; WeakReference _tapeHome, _tapeStyled, _tapeHost;      // the tape, its original panel, the World View grid it was put in
+        Canvas _tapeKeep;                                  // the tape itself: the World View window is made again when it moves to another monitor, the tape stays in the old (unloaded) window and must not be lost with it
         int _tapeHomeIndex;
         readonly List<Action> _tapeUndo = new List<Action>();
         float _tapeNext; bool _tapeReady, _tapeNoHost;
@@ -33,7 +34,7 @@ namespace AlternativeGameInterface
                 if (!want)
                 {
                     if (tape != null) TapeHome(tape);
-                    else if (_tapeReady || _tapeStyled != null) { _tapeUndo.Clear(); _tapeStyled = null; _tapeReady = false; _tapeCanvas = null; }      // the tape of a finished mission is gone
+                    else if (_tapeReady || _tapeStyled != null) { _tapeUndo.Clear(); _tapeStyled = null; _tapeReady = false; _tapeCanvas = null; _tapeKeep = null; _tapeHost = null; }      // the tape of a finished mission is gone
                     return;
                 }
                 var ww = _wvWin == null ? null : _wvWin.Target;
@@ -42,19 +43,25 @@ namespace AlternativeGameInterface
                 _tapeNoHost = false;
                 if (tape == null || !tape.IsLoaded)
                 {
+                    // the tape is not in a loaded tree: a new mission (the HUD has a tape of its own) or the World View window was made again (a move to another monitor: our tape stays in the old
+                    // window, the HUD has none) - then the tape we hold goes on into the new window
                     var view = MainGameViewInstance() as FrameworkElement;
-                    if (view == null || !view.IsLoaded) return;
-                    tape = FindTape(view);
-                    if (tape == null) return;
-                    _tapeCanvas = new WeakReference(tape);
+                    var found = view != null && view.IsLoaded ? FindTape(view, _tapeStyled != null) : null;
+                    if (found != null) { tape = found; _tapeCanvas = new WeakReference(tape); }
+                    else if (_tapeStyled != null && _tapeKeep != null) tape = _tapeKeep;
+                    else return;
                 }
                 if (ReferenceEquals(VisualTreeHelper.GetParent(tape), host)) { _tapeReady = _tapeStyled != null; return; }
                 var home = VisualTreeHelper.GetParent(tape) as Panel;
-                if (home == null) return;
-                if (!IsInWv(tape)) { _tapeHome = new WeakReference(home); _tapeHomeIndex = home.Children.IndexOf(tape); }
-                home.Children.Remove(tape);
+                if (home == null && _tapeStyled == null) return;
+                if (home != null)
+                {
+                    if (!IsInWv(tape) && !ReferenceEquals(home, _tapeHost == null ? null : _tapeHost.Target)) { _tapeHome = new WeakReference(home); _tapeHomeIndex = home.Children.IndexOf(tape); }   // (the parent is the old World View window's grid after a move to another monitor: not the home)
+                    home.Children.Remove(tape);
+                }
                 tape.HorizontalAlignment = HorizontalAlignment.Center; tape.VerticalAlignment = VerticalAlignment.Top;
                 host.Children.Add(tape);
+                _tapeHost = new WeakReference(host); _tapeKeep = tape; _tapeCanvas = new WeakReference(tape);
                 if (_tapeStyled == null || !ReferenceEquals(_tapeStyled.Target, tape))
                 {
                     _tapeUndo.Clear();            // (the old ones belong to a tape of a finished mission)
@@ -84,7 +91,7 @@ namespace AlternativeGameInterface
         }
 
         static bool _tapeLost;
-        static Canvas FindTape(FrameworkElement view)
+        static Canvas FindTape(FrameworkElement view, bool quiet = false)
         {
             // breadth first: the tape is one of the first levels of the HUD (a depth first search with a budget of 4000 used it up in the first big branch of the game's HUD)
             var queue = new Queue<DependencyObject>(); queue.Enqueue(view);
@@ -96,7 +103,7 @@ namespace AlternativeGameInterface
                 if (cv != null && Math.Abs(cv.Width - 480f) < 0.5f && Math.Abs(cv.Height - 64f) < 0.5f && cv.OpacityMask != null && cv.ClipToBounds) { _tapeLost = false; return cv; }
                 for (int k = 0, n = VisualTreeHelper.GetChildrenCount(e); k < n; k++) { var c = VisualTreeHelper.GetChild(e, k); if (c != null) queue.Enqueue(c); }
             }
-            if (!_tapeLost) { _tapeLost = true; Trace("compass tape: not found in the HUD (searched " + (60000 - budget) + " elements)"); }
+            if (!quiet && !_tapeLost) { _tapeLost = true; Trace("compass tape: not found in the HUD (searched " + (60000 - budget) + " elements)"); }
             return null;
         }
 
@@ -112,7 +119,7 @@ namespace AlternativeGameInterface
                 tape.HorizontalAlignment = HorizontalAlignment.Center; tape.VerticalAlignment = VerticalAlignment.Top;
             }
             foreach (var u in _tapeUndo) { try { u(); } catch { } }
-            _tapeUndo.Clear(); _tapeStyled = null; _tapeReady = false;
+            _tapeUndo.Clear(); _tapeStyled = null; _tapeReady = false; _tapeKeep = null; _tapeHost = null;
         }
 
         /// <summary>Remembers the tape's texts and lines; the colour is set by the brightness step.</summary>

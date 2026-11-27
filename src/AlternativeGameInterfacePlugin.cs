@@ -45,7 +45,7 @@ namespace AlternativeGameInterface
     public partial class AlternativeGameInterfacePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativegameinterface";
-        public const string PluginVersion = "2.7.1"; // also <Version> in AlternativeGameInterface.csproj
+        public const string PluginVersion = "2.9.2"; // also <Version> in AlternativeGameInterface.csproj
         const string OldGuid = "com.rgreat.seapower.windowmemory"; // the mod was called "Window Memory" before
         const string SwGuid = "com.rgreat.seapower.smartwindows";   // ... and "Smart Windows" after that (renamed to Alternative Game Interface)
 
@@ -403,12 +403,24 @@ namespace AlternativeGameInterface
                 Logger.LogWarning("The old 'Window Memory' plugin is still installed: delete SeaPowerWindowMemory.dll from BepInEx/plugins, two copies conflict.");
 
             _windows = Config.Bind("General", "WindowPatterns",
-                "News,Tactical Display,World View,Unit Reference*,Unit Status*,Event Log,Formation Manager,Task Force Builder,Weapon Reference,Sensor Reference",
+                "News,Tactical Display,World View,Unit Reference*,Unit Status*,Event Log,Formation Manager,Task Force Builder,Weapon Reference,Sensor Reference,Standing Orders,FORMATION EDITOR",
                 "Comma-separated names of the windows to remember. Case-insensitive, spaces are ignored when comparing " +
                 "('Unit Status*' also matches 'UnitStatusView'), '*' matches any text (also nothing). " +
                 "A pattern is compared with the window's name, header text, content type and view-model type and must " +
                 "match one of those strings from its beginning ('Unit Reference*' matches 'Unit Reference - XYZ'; " +
                 "use '*text*' to match anywhere). Windows matching the same pattern share one saved layout.");
+            // a list saved as an earlier default (it had neither Standing Orders nor the Formation Editor) gets the new default; a list changed by the user is kept
+            try
+            {
+                string cur = ((_windows.Value ?? "").Replace(" ", "")).ToLowerInvariant();
+                const string oldA = "News,Tactical Display,World View,Unit Reference*,Unit Status*,Event Log,Formation Manager,Task Force Builder,Weapon Reference";
+                if (cur == oldA.Replace(" ", "").ToLowerInvariant() || cur == (oldA + ",Sensor Reference").Replace(" ", "").ToLowerInvariant())
+                {
+                    _windows.Value = (string)_windows.DefaultValue;
+                    Trace("WindowPatterns: the saved list was an earlier default, now the current default (Standing Orders, Formation Editor added)");
+                }
+            }
+            catch (Exception e) { Trace("WindowPatterns migration: " + e.Message); }
             _cascade = Config.Bind("General", "CascadeOffset", 15f,
                 "Several windows of one pattern open at once (e.g. Weapon Reference): the first keeps the saved layout and only its " +
                 "changes are saved; each further one opens shifted right and down by this many pixels per window already open " +
@@ -477,7 +489,7 @@ namespace AlternativeGameInterface
             BindTreeSearchConfig();
             BindPickersConfig();
             BindModCreateConfig();
-            BindUnitMenuConfig();
+            BindUnitMenuConfig(); BindFormationClickConfig(); BindFormationScaleConfig(); BindRefTabsConfig();
             BindCampaignLoadoutsConfig();
             BindDismissConfig();
             BindSoundReloadConfig();
@@ -491,6 +503,7 @@ namespace AlternativeGameInterface
             BindReserveSubsConfig();
             BindLoadoutsOrderConfig();
             BindCampaignEventsConfig();
+            BindLoadStartConfig();
             BindContactEllipseConfig();
             BindSonobuoyConfig();
             BindLabelFilterConfig();
@@ -508,6 +521,7 @@ namespace AlternativeGameInterface
             CleanLogsOnce();   // as early as possible: before the game starts this session's files
             BindLinkHelpConfig();
             _armOnly = Config.Bind("UnitReference", "ArmedOnly", false, "The \"Armed only\" check box the mod adds to the Unit Reference search panel (with ImprovedUnitReferenceUI): when ticked, units without weapons (decoys, sonobuoys, fuel tanks do not count) are left out of the tree.");
+            _natCount = Config.Bind("UnitReference", "CountriesByCount", true, "The sort of the Unit Reference country list (with ImprovedUnitReferenceUI), switched in the country menu (\"A-Z\" / \"9-1\"): on, the country list is sorted by the number of unit types found (the current search, date, Armed only and Source filters), the most first (default); off: alphabetical, as in the game. The last choice made in the country menu is kept here.");
             _srcOff = Config.Bind("UnitReference", "SourcesOff", "", "The \"Source\" drop-down the mod adds to the Unit Reference search panel (with ImprovedUnitReferenceUI): the sources (mods; <base> = the base game) whose units are left out of the tree, separated by |. Empty = all sources shown. Set with the drop-down, at least one source stays on.");
             _statusRef = Config.Bind("UnitStatus", "UnitReferenceTab", true,
                 "Unit Status window: a \"Reference\" tab (last) with the Unit Reference of the selected unit - its ship / variant and loadout - " +
@@ -572,7 +586,6 @@ namespace AlternativeGameInterface
             Trace("Alternative Game Interface " + PluginVersion + " build " + BuildId);
 
             ReloadPatterns();      // WindowPatterns -> _patterns, one [Layouts] entry per pattern
-            NewsOwnedAtStart();    // News window placed / styled by the user before: FitNewsWindow off at once (also its check box)
             ReloadOpenPatterns();  // RememberOpenWindows -> _osPatterns, one [OpenWindows] entry per pattern
 
             DropRetiredEntries();
@@ -614,6 +627,22 @@ namespace AlternativeGameInterface
             return entry;
         }
 
+        /// <summary>Binds a setting that moved to another section / key: its value is taken from the old place of the .cfg (once), the old entry is dropped.</summary>
+        ConfigEntry<bool> BindMoved(string oldSection, string oldKey, string section, string key, bool defaultValue, string description)
+        {
+            Dictionary<ConfigDefinition, string> orphans = null;
+            try { orphans = Orphans(Config); } catch (Exception e) { Trace("Orphans: " + e.Message); }
+            var oldDef = new ConfigDefinition(oldSection, oldKey);
+            string oldValue = null;
+            bool hadNew = orphans != null && orphans.ContainsKey(new ConfigDefinition(section, key));
+            if (orphans != null) orphans.TryGetValue(oldDef, out oldValue);
+            var entry = Config.Bind(section, key, defaultValue, description);
+            bool v;
+            if (!hadNew && oldValue != null && bool.TryParse(oldValue.Trim(), out v)) { entry.Value = v; Logger.LogInfo("Setting " + oldSection + "/" + oldKey + " moved to " + section + "/" + key + " (value " + v + " kept)."); }
+            if (orphans != null) orphans.Remove(oldDef);
+            return entry;
+        }
+
         /// <summary>Settings replaced by ImprovedUnitReferenceUI: removed from the .cfg (BepInEx would otherwise keep them as orphans).</summary>
         void DropRetiredEntries()
         {
@@ -621,7 +650,7 @@ namespace AlternativeGameInterface
             {
                 var orphans = Orphans(Config);
                 if (orphans == null) return;
-                foreach (var d in new[] { new ConfigDefinition("General", "ResizeOnTreeToggle"), new ConfigDefinition("General", "HideFilterWithTree"),
+                foreach (var d in new[] { new ConfigDefinition("General", "ResizeOnTreeToggle"), new ConfigDefinition("General", "NewsLookApplied"), new ConfigDefinition("General", "HideFilterWithTree"),
                                           new ConfigDefinition("UnitReference", "RemoveSizeLimits"), new ConfigDefinition("UnitReference", "TreeSplitter"),
                                           new ConfigDefinition("UnitStatus", "DamageControlExtraShrink"),
                                           new ConfigDefinition("UnitStatus", "DamageControlMinHeightAdd"),
@@ -747,6 +776,13 @@ namespace AlternativeGameInterface
             return new HarmonyMethod(typeof(AlternativeGameInterfacePlugin).GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic));
         }
 
+        /// <summary>One feature's hook failing must not stop the hooks after it (and must not switch the window features off).</summary>
+        static void SafeHook(string name, Action hook)
+        {
+            try { hook(); }
+            catch (Exception e) { Trace(name + ": " + (e.InnerException ?? e).Message); }
+        }
+
         void TryHook()
         {
             _hooked = true; // one attempt only
@@ -829,34 +865,37 @@ namespace AlternativeGameInterface
                     }
                     else Logger.LogWarning("ObjectInformationViewModel.MuseumEntriesVisible not found (game updated?); ImprovedUnitReferenceUI is not available.");
 
-                    HookCountry(harmony, asm);
-                    HookLoadoutList(harmony, asm);
-                    HookArmedFilter(harmony, asm);
-                    HookPropulsion(harmony, asm);
-                    HookTreeSearch(harmony, asm);
-                    HookPickers(harmony, asm);
-                    HookMenuLoad(harmony, asm);
-                    HookLeaderUpdate(harmony, asm);
-                    HookFineZoom(harmony, asm);
-                    HookModCreate(harmony, asm);
-                    HookCampaignLoadouts(harmony, asm);
-                    HookLoadoutsOrder(harmony, asm);
-                    HookCampaignEvents(harmony, asm);
-                    HookContactEllipse(harmony, asm);
-                    HookSonobuoys(harmony, asm);
-                    HookLabelFilter(harmony, asm);
-                    HookCampaignDismiss(harmony, asm);
-                    HookPipScene(harmony, asm);
-                    HookMapFullscreen(harmony, asm);
-                    HookMonitors(harmony, asm);
-                    HookBinocularFrame(harmony, asm);
-                    HookImguiOrder(harmony, asm);
-                    HookBinocularView(harmony, asm);
-                    HookEventLog(harmony, asm);
-                    HookStatusReference(harmony, asm);
-                    HookMuseumSave(harmony, asm);
-                    HookSoundReload(harmony, asm);
-                    HookEncyclopediaSplit(harmony, asm);
+                    SafeHook("HookCountry", () => HookCountry(harmony, asm));
+                    SafeHook("HookLoadoutList", () => HookLoadoutList(harmony, asm));
+                    SafeHook("HookArmedFilter", () => HookArmedFilter(harmony, asm));
+                    SafeHook("HookPropulsion", () => HookPropulsion(harmony, asm));
+                    SafeHook("HookTreeSearch", () => HookTreeSearch(harmony, asm));
+                    SafeHook("HookPickers", () => HookPickers(harmony, asm));
+                    SafeHook("HookMenuLoad", () => HookMenuLoad(harmony, asm));
+                    SafeHook("HookLoadHooks", () => HookLoadHooks(harmony, asm));
+                    SafeHook("HookFormationScale", () => HookFormationScale(harmony, asm));
+                    SafeHook("HookRefTabs", () => HookRefTabs(harmony, asm));
+                    SafeHook("HookLeaderUpdate", () => HookLeaderUpdate(harmony, asm));
+                    SafeHook("HookFineZoom", () => HookFineZoom(harmony, asm));
+                    SafeHook("HookModCreate", () => HookModCreate(harmony, asm));
+                    SafeHook("HookCampaignLoadouts", () => HookCampaignLoadouts(harmony, asm));
+                    SafeHook("HookLoadoutsOrder", () => HookLoadoutsOrder(harmony, asm));
+                    SafeHook("HookCampaignEvents", () => HookCampaignEvents(harmony, asm));
+                    SafeHook("HookContactEllipse", () => HookContactEllipse(harmony, asm));
+                    SafeHook("HookSonobuoys", () => HookSonobuoys(harmony, asm));
+                    SafeHook("HookLabelFilter", () => HookLabelFilter(harmony, asm));
+                    SafeHook("HookCampaignDismiss", () => HookCampaignDismiss(harmony, asm));
+                    SafeHook("HookPipScene", () => HookPipScene(harmony, asm));
+                    SafeHook("HookMapFullscreen", () => HookMapFullscreen(harmony, asm));
+                    SafeHook("HookMonitors", () => HookMonitors(harmony, asm));
+                    SafeHook("HookBinocularFrame", () => HookBinocularFrame(harmony, asm));
+                    SafeHook("HookImguiOrder", () => HookImguiOrder(harmony, asm));
+                    SafeHook("HookBinocularView", () => HookBinocularView(harmony, asm));
+                    SafeHook("HookEventLog", () => HookEventLog(harmony, asm));
+                    SafeHook("HookStatusReference", () => HookStatusReference(harmony, asm));
+                    SafeHook("HookMuseumSave", () => HookMuseumSave(harmony, asm));
+                    SafeHook("HookSoundReload", () => HookSoundReload(harmony, asm));
+                    SafeHook("HookEncyclopediaSplit", () => HookEncyclopediaSplit(harmony, asm));
                 }
 
                 {
@@ -1045,6 +1084,7 @@ namespace AlternativeGameInterface
         static void NationSetPostfix(object __instance, object value)
         {
             if (_nationBusy == 0 && !_nationRestoring && (object)Active != null && Active._improvedUI.Value) Active.SaveCountry(__instance, value);
+            if ((object)Active != null) Active.NatRefreshFor(__instance);
         }
 
         // ---------------------------------------------------------------- restoring
@@ -2187,6 +2227,12 @@ namespace AlternativeGameInterface
                 if (set != null) harmony.Patch(set, postfix: Hm("SearchSetPostfix"));
                 else Trace("UnitTreeBrowserViewModel." + name + " not found: not remembered");
             }
+            {
+                var pr = utb.GetProperty("SelectedCategory", inst);
+                var set = pr == null ? null : pr.GetSetMethod(true);
+                if (set != null) harmony.Patch(set, postfix: Hm("TabSetPostfix"));
+                else Trace("UnitTreeBrowserViewModel.SelectedCategory not found: the country counts do not follow the tab");
+            }
             Trace("patched UnitTreeBrowserViewModel country selection");
         }
 
@@ -2207,7 +2253,7 @@ namespace AlternativeGameInterface
             {
                 if (nation == null || !IsEncyclopediaBrowser(browser)) return;
                 if (_browserInitializing != null && (bool)_browserInitializing.GetValue(browser)) return; // the game's own setup
-                var text = (TextOf(Get(nation, "NationName")) ?? "").Trim();
+                var text = (NationPlainName(nation) ?? "").Trim();
                 if (text.Length == 0 || text == _nation.Value) return;
                 _nation.Value = text;
                 Config.Save();
@@ -2307,7 +2353,7 @@ namespace AlternativeGameInterface
                 if (nations == null) return;
                 object match = null;
                 foreach (var n in nations)
-                    if (string.Equals((TextOf(Get(n, "NationName")) ?? "").Trim(), text, StringComparison.OrdinalIgnoreCase)) { match = n; break; }
+                    if (string.Equals((NationPlainName(n) ?? "").Trim(), text, StringComparison.OrdinalIgnoreCase)) { match = n; break; }
                 if (match == null) { Trace("country '" + text + "' not in the list (yet)"); return; }
                 // set even when already selected: a selection made during initialisation did not filter the tree
                 _nationRestoring = true;
@@ -2617,10 +2663,14 @@ namespace AlternativeGameInterface
             SplitStates.Add(w, sp);
 
             // the tree was hidden last time: hide it again, exactly as the '<' button does (window narrower, filter panel hidden)
-            if (!_treeShown.Value && GetB(vm, "MuseumEntriesVisible") && _treeSetter != null)
+            object forced;
+            bool hideNow = HideTreeVms.TryGetValue(vm, out forced);        // a Shift double click opened this window: tree hidden, not remembered
+            if ((!_treeShown.Value || hideNow) && GetB(vm, "MuseumEntriesVisible") && _treeSetter != null)
             {
+                bool prevShown = _treeShown.Value;
                 Invoke(_updateLayout, w); // lay out the new tree width first: the narrowing measures the tree as shown
                 Invoke(_treeSetter, vm, false);
+                if (hideNow) { HideTreeVms.Remove(vm); if (_treeShown.Value != prevShown) _treeShown.Value = prevShown; }
                 Verbose("Unit Reference: tree hidden as last time");
             }
             Verbose("Unit Reference: tree width " + Math.Max(TreeMinWidth, width).ToString("0", CultureInfo.InvariantCulture) + " px" + (sp.Thumb != null ? ", splitter added" : ", no splitter"));
@@ -3220,6 +3270,7 @@ namespace AlternativeGameInterface
             pm = Prof.Lap(Prof.Monitors, pm);
             TimePanelStep(now);
             CompassTapeStep(now);
+            MapToolbarStep(now);
             WindowSetsStep();
             WorldViewKeyStep();
             pm = Prof.Lap(Prof.Misc, pm);
@@ -3279,6 +3330,7 @@ namespace AlternativeGameInterface
             }
 
             Prof.Lap(Prof.Loop, pl);
+            LoadStartStep();
             long po = Prof.T();
             if (_osPatterns.Count > 0)
             {
@@ -3374,7 +3426,7 @@ namespace AlternativeGameInterface
             if (_improvedUI.Value && !t.UrDone && now >= t.UrNext) SetupUnitReference(t, w, now);
             // the Unit Reference helpers (tree scroll / wheel guard, Armed only box, Replace button): a few times a second
             // is plenty for them, and only for windows that show a Unit Reference page (the view model is looked up once per round)
-            if (now >= t.UiNext && (_treeScroll.Value || _treeWheel.Value || _improvedUI.Value || _loadoutList.Value))
+            if (now >= t.UiNext && (_treeScroll.Value || _treeWheel.Value || _improvedUI.Value || _loadoutList.Value || _refTabs.Value))
             {
                 t.UiNext = now + 0.12f;
                 var ivm = InfoViewModel(w);
@@ -3384,6 +3436,7 @@ namespace AlternativeGameInterface
                     if (_treeWheel.Value) TreeWheelStep(w, ivm);
                     if (_improvedUI.Value) { ArmedBoxStep(w, ivm); SourceBoxStep(w, ivm); }
                     if (_loadoutList.Value) ReplaceButtonStep(w, ivm);
+                    RefTabsStep(w, ivm);
                 }
             }
 
@@ -3566,13 +3619,34 @@ namespace AlternativeGameInterface
                         // a toggle button: the window is open only if the host has it; without a host yet nothing can be opened
                         var hosted = HostedOpen(key);
                         if (!hosted.HasValue) continue;
-                        float pr; bool justPressed = _osPressedAt.TryGetValue(key, out pr) && Time.unscaledTime - pr < OsHostWait && Time.unscaledTime >= pr;
-                        if (want && swState == true && !hosted.Value && justPressed) continue;       // pressed a moment ago: the host takes the new window a few frames later (releasing the button now closed it again: the window was made and closed every frame for seconds)
+                        // pressed by the mod into the host that is current now: the window comes with the host's own add (no clock); it is pressed again
+                        // only when the press went to another host (pressed before this host was ready). Before, a 1.5 s wait re-pressed it while the
+                        // window was already up in the release game: the Event Log was made again 4-5 times after a load.
+                        // the game makes the window only for a press while its HUD is shown: in the release game a save loaded without the briefing
+                        // has the HUD hidden until the mission is started (the trace: pressed, no window ever) - the press waits for the HUD
+                        // the game makes the window only for a press after the mission has started (the briefing's Play = CancelAction.UnPause);
+                        // a press while the launch briefing is up, or before the mod starts a save loaded without it, makes no window
+                        bool briefUp = LaunchBriefingUp();
+                        bool loading = LoadScreenRunning;
+                        if (want && !hosted.Value && (loading || briefUp || !HudShown()))
+                        {
+                            _osStartWait = true;          // MissionStartedPostfix runs the start-up phase again
+                            if (_osTraced.Add("hud " + key + " " + Generation + (loading ? "L" : ""))) Trace("open/close '" + key + "': waiting for the mission to start before pressing (" + (loading ? "the load screen is up" : briefUp ? "the briefing is up" : "the HUD is hidden") + ")");
+                            continue;
+                        }
+                        WeakReference ph; var curHost = CurrentHostObj();
+                        bool pressedHere = _osPressedHost.TryGetValue(key, out ph) && ph != null && ReferenceEquals(ph.Target, curHost);
+                        if (want && swState == true && hosted.Value && _osTraced.Add("arrived " + key + " " + Generation)) Trace("open/close '" + key + "': its window is in the host");
+                        if (want && swState == true && !hosted.Value && pressedHere)
+                        {
+                            if (_osTraced.Add("await " + key + " " + Generation)) Trace("open/close '" + key + "': pressed, waiting for the host to take its window");
+                            continue;
+                        }
                         if (want && swState == true && !hosted.Value)
                         {
                             // pressed, but its window was never opened (pressed before the host was ready): press it again
                             SetV(sw[0], "IsChecked", (bool?)false);
-                            if (_osTraced.Add("repress " + key)) Trace("open/close '" + key + "': button pressed but no window - pressed again");
+                            if (_osTraced.Add("repress " + key + " " + Generation)) Trace("open/close '" + key + "': button pressed but no window in the current host (" + (ph == null ? "not pressed by the mod" : "pressed into another host") + ") - pressed again");
                         }
                         if (!want && swState == true && !hosted.Value)
                         {
@@ -3595,7 +3669,7 @@ namespace AlternativeGameInterface
                         if (!ok) Trace("open/close '" + key + "': CloseWindowNow did not close it, using the game's switch");
                     }
                     if (!ok) ok = SetOpenViaGame(key, want, true);
-                    if (ok && want) _osPressedAt[key] = Time.unscaledTime;
+                    if (ok && want) _osPressedHost[key] = new WeakReference(CurrentHostObj());
                     if (!ok && win != null) ok = SetOpen(win, want);
                     if (ok) { if (_osTraced.Add("ok " + key)) Verbose("'" + key + "' " + (want ? "opened" : "closed") + " as last time"); }
                     else if (want && sw != null && !OsSoft)
@@ -3744,6 +3818,93 @@ namespace AlternativeGameInterface
             catch { return null; }
         }
 
+        bool _osStartWait; int _osStartGen = -1;
+        PropertyInfo _menuInst, _menuWin; bool _menuTried;
+
+        /// <summary>The game's menu layer shows the launch briefing (MenuSystemViewModel.CurrentWindow is a MissionBriefView; both game branches).</summary>
+        bool LaunchBriefingUp() { return LaunchBriefingWindow() != null; }
+
+        object LaunchBriefingWindow()
+        {
+            try
+            {
+                if (!_menuTried)
+                {
+                    _menuTried = true;
+                    var asm = GameAssembly();
+                    var mt = asm == null ? null : asm.GetType("SeapowerUI.ViewModels.MenuSystemViewModel");
+                    var sg = asm == null ? null : asm.GetType("SeaPower.Singleton`1");
+                    _menuInst = mt == null || sg == null ? null : sg.MakeGenericType(mt).GetProperty("Instance", BindingFlags.Static | BindingFlags.Public);
+                    _menuWin = mt == null ? null : mt.GetProperty("CurrentWindow", BindingFlags.Instance | BindingFlags.Public);
+                    if (_menuInst == null || _menuWin == null) Trace("MenuSystemViewModel.CurrentWindow not found: HUD windows do not wait for the briefing");
+                }
+                if (_menuInst == null || _menuWin == null) return null;
+                var w = _menuWin.GetValue(_menuInst.GetValue(null, null), null);
+                return w != null && w.GetType().Name == "MissionBriefView" ? w : null;
+            }
+            catch { return null; }
+        }
+
+        /// <summary>CancelAction.UnPause (the briefing's Play, the mod's start of a save loaded without it, also every Resume of the pause menu): the first one
+        /// of a scene in which a HUD window waited for it runs the start-up phase again, so the remembered windows are opened now (an event, no clock).</summary>
+        static void MissionStartedPostfix()
+        {
+            var a = Active;
+            if ((object)a == null) return;
+            LoadStartAfterPlay();
+            try
+            {
+                if (a._osStartGen == Generation) return;      // the first UnPause of the scene only (later ones are the pause menu's Resume)
+                a._osStartGen = Generation;
+                bool waited = a._osStartWait;
+                a._osStartWait = false;
+                // a HUD toggle window remembered open whose window is not up: its press during the load / briefing made none (beta trace 6b635fc6:
+                // pressed twice while loading, no window after Play) - pressed again now, that window only (the others are left as they are)
+                var missing = new List<string>();
+                foreach (var key in a._osPatterns)
+                {
+                    var sw = a.GameSwitch(key);
+                    if (sw == null || (string)sw[1] != "IsChecked" || a.RememberedOpen(key) != true) continue;
+                    var hosted = a.HostedOpen(key);
+                    if (hosted == false) missing.Add(key);
+                }
+                if (missing.Count == 0) { if (waited) Trace("open/close: the mission has started - the HUD windows are already up"); return; }
+                Trace("open/close: the mission has started - opened now: " + string.Join(", ", missing.ToArray()));
+                foreach (var key in missing) { a._osPressedHost.Remove(key); a.RestoreOpenStates(key); }
+            }
+            catch (Exception e) { Trace("MissionStartedPostfix: " + e.Message); }
+        }
+
+        MethodInfo _hudVisible; bool _hudVisibleTried;
+
+        /// <summary>MainGameViewModel.GetHudVisible(): the game's HUD is shown (true when it cannot be told).</summary>
+        bool HudShown()
+        {
+            try
+            {
+                if (!_hudVisibleTried)
+                {
+                    _hudVisibleTried = true;
+                    var mgvm = GameAssembly() == null ? null : GameAssembly().GetType("SeapowerUI.ViewModels.MainGameViewModel");
+                    _hudVisible = mgvm == null ? null : mgvm.GetMethod("GetHudVisible", BindingFlags.Static | BindingFlags.Public, null, Type.EmptyTypes, null);
+                    if (_hudVisible == null) Trace("MainGameViewModel.GetHudVisible not found: HUD windows are pressed open without waiting for the HUD");
+                }
+                return _hudVisible == null || (bool)_hudVisible.Invoke(null, null);
+            }
+            catch { return true; }
+        }
+
+        /// <summary>WindowHostManager.CurrentHost (null when there is none).</summary>
+        object CurrentHostObj()
+        {
+            try
+            {
+                if (HostWindows() == null) return null;      // also looks the members up
+                return Get(_whmInstance.GetValue(null, null), "CurrentHost");
+            }
+            catch { return null; }
+        }
+
         /// <summary>
         /// Open state of a HUD window with a toggle button (Event Log, Formation Manager): whether its view model is among the host's
         /// windows - the button alone can be pressed while its window was never opened (pressed before the host was ready).
@@ -3756,6 +3917,20 @@ namespace AlternativeGameInterface
             var list = HostWindows();
             if (list == null) return null;
             foreach (var o in list) if (o != null && TypeName(o) == vmType) return true;
+            // a window of this view model loaded in the current scene and shown counts as open too (the host list is not the only place it can be)
+            for (int i = _tracked.Count - 1; i >= 0; i--)
+            {
+                var w = _tracked[i].Ref.Target;
+                if (w == null || GenOf(w) != Generation || TypeName(Get(w, "DataContext")) != vmType || !GetB(w, "IsVisible")) continue;
+                if (_osTraced.Add("livewin " + key + " " + Generation)) Trace("open/close '" + key + "': its window is up but not in the current host's list - counted as open");
+                return true;
+            }
+            if (_osTraced.Add("hostlist " + key + " " + Generation))
+            {
+                var types = new List<string>();
+                foreach (var o in list) types.Add(TypeName(o));
+                Trace("open/close '" + key + "': no " + vmType + " in the current host's windows [" + string.Join(", ", types.ToArray()) + "]");
+            }
             return false;
         }
 
@@ -3799,8 +3974,8 @@ namespace AlternativeGameInterface
         // right after the restore: states to hold for a few seconds (the game may still switch a HUD window by itself)
         readonly Dictionary<string, bool> _osEnforce = new Dictionary<string, bool>();
         float _osEnforceUntil;
-        const float OsEnforceTime = 3f, OsHostWait = 1.5f;
-        readonly Dictionary<string, float> _osPressedAt = new Dictionary<string, float>();      // when the game's button of a window was last pressed to open it
+        const float OsEnforceTime = 3f;
+        readonly Dictionary<string, WeakReference> _osPressedHost = new Dictionary<string, WeakReference>();      // the window host current when the mod pressed a window's button to open it
         // windows to open as soon as the game lets us (Unit Status: only once a unit is selected), until this time
         readonly List<string> _osWantOpen = new List<string>();
         float _osWantOpenUntil;

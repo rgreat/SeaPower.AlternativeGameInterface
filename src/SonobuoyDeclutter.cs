@@ -22,7 +22,7 @@ namespace AlternativeGameInterface
 
         sealed class SonoWinState
         {
-            public float Next, WalkNext; public bool Crowded; public int Count;
+            public float Next, WalkNext; public bool Crowded, LayerOff; public int Count, Found;
             public readonly List<WeakReference> Icons = new List<WeakReference>();   // the sonobuoy icons of the last walk of the tree (the tree is walked every two seconds, the icons counted every half)
             public Noesis.FrameworkElement Map;
         }
@@ -37,6 +37,8 @@ namespace AlternativeGameInterface
         static MethodInfo _sonoBump;
         static bool _sonoHooked;
         static int _sonoCrowdWins;                                // map windows in the compact state now
+        static int _sonoLayerWins;                                // map windows whose layer 'Weapon Sonobuoys' is off now (the game leaves the text of the hidden sonobuoys)
+        static PropertyInfo _sonoDisplayStateP; static MethodInfo _sonoLayerVisibleM; static bool _sonoLayerLooked;
         static int _sonoHidden;                                   // how many view models are flagged now: 0 = the getters are not touched at all
         static readonly List<Noesis.Canvas> _sonoIcons = new List<Noesis.Canvas>();
         static readonly Stack<Noesis.DependencyObject> _sonoStack = new Stack<Noesis.DependencyObject>();
@@ -106,7 +108,7 @@ namespace AlternativeGameInterface
             if (now < st.Next) return;
             if (!IsMapWindow(w)) { st.Next = now + 5f; return; }       // not a map window (the header may not be set yet: asked again)
             st.Next = now + 0.5f;
-            if (!(_sonoOn.Value && MapImp) && !st.Crowded) return;
+            if (!(_sonoOn.Value && MapImp) && !st.Crowded && !st.LayerOff) return;
             try
             {
                 // the tree is walked every two seconds (it is the expensive part); between the walks the icons of the last walk are counted
@@ -115,7 +117,8 @@ namespace AlternativeGameInterface
                     st.WalkNext = now + 2f;
                     SonoWalk(root, st);
                 }
-                if (st.Icons.Count == 0 && !st.Crowded) { st.Count = 0; return; }
+                if (st.Icons.Count != st.Found) { st.Found = st.Icons.Count; Trace("sonobuoys: " + st.Found + " icons in the map window (compact above " + Math.Max(1f, _sonoMax.Value) + " visible on the map)"); }
+                if (st.Icons.Count == 0 && !st.Crowded && !st.LayerOff) { st.Count = 0; return; }
 
                 var icons = _sonoIcons;
                 icons.Clear();
@@ -145,12 +148,37 @@ namespace AlternativeGameInterface
                 float thr = Math.Max(1f, _sonoMax.Value);
                 bool crowded = _sonoOn.Value && MapImp && (st.Crowded ? count > thr * 0.9f : count > thr);
                 if (crowded != st.Crowded) { st.Crowded = crowded; _sonoCrowdWins += crowded ? 1 : -1; Trace("sonobuoys: " + count + " on the map, " + (crowded ? "compact" : "usual")); }
-                foreach (var c in icons) SonoApply(c, crowded);
+                // the layer 'Weapon Sonobuoys' (Map Layers) is off: the game hides the icons, the text of their labels stays - it goes too
+                bool layerOff = _sonoOn.Value && MapImp && SonoLayerOff(map);
+                if (layerOff != st.LayerOff) { st.LayerOff = layerOff; _sonoLayerWins += layerOff ? 1 : -1; Trace("sonobuoys: the layer is " + (layerOff ? "off, their text is removed" : "on again")); }
+                foreach (var c in icons) SonoApply(c, crowded, crowded || layerOff);
                 icons.Clear();
                 // usual everywhere: every live unit has its text back; the flags of units that left the map meanwhile were never taken off - the count starts again
-                if (!crowded && _sonoCrowdWins <= 0) { _sonoCrowdWins = 0; _sonoHidden = 0; }
+                if (!crowded && !layerOff && _sonoCrowdWins <= 0 && _sonoLayerWins <= 0) { _sonoCrowdWins = 0; _sonoLayerWins = 0; _sonoHidden = 0; }
             }
             catch (Exception e) { st.Next = now + 5f; Trace("sonobuoys: " + e.Message); }
+        }
+
+        /// <summary>The layer 'Weapon Sonobuoys' (number 23) of the map's display state is switched off (MapBase.DisplayState.IsLayerVisible).</summary>
+        static bool SonoLayerOff(Noesis.FrameworkElement map)
+        {
+            if (map == null) return false;
+            try
+            {
+                if (!_sonoLayerLooked)
+                {
+                    _sonoLayerLooked = true;
+                    const BindingFlags all = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                    _sonoDisplayStateP = map.GetType().GetProperty("DisplayState", all);
+                    var ds = _sonoDisplayStateP == null ? null : _sonoDisplayStateP.PropertyType;
+                    _sonoLayerVisibleM = ds == null ? null : ds.GetMethod("IsLayerVisible", all, null, new[] { typeof(int) }, null);
+                    if (_sonoLayerVisibleM == null) Trace("sonobuoys: MapBase.DisplayState.IsLayerVisible not found (the text of hidden sonobuoys stays)");
+                }
+                if (_sonoDisplayStateP == null || _sonoLayerVisibleM == null) return false;
+                var state = _sonoDisplayStateP.GetValue(map, null);
+                return state != null && !(bool)_sonoLayerVisibleM.Invoke(state, new object[] { 23 });
+            }
+            catch { return false; }
         }
 
         /// <summary>Walks the visual tree of the window once: the sonobuoy icons (weakly kept) and the map control.</summary>
@@ -174,40 +202,36 @@ namespace AlternativeGameInterface
             stack.Clear();
         }
 
-        /// <summary>The icon and the text of one unit for the state (only what differs from the state of this icon is touched).</summary>
-        static void SonoApply(Noesis.Canvas c, bool small)
+        /// <summary>The icon (small) and the text (hide) of one unit for the state (only what differs from the state of this icon is touched).</summary>
+        static void SonoApply(Noesis.Canvas c, bool small, bool hide)
         {
             SonoIconState s;
             if (!SonoIcons.TryGetValue(c, out s)) { s = new SonoIconState(); SonoIcons.Add(c, s); }
-            if (s.Small == small) return;
-            s.Small = small;
-            if (small)
+            if (s.Small != small)
             {
-                s.Orig = c.RenderTransform;
-                var g = new Noesis.TransformGroup();
-                g.Children.Add(new Noesis.ScaleTransform { ScaleX = 0.5f, ScaleY = 0.5f, CenterX = 11.25f, CenterY = 11.25f });
-                if (s.Orig != null) g.Children.Add(s.Orig); else g.Children.Add(new Noesis.TranslateTransform { X = -11.25f, Y = -11.25f });
-                c.RenderTransform = g;
-            }
-            else
-            {
-                c.RenderTransform = s.Orig;
-                s.Orig = null;
+                s.Small = small;
+                if (small)
+                {
+                    s.Orig = c.RenderTransform;
+                    var g = new Noesis.TransformGroup();
+                    g.Children.Add(new Noesis.ScaleTransform { ScaleX = 0.5f, ScaleY = 0.5f, CenterX = 11.25f, CenterY = 11.25f });
+                    if (s.Orig != null) g.Children.Add(s.Orig); else g.Children.Add(new Noesis.TranslateTransform { X = -11.25f, Y = -11.25f });
+                    c.RenderTransform = g;
+                }
+                else
+                {
+                    c.RenderTransform = s.Orig;
+                    s.Orig = null;
+                }
             }
             var vm = c.DataContext;
             if (vm == null) return;
             SonoFlag f;
             if (!SonoFlags.TryGetValue(vm, out f)) { f = new SonoFlag(); SonoFlags.Add(vm, f); }
-            if (f.Hide == small) return;
-            f.Hide = small;
-            _sonoHidden += small ? 1 : -1;
+            if (f.Hide == hide) return;
+            f.Hide = hide;
+            _sonoHidden += hide ? 1 : -1;
             for (int i = 1; i <= 4; i++) _sonoRaise.Invoke(vm, new object[] { "ContactInfoLine" + i });   // the bindings read the lines again
-            try
-            {
-                var lab = _sonoLabelF == null ? null : _sonoLabelF.GetValue(vm);
-                if (lab != null && _sonoBump != null) _sonoBump.Invoke(lab, null);              // the label solver measures the label again
-            }
-            catch { }
             try
             {
                 var lab = _sonoLabelF == null ? null : _sonoLabelF.GetValue(vm);

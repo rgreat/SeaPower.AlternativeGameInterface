@@ -280,7 +280,7 @@ namespace AlternativeGameInterface
                     var ow = owner.Target;
                     Trace("settings gear clicked");
                     // the Unit Reference / Unit Status tabs are shown only when the window is opened from such a window
-                    Action openOwn = () => SettingsWindow.Open(this, gear, ow != null && InfoViewModel(ow) != null, ow != null && IsUnitStatusWindow(ow), ow != null && IsTaskForceBuilderWindow(ow), ow != null && TypeName(Get(ow, "DataContext")) == "SceneMapViewModel", ow != null && TypeName(Get(ow, "DataContext")) == "EventLogViewModel", false, ow != null && IsWorldViewWindow(ow));
+                    Action openOwn = () => SettingsWindow.Open(this, gear, ow != null && InfoViewModel(ow) != null, ow != null && IsUnitStatusWindow(ow), ow != null && IsTaskForceBuilderWindow(ow), ow != null && TypeName(Get(ow, "DataContext")) == "SceneMapViewModel", ow != null && TypeName(Get(ow, "DataContext")) == "EventLogViewModel", false, ow != null && IsWorldViewWindow(ow), ow != null && IsFormationManagerWindow(ow), ow != null && IsFormationEditorWindow(ow));
                     // the 3D window: the settings of which mod? (the other mods' 3D effects are set in theirs)
                     bool wv = ow != null && IsWorldViewWindow(ow);
                     Trace("settings gear: World View window " + wv);
@@ -378,6 +378,20 @@ namespace AlternativeGameInterface
         {
             foreach (var c in Candidates(w))
                 if (GlobMatch("LinearCampaignTaskForceBuilder*", Squash(c))) return true;
+            return false;
+        }
+
+        bool IsFormationEditorWindow(object w)
+        {
+            foreach (var c in Candidates(w))
+                if (GlobMatch("FormationEditor*", Squash(c)) || GlobMatch("LinearCampaignTaskForceFormation*", Squash(c))) return true;
+            return false;
+        }
+
+        bool IsFormationManagerWindow(object w)
+        {
+            foreach (var c in Candidates(w))
+                if (GlobMatch("FormationManager*", Squash(c))) return true;
             return false;
         }
 

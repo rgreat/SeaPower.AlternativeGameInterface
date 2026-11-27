@@ -1,2 +1,5 @@
-Version 2.7.1
-- Tactical Display: map labels (name and distance lines) are no longer cut at the right edge.
+Version 2.9.2
+- Fixed: the Formation Editor window is remembered by default (for an unchanged "Windows to remember" list).
+- Fixed: switching off "Weapon Sonobuoys" in Map Layers now also removes the text of the sonobuoys.
+- Event Log: long lines wrap to the window width (new option, on).
+- Unit Reference: new country drop-down: flags, the number of unit types of the open tab after each name, and a switch at the top of the menu that sorts the list alphabetically or by that number.

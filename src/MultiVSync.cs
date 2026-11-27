@@ -70,6 +70,11 @@ namespace AlternativeGameInterface
         /// <summary>The monitor that sets the pace: [General] AdaptiveVSyncMonitor when set and active, else the fastest active one (the shortest measured refresh period).</summary>
         void MvPick()
         {
+            lock (_vbWatchers) foreach (var rw in _vbWatchers.Values)
+            {
+                if (rw.ReplacedLong && !rw.ReplacedLongLogged) { rw.ReplacedLongLogged = true; Trace("multi-monitor V-Sync: display " + (rw.Index + 1) + ": the measured rate stays away from the system's: the measured one is used now (" + (Stopwatch.Frequency / (double)Math.Max(1, rw.Period)).ToString("0.##") + " Hz)"); }
+                if (rw.Replaced && !rw.ReplacedLogged) { rw.ReplacedLogged = true; Trace("multi-monitor V-Sync: display " + (rw.Index + 1) + ": measured " + (Stopwatch.Frequency / (double)Math.Max(1, rw.Measured)).ToString("0.##") + " Hz, the system says " + (Stopwatch.Frequency / (double)rw.Expected).ToString("0.##") + " Hz (over 5% apart): the system's is used (always for this monitor)"); }
+            }
             VbWatcher best = null;
             int chosen; if (_vsyncMonitor == null || !int.TryParse((_vsyncMonitor.Value ?? "").Trim(), out chosen)) chosen = 0;
             if (chosen > 0) { var c = VbWatcher_(chosen - 1); if (c != null && c.Ok && c.Period > 0) best = c; }     // the display set in the options, when it is active
@@ -156,6 +161,8 @@ namespace AlternativeGameInterface
             public int Index; public string Device = "?", Error = "";
             public volatile bool Ok, Stop;
             public long Count, Last, Period, TraceCount;
+            public long Expected, Measured;                // the system's refresh period of the monitor in ticks (0 = not known), the measured one when it was replaced by it
+            public volatile bool Replaced, ReplacedLong; public bool ReplacedLogged, ReplacedLongLogged;
             public uint Adapter, Source;
             public Thread Thread;
         }
@@ -177,6 +184,10 @@ namespace AlternativeGameInterface
                 string dev;
                 if (names == null || !names.TryGetValue(i, out dev)) { w.Error = "no Windows display matched"; lock (_vbWatchers) _vbWatchers[i] = w; Trace("multi-monitor V-Sync: display " + (i + 1) + ": no Windows display matched"); continue; }
                 w.Device = dev;
+                // the system's refresh rate of that very device (the one the watcher waits on, so no matching by size): the period; the measure is the fallback
+                double wh = WinRefresh(dev), hz = wh;
+                if (i == 0) { try { double uh = UnityEngine.Screen.mainWindowDisplayInfo.refreshRate.value; if (uh >= 20.0 && uh <= 1000.0 && (wh < 20.0 || Math.Abs(uh - wh) <= wh * 0.05 + 1.0)) hz = uh; } catch { } }      // the main monitor: Unity's rate is fractional (74.96)
+                if (hz >= 20.0 && hz <= 1000.0) { w.Expected = (long)(Stopwatch.Frequency / hz); w.Period = w.Expected; }
                 var o = new D3DKMT_OPENADAPTERFROMGDIDISPLAYNAME { DeviceName = dev };
                 int st = -1;
                 try { st = D3DKMTOpenAdapterFromGdiDisplayName(ref o); } catch (Exception e) { w.Error = e.GetType().Name; }
@@ -185,14 +196,14 @@ namespace AlternativeGameInterface
                 lock (_vbWatchers) _vbWatchers[i] = w;
                 w.Thread = new Thread(() => VbWatch(w)) { IsBackground = true, Name = "AGI vblank " + (i + 1), Priority = ThreadPriority.AboveNormal };
                 w.Thread.Start();
-                Trace("multi-monitor V-Sync: display " + (i + 1) + " = " + dev + " (adapter " + o.hAdapter + ", source " + o.VidPnSourceId + "), vblank watcher started");
+                Trace("multi-monitor V-Sync: display " + (i + 1) + " = " + dev + " (adapter " + o.hAdapter + ", source " + o.VidPnSourceId + "), vblank watcher started, " + (w.Expected > 0 ? "the system's refresh rate " + (Stopwatch.Frequency / (double)w.Expected).ToString("0.##") + " Hz" : "no system refresh rate (measured)"));
             }
         }
 
         static void VbWatch(VbWatcher w)
         {
             var e = new D3DKMT_WAITFORVERTICALBLANKEVENT { hAdapter = w.Adapter, hDevice = 0, VidPnSourceId = w.Source };
-            long prev = 0; int fails = 0;
+            long prev = 0; int fails = 0; var ring = new long[32]; var sorted = new long[32]; int ringN = 0, apart = 0;
             while (!w.Stop)
             {
                 int st;
@@ -202,11 +213,29 @@ namespace AlternativeGameInterface
                 long now = VbSw.ElapsedTicks;
                 if (prev != 0)
                 {
-                    long p = now - prev;
-                    long old = Interlocked.Read(ref w.Period);
-                    // the period, smoothed; a missed event (twice the period) does not count
-                    if (old == 0) Interlocked.Exchange(ref w.Period, p);
-                    else if (p < old * 3 / 2) Interlocked.Exchange(ref w.Period, old + (p - old) / 16);
+                    // the period: the median of the last intervals, then the mean of those within 10% of it. The old estimate took the first interval as it came and
+                    // moved to later ones only when they were not over 1.5 times it: a first interval that was too short (the first events come at once after the
+                    // wait started: trace 8f315db7, 263 Hz on a 75 Hz monitor) was never corrected - the frames were never held, 107 fps at a limit of 75 Hz.
+                    ring[ringN++ % ring.Length] = now - prev;
+                    int cnt = Math.Min(ringN, ring.Length);
+                    if (cnt >= 8 && (ringN & 7) == 0)                    // every 8th refresh: the sort of 32 values is not needed on every one
+                    {
+                        for (int k = 0; k < cnt; k++) sorted[k] = ring[k];
+                        Array.Sort(sorted, 0, cnt);
+                        long med = sorted[cnt / 2], sum = 0; int sn = 0;
+                        for (int k = 0; k < cnt; k++) if (Math.Abs(sorted[k] - med) * 10 <= med) { sum += sorted[k]; sn++; }
+                        if (sn > 0)
+                        {
+                            long avg = sum / sn;
+                            if (w.Expected > 0)                                  // the system's rate is the period; the measure only tells (trace) when it is over 5% away
+                            {
+                                w.Measured = avg; w.Replaced = Math.Abs(avg - w.Expected) * 20 > w.Expected;
+                                // the system's rate and the measure stay apart for long (the monitor's mode changed while the game runs): the measure is used then
+                                if (w.Replaced) { if (++apart >= 40) { w.ReplacedLong = true; w.Expected = 0; Interlocked.Exchange(ref w.Period, avg); } } else apart = 0;
+                            }
+                            else Interlocked.Exchange(ref w.Period, avg);
+                        }
+                    }
                 }
                 prev = now;
                 Interlocked.Exchange(ref w.Last, now);
@@ -214,6 +243,18 @@ namespace AlternativeGameInterface
                 if (!w.Ok && Interlocked.Read(ref w.Count) > 2) w.Ok = true;
             }
             try { var c = new D3DKMT_CLOSEADAPTER { hAdapter = w.Adapter }; D3DKMTCloseAdapter(ref c); } catch { }
+        }
+
+        /// <summary>The refresh rate Windows reports for a display device (\\.\DISPLAYn), whole Hz; 0 when not known (also the "hardware default" 0 / 1 of the driver).</summary>
+        static double WinRefresh(string device)
+        {
+            try
+            {
+                var dm = new DEVMODE(); dm.dmSize = (ushort)Marshal.SizeOf(typeof(DEVMODE));
+                if (EnumDisplaySettings(device, -1 /* ENUM_CURRENT_SETTINGS */, ref dm) && dm.dmDisplayFrequency > 1) return dm.dmDisplayFrequency;
+            }
+            catch { }
+            return 0.0;
         }
 
         void VbStopWatchers()
@@ -284,6 +325,19 @@ namespace AlternativeGameInterface
             public int cbSize; public RECT rcMonitor, rcWork; public uint dwFlags;
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string szDevice;
         }
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        struct DEVMODE
+        {
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+            public ushort dmSpecVersion, dmDriverVersion, dmSize, dmDriverExtra;
+            public uint dmFields;
+            public int dmPositionX, dmPositionY; public uint dmDisplayOrientation, dmDisplayFixedOutput;
+            public short dmColor, dmDuplex, dmYResolution, dmTTOption, dmCollate;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+            public ushort dmLogPixels;
+            public uint dmBitsPerPel, dmPelsWidth, dmPelsHeight, dmDisplayFlags, dmDisplayFrequency, dmICMMethod, dmICMIntent, dmMediaType, dmDitherType, dmReserved1, dmReserved2, dmPanningWidth, dmPanningHeight;
+        }
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool EnumDisplaySettings(string deviceName, int modeNum, ref DEVMODE dm);
         delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdc, ref RECT rect, IntPtr data);
 
         [DllImport("gdi32.dll")] static extern int D3DKMTOpenAdapterFromGdiDisplayName(ref D3DKMT_OPENADAPTERFROMGDIDISPLAYNAME p);

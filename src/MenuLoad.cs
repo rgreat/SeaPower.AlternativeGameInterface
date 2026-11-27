@@ -18,7 +18,10 @@ namespace AlternativeGameInterface
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
-        ConfigEntry<bool> _autoLoad, _menuAside, _pickerTall;
+        ConfigEntry<bool> _autoLoad, _menuAside, _pickerTall, _autoLoadClose;
+        // the Load game window that AutoOpenLoad opened on the Campaign screen: its view model (noted while the command runs), its window (when loaded), the Campaign screen's view model
+        static bool _autoOpening; static float _autoAt;
+        static WeakReference _autoPickerVm, _autoPickerWin, _autoCampaignVm;
         sealed class MenuVmNote { public WeakReference Vm; public string Kind; public float At; public int Frame; }
         static readonly List<MenuVmNote> _menuVms = new List<MenuVmNote>();
         sealed class AsideNote { public WeakReference Win; public float At; }
@@ -30,6 +33,8 @@ namespace AlternativeGameInterface
         {
             _autoLoad = Config.Bind("General", "AutoOpenLoad", true,
                 "Main menu: entering Scenarios or Campaign opens the Load game window at once.");
+            _autoLoadClose = Config.Bind("General", "AutoLoadCloseOnCampaign", true,
+                "Campaign screen: the Load game window opened by \"Open Load game on entering Scenarios and Campaign\" is closed when you click a campaign (the starting conditions open); a window you opened yourself stays.");
             _pickerTall = Config.Bind("General", "FilePickerTall", true,
                 "The Load / Save game and other file picker windows have no maximum height (the game stops them at 400).");
             _menuAside = Config.Bind("General", "MenuWindowsAside", true,
@@ -39,9 +44,12 @@ namespace AlternativeGameInterface
         /// <summary>[General] FilePickerTall: the game's file picker window (FilePickerViewModel) has MaxHeight 400 (MaxWidth 600) in its data template; the height limit is taken off, so the window can be made taller.</summary>
         void PickerLoaded(object w)
         {
-            if (_pickerTall == null || !_pickerTall.Value || w == null) return;
+            if (w == null) return;
             var dc = Get(w, "DataContext");
             if (dc == null || dc.GetType().Name != "FilePickerViewModel") return;
+            if (_autoPickerWin == null && _autoPickerVm != null && ReferenceEquals(_autoPickerVm.Target, dc) && Time.unscaledTime - _autoAt < 10f)
+                _autoPickerWin = new WeakReference(w);   // the window of the Load game that the mod opened itself
+            if (_pickerTall == null || !_pickerTall.Value) return;
             SetV(w, "MaxHeight", float.PositiveInfinity);
         }
 
@@ -55,12 +63,33 @@ namespace AlternativeGameInterface
                 foreach (var c in t.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)) { if (c.GetParameters().Length == 0) { TryPatch(harmony, c, null, "MenuVmPostfix", null); k++; } }
                 Trace("patched " + n + " constructor: " + k);
             }
+            var cm = asm.GetType("SeapowerUI.ViewModels.CampaignMenuViewModel");
+            var sel = cm == null ? null : cm.GetProperty("SelectedMission", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var selSet = sel == null ? null : sel.GetSetMethod(true);
+            if (selSet != null) { TryPatch(harmony, selSet, null, "CampaignChosenPostfix", null); Trace("patched CampaignMenuViewModel.SelectedMission (AutoLoadCloseOnCampaign)"); }
+            else Trace("CampaignMenuViewModel.SelectedMission not found: AutoLoadCloseOnCampaign not available");
         }
 
         static void MenuVmPostfix(object __instance)
         {
             if (__instance == null) return;
             _menuVms.Add(new MenuVmNote { Vm = new WeakReference(__instance), Kind = __instance.GetType().Name, At = Time.unscaledTime, Frame = Time.frameCount });
+        }
+
+        /// <summary>A campaign is clicked in the Campaign screen (its starting conditions open): the Load game window the mod opened itself is closed, it covers them.</summary>
+        static void CampaignChosenPostfix(object __instance, object value)
+        {
+            var a = Active;
+            if ((object)a == null || value == null || a._autoLoadClose == null || !a._autoLoadClose.Value) return;
+            try
+            {
+                if (_autoPickerWin == null || _autoCampaignVm == null || !ReferenceEquals(_autoCampaignVm.Target, __instance)) return;
+                var win = _autoPickerWin.Target as Noesis.FrameworkElement;
+                _autoPickerWin = null; _autoPickerVm = null; _autoCampaignVm = null;
+                if (win == null || !win.IsLoaded) return;   // the user has closed it already
+                if (a.CloseWindowLikeGame(win)) Trace("auto Load: a campaign is chosen, the Load game window the mod opened is closed");
+            }
+            catch (Exception e) { Trace("AutoLoadCloseOnCampaign: " + (e.InnerException ?? e).Message); }
         }
 
         static object StaticField(object vm, string viewType)
@@ -89,7 +118,12 @@ namespace AlternativeGameInterface
                     if (n.Kind == "ScenarioMenuViewModel") { var en = Get(vm, "SaveLoadEnabled"); if (en is bool && !(bool)en) { Trace("auto Load: the scenarios' Load is off in the game's config"); continue; } }
                     var cmd = Get(vm, "LoadCommand"); if (cmd == null) continue;
                     var ex = cmd.GetType().GetMethod("Execute", new[] { typeof(object) }); if (ex == null) continue;
-                    ex.Invoke(cmd, new object[] { null });
+                    bool campaign = n.Kind == "CampaignMenuViewModel";
+                    _autoPickerVm = null; _autoPickerWin = null; _autoCampaignVm = null;
+                    _autoOpening = campaign; _autoAt = Time.unscaledTime;
+                    try { ex.Invoke(cmd, new object[] { null }); }
+                    finally { _autoOpening = false; }
+                    if (campaign) _autoCampaignVm = new WeakReference(vm);
                     Trace("auto Load: " + n.Kind + " opened the Load game window");
                 }
                 catch (Exception e) { _menuVms.RemoveAt(i); Trace("auto Load: " + (e.InnerException ?? e).Message); }

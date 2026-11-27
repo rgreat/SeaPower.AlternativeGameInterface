@@ -22,8 +22,11 @@ namespace AlternativeGameInterface
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
-        ConfigEntry<bool> _hideCustom, _rememberFolder, _blueIni, _deleteLogs, _rememberSave, _dblOpen;
-        ConfigEntry<string> _lastMissionDir, _lastSaveMissions, _lastSaveCampaigns;
+        ConfigEntry<bool> _hideCustom, _rememberFolder, _blueIni, _deleteLogs, _rememberSave, _dblOpen, _rememberSort;
+        ConfigEntry<string> _lastMissionDir, _lastSaveMissions, _lastSaveCampaigns, _lastSortMissions, _lastSortCampaigns;
+        FieldInfo _pickerSortNameFlag, _pickerSortDateFlag;
+        PropertyInfo _pickerSortNameCmd, _pickerSortDateCmd;
+        static bool _sortApplying;
         PropertyInfo _pickerMode, _pickerCtx;
         FieldInfo _pickerInitial, _pickerHome;
         bool _logsDone;
@@ -41,6 +44,10 @@ namespace AlternativeGameInterface
                 "A double click on a file in the Load game and other file-opening windows opens it (like the Open button) and on a scenario in the main menu starts it (like the Play button); save windows are not changed.");
             _lastSaveMissions = Config.Bind("General", "LastSaveFolderMissions", "", "The last folder of the mission Save / Load game windows (kept by the mod).");
             _lastSaveCampaigns = Config.Bind("General", "LastSaveFolderCampaigns", "", "The last folder of the campaign Save / Load game windows (kept by the mod).");
+            _rememberSort = Config.Bind("General", "RememberSaveSort", true,
+                "Save game and Load game windows keep the sort order (name or date, ascending or descending) used last time, per list (campaign and mission saves keep their own), in the opened folder and in the folders entered later.");
+            _lastSortMissions = Config.Bind("General", "LastSaveSortMissions", "", "The last sort order of the mission Save / Load game windows (kept by the mod): NameAsc, NameDesc, DateAsc, DateDesc.");
+            _lastSortCampaigns = Config.Bind("General", "LastSaveSortCampaigns", "", "The last sort order of the campaign Save / Load game windows (kept by the mod): NameAsc, NameDesc, DateAsc, DateDesc.");
             _blueIni = Config.Bind("General", "ColorIniFiles", true, "Mission editor file pickers: names of *.ini files are light blue.");
             _deleteLogs = Config.Bind("General", "DeleteOldLogs", false,
                 "At the start of the game the log files of earlier sessions (the game's Logs folder: *_session_*, *_sessionEventLog_*) are deleted; this session's stay.");
@@ -75,6 +82,25 @@ namespace AlternativeGameInterface
             _pickerHigh = fp == null ? null : fp.GetProperty("HighlightedItem", inst);
             if (sel != null && _pickerButton != null && _pickerHigh != null && _pickerMode != null) { TryPatch(harmony, sel, null, "PickerDoubleClickPostfix", null); Trace("patched FilePickerViewModel select command (double click opens)"); }
             else Trace("FilePickerViewModel select command not found: double click to open not available");
+            // the sort of the Save / Load game windows: the game sorts by a click on the column header (a command that flips a flag each time)
+            _pickerSortNameFlag = fp == null ? null : fp.GetField("_sortByNameAscending", inst);
+            _pickerSortDateFlag = fp == null ? null : fp.GetField("_sortByDateAscending", inst);
+            _pickerSortNameCmd = fp == null ? null : fp.GetProperty("SortByNameCommand", inst);
+            _pickerSortDateCmd = fp == null ? null : fp.GetProperty("SortByDateCommand", inst);
+            MethodInfo sortName = null, sortDate = null;
+            if (fp != null)
+                foreach (var m in fp.GetMethods(inst))
+                {
+                    if (sortName == null && m.Name.StartsWith("<CreateSortByNameCommand>", StringComparison.Ordinal) && m.GetParameters().Length <= 1) sortName = m;
+                    if (sortDate == null && m.Name.StartsWith("<CreateSortByDateCommand>", StringComparison.Ordinal) && m.GetParameters().Length <= 1) sortDate = m;
+                }
+            if (sortName != null && sortDate != null && _pickerSortNameFlag != null && _pickerSortDateFlag != null && _pickerSortNameCmd != null && _pickerSortDateCmd != null)
+            {
+                TryPatch(harmony, sortName, null, "PickerSortNamePostfix", null);
+                TryPatch(harmony, sortDate, null, "PickerSortDatePostfix", null);
+                Trace("patched FilePickerViewModel sort commands (RememberSaveSort)");
+            }
+            else Trace("FilePickerViewModel sort commands not found: RememberSaveSort not available");
             var mevm = asm.GetType("SeapowerUI.ViewModels.MissionEditorViewModel");
             var load = mevm == null ? null : mevm.GetMethod("LoadMission", inst);
             if (load != null) TryPatch(harmony, load, "LoadMissionPrefix", null, null);
@@ -135,6 +161,64 @@ namespace AlternativeGameInterface
             return string.Equals(initial.Name, "campaigns", StringComparison.OrdinalIgnoreCase) ? _lastSaveCampaigns : _lastSaveMissions;
         }
 
+        // ---------------------------------------------------------------- the Save game / Load game sort order
+
+        /// <summary>The config entry that keeps the sort order of this picker, or null if it is not a Save / Load game picker.</summary>
+        ConfigEntry<string> SaveSortEntry(object picker)
+        {
+            DirectoryInfo home;
+            var folder = SaveFolderEntry(picker, out home);
+            if (folder == null) return null;
+            return folder == _lastSaveCampaigns ? _lastSortCampaigns : _lastSortMissions;
+        }
+
+        /// <summary>After a click on a column header: the flag is flipped after the sort, so "true" now means this sort was descending.</summary>
+        void KeepSaveSort(object picker, string key, FieldInfo flag)
+        {
+            if (_sortApplying || !_rememberSort.Value) return;
+            var entry = SaveSortEntry(picker);
+            if (entry == null) return;
+            var desc = flag.GetValue(picker) is bool && (bool)flag.GetValue(picker);
+            var v = key + (desc ? "Desc" : "Asc");
+            if (entry.Value != v) { entry.Value = v; Config.Save(); Verbose("save sort kept: " + v); }
+        }
+
+        static void PickerSortNamePostfix(object __instance)
+        {
+            var a = Active;
+            if ((object)a == null) return;
+            try { a.KeepSaveSort(__instance, "Name", a._pickerSortNameFlag); } catch (Exception e) { Trace("RememberSaveSort: " + e.Message); }
+        }
+
+        static void PickerSortDatePostfix(object __instance)
+        {
+            var a = Active;
+            if ((object)a == null) return;
+            try { a.KeepSaveSort(__instance, "Date", a._pickerSortDateFlag); } catch (Exception e) { Trace("RememberSaveSort: " + e.Message); }
+        }
+
+        /// <summary>Sorts the list as the kept order says, by the game's own command: its flag is set so that the command sorts the wanted way.</summary>
+        void RestoreSaveSort(object picker)
+        {
+            if (!_rememberSort.Value || _pickerSortNameFlag == null) return;
+            var entry = SaveSortEntry(picker);
+            if (entry == null) return;
+            var v = entry.Value ?? "";
+            bool byName = v.StartsWith("Name", StringComparison.Ordinal), byDate = v.StartsWith("Date", StringComparison.Ordinal);
+            if (!byName && !byDate) return;
+            bool asc = v.EndsWith("Asc", StringComparison.Ordinal);
+            var flag = byName ? _pickerSortNameFlag : _pickerSortDateFlag;
+            var cmd = (byName ? _pickerSortNameCmd : _pickerSortDateCmd).GetValue(picker, null);
+            if (cmd == null) return;
+            var exec = cmd.GetType().GetMethod("Execute", new[] { typeof(object) });
+            if (exec == null) return;
+            flag.SetValue(picker, asc);   // the command sorts ascending when the flag is set, descending when it is not, then flips it
+            _sortApplying = true;
+            try { exec.Invoke(cmd, new object[] { null }); }
+            finally { _sortApplying = false; }
+            Verbose("save sort restored: " + v);
+        }
+
         static void PickerInitPrefix(object __instance)
         {
             try { SavePickersReady.Remove(__instance); } catch { }
@@ -152,6 +236,7 @@ namespace AlternativeGameInterface
                 var entry = a.SaveFolderEntry(__instance, out home);
                 if (entry == null || !value.FullName.StartsWith(home.FullName, StringComparison.OrdinalIgnoreCase)) return;
                 if (entry.Value != value.FullName) { entry.Value = value.FullName; a.Config.Save(); a.Verbose("save folder kept: " + value.FullName); }
+                a.RestoreSaveSort(__instance);   // the list was made again for the new folder, in the game's own order
             }
             catch (Exception e) { Trace("RememberSaveFolder: " + e.Message); }
         }
@@ -167,6 +252,7 @@ namespace AlternativeGameInterface
                 SetV(picker, "SelectedFolder", new DirectoryInfo(last));
                 Verbose("save picker opened in " + last);
             }
+            try { RestoreSaveSort(picker); } catch (Exception e) { Trace("RememberSaveSort: " + e.Message); }
             SavePickersReady.Remove(picker);
             SavePickersReady.Add(picker, new object());
         }
@@ -195,6 +281,7 @@ namespace AlternativeGameInterface
 
         static void PickerInitPostfix(object __instance)
         {
+            if (_autoOpening) _autoPickerVm = new WeakReference(__instance);   // the Load game window of AutoOpenLoad (MenuLoad.cs)
             var a = Active;
             if ((object)a != null && a._rememberSave.Value)
             {

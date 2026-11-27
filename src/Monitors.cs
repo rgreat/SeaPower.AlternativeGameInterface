@@ -1154,9 +1154,9 @@ namespace AlternativeGameInterface
                 var cf = w.GetType().GetField("ClosableProperty", BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy);
                 var cdp = cf == null ? null : cf.GetValue(null) as DependencyProperty;
                 if (cdp != null) BindingOperations.SetBinding(dw, cdp, new Binding("MapClosable") { Source = vm, Mode = BindingMode.OneWay });
-                // the toolbar: Visibility = not ShowPip3D (the game's InverseCollapsedConverter)
+                // the toolbar: Visibility = not ShowPip3D (the game's InverseCollapsedConverter); with WindowedMapAndWorldView the toolbar is always in the window (MapToolbar.cs)
                 DependencyObject bar = null;
-                var stack = new Stack<DependencyObject>(); stack.Push(dw);
+                var stack = new Stack<DependencyObject>(); if (!MapOn()) stack.Push(dw);
                 for (int budget = 20000; stack.Count > 0 && --budget > 0;)
                 {
                     var e = stack.Pop();
@@ -1167,7 +1167,7 @@ namespace AlternativeGameInterface
                 var conv = (w as FrameworkElement) == null ? null : ((FrameworkElement)w).TryFindResource("InverseCollapsedConverter") as IValueConverter;
                 if (bar != null && conv != null)
                     BindingOperations.SetBinding(bar, UIElement.VisibilityProperty, new Binding("ShowPip3D") { Source = vm, Converter = conv, Mode = BindingMode.OneWay });
-                Trace("monitors: Tactical Display on display " + (DisplayOf(w) + 1) + ": closable / toolbar bound to the main view model" + (bar == null ? " (toolbar not found)" : conv == null ? " (converter not found)" : ""));
+                Trace("monitors: Tactical Display on display " + (DisplayOf(w) + 1) + ": closable / toolbar bound to the main view model" + (MapOn() ? " (the toolbar: MapToolbar.cs)" : bar == null ? " (toolbar not found)" : conv == null ? " (converter not found)" : ""));
             }
             catch (Exception e) { TraceOnce("monitor map bindings", e); }
         }

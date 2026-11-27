@@ -18,10 +18,10 @@ namespace AlternativeGameInterface
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
-        ConfigEntry<bool> _armOnly;
+        ConfigEntry<bool> _armOnly, _natCount;
         MethodInfo _updateFiltered, _saveExpansion;
 
-        sealed class ArmState { public bool Done; public int Tries; public CheckBox Box; }
+        sealed class ArmState { public bool Done; public int Tries; public CheckBox Box; public object CountBox; }
         static readonly ConditionalWeakTable<object, ArmState> ArmStates = new ConditionalWeakTable<object, ArmState>();
 
         void HookArmedFilter(Harmony harmony, Assembly asm)
@@ -139,6 +139,31 @@ namespace AlternativeGameInterface
             try { ToolTipService.SetToolTip(box, Loc.T("tip.armedOnly")); } catch { }
             box.Click += (o, e) => { try { SetArmedOnly(browser, box.IsChecked == true); } catch (Exception ex) { Trace("armed only: " + ex.Message); } };
 
+            PlaceBox(parent, date, last, box);
+            st.Box = box;
+            Trace("armed only: check box added to " + parent.GetType().Name);
+
+            // the country drop-down is remembered: its items are drawn again when the counts change; its last item switches the sort (SyncNations)
+            try
+            {
+                UIElement root = date;
+                for (var up = VisualTreeHelper.GetParent(date); up != null; up = VisualTreeHelper.GetParent(up)) root = up as UIElement ?? root;
+                var nations = Get(browser, "Nations");
+                var combo = FindFirst(root, d => { var c = d as ComboBox; return c != null && nations != null && ReferenceEquals(c.ItemsSource, nations); }) as ComboBox;
+                if (combo == null) { Trace("countries by count: the country drop-down was not found"); return; }
+                var cp = VisualTreeHelper.GetParent(combo) as StackPanel;
+                if (cp == null) { Trace("countries by count: the country drop-down is not in a stack panel"); return; }
+                st.CountBox = null;
+                BuildCountryMenu(browser, combo, cp);
+                Trace("countries: the drop-down of the mod replaces the game's combo box");
+                if (_updateFiltered != null) Invoke(_updateFiltered, browser);   // the counts show at once
+            }
+            catch (Exception ex) { Trace("countries by count: " + ex.Message); }
+        }
+
+        /// <summary>Puts a new check box after "last" in the panel of the game's boxes (the next cell of the grid in the direction the boxes run, or the next child).</summary>
+        static void PlaceBox(Panel parent, UIElement date, UIElement last, CheckBox box)
+        {
             var grid = parent as Grid;
             if (grid != null && (date != last))
             {
@@ -166,8 +191,12 @@ namespace AlternativeGameInterface
                 grid.Children.Add(box);
             }
             else parent.Children.Insert(parent.Children.IndexOf(last) + 1, box);
-            st.Box = box;
-            Trace("armed only: check box added to " + parent.GetType().Name);
+        }
+
+        void SetNatCount(object browser, bool on)
+        {
+            if (_natCount.Value != on) { _natCount.Value = on; Config.Save(); }
+            if (_updateFiltered != null) Invoke(_updateFiltered, browser);   // the game's filters run again, the country list follows (AfterFilters)
         }
 
         void SetArmedOnly(object browser, bool on)

@@ -43,6 +43,7 @@ namespace AlternativeGameInterface
         }
 
         readonly Dictionary<int, Border> _mfBox = new Dictionary<int, Border>();
+        readonly HashSet<int> _mfDrag = new HashSet<int>();                          // the boxes being dragged now (the half-second step must not put them back to the old place)
         readonly Dictionary<int, Point> _mfWant = new Dictionary<int, Point>();     // where the user put the box (it may sit more inside while the text is wider)
 
         /// <summary>The panel of the main view the counter goes in: the first panel of the mission HUD view (also over the windows), outside a mission
@@ -85,6 +86,7 @@ namespace AlternativeGameInterface
             if (_mfBox.TryGetValue(d, out b) && b != null && ReferenceEquals(b.Parent, panel))
             {
                 ((TextBlock)b.Child).Text = text;
+                if (_mfDrag.Contains(d)) return;                       // dragged now: the box follows the mouse, _mfWant is the place before the drag
                 Point want; if (!_mfWant.TryGetValue(d, out want)) want = new Point(b.Margin.Left, b.Margin.Top);
                 var m = MfInside(b, (float)want.X, (float)want.Y);     // the view got smaller / the text longer: back inside, and back to the place when it fits again
                 if (Math.Abs(m.Left - b.Margin.Left) > 0.5f || Math.Abs(m.Top - b.Margin.Top) > 0.5f) b.Margin = m;
@@ -108,8 +110,9 @@ namespace AlternativeGameInterface
             b.MouseLeftButtonDown += (o, e) =>
             {
                 var par = b.Parent as UIElement; if (par == null) return;
-                down = true; p0 = e.GetPosition(par); m0 = b.Margin; b.CaptureMouse(); e.Handled = true;
+                down = true; _mfDrag.Add(d); p0 = e.GetPosition(par); m0 = b.Margin; b.CaptureMouse(); e.Handled = true;
             };
+            b.LostMouseCapture += (o, e) => { if (down) { down = false; _mfDrag.Remove(d); _mfWant[d] = new Point(b.Margin.Left, b.Margin.Top); } };
             b.MouseMove += (o, e) =>
             {
                 if (!down) return;
@@ -120,7 +123,7 @@ namespace AlternativeGameInterface
             b.MouseLeftButtonUp += (o, e) =>
             {
                 if (!down) return;
-                down = false; b.ReleaseMouseCapture(); e.Handled = true;
+                down = false; _mfDrag.Remove(d); b.ReleaseMouseCapture(); e.Handled = true;
                 _mfWant[d] = new Point(b.Margin.Left, b.Margin.Top);
                 MfSavePlace(key, b.Margin.Left, b.Margin.Top);
             };
@@ -199,7 +202,7 @@ namespace AlternativeGameInterface
             _mfAt = 0f; _mfFrames = 0;
             foreach (var kv in _mfBox)
                 try { var p = kv.Value == null ? null : kv.Value.Parent as Panel; if (p != null) p.Children.Remove(kv.Value); } catch { }
-            _mfBox.Clear();
+            _mfBox.Clear(); _mfDrag.Clear();
         }
     }
 }

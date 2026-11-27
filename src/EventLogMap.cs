@@ -64,20 +64,27 @@ namespace AlternativeGameInterface
         {
             __state = null;
             var a = Active;
-            if ((object)a == null || a._logLinks == null || !a._logLinks.Value) return;
+            if ((object)a == null || !LogWatch(a)) return;
             try { __state = TopAlert(__instance); } catch { }
         }
 
         static void LogRaisePostfix(object __instance, object __state)
         {
             var a = Active;
-            if ((object)a == null || a._logLinks == null || !a._logLinks.Value) return;
+            if ((object)a == null || !LogWatch(a)) return;
             try
             {
                 var alert = TopAlert(__instance);
-                if (alert != null && !ReferenceEquals(alert, __state)) a.LinkTracks(alert);       // the alert this call has just added
+                if (alert == null || ReferenceEquals(alert, __state)) return;                      // the alert this call has just added
+                if (a._logLinks != null && a._logLinks.Value) a.LinkTracks(alert);
+                if (a._logWrap != null && a._logWrap.Value) LogWrapAlert(alert, true);
             }
             catch (Exception e) { Trace("event log links: " + e.Message); }
+        }
+
+        static bool LogWatch(AlternativeGameInterfacePlugin a)
+        {
+            return (a._logLinks != null && a._logLinks.Value) || (a._logWrap != null && a._logWrap.Value);
         }
 
         /// <summary>The player's own list of tracks: track number -> the object.</summary>

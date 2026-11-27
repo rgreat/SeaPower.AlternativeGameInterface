@@ -15,7 +15,7 @@ namespace AlternativeGameInterface
     /// </summary>
     public partial class AlternativeGameInterfacePlugin
     {
-        ConfigEntry<bool> _logCompact;
+        ConfigEntry<bool> _logCompact, _logWrap;
         readonly List<WeakReference> _logWindows = new List<WeakReference>();
 
         // the sizes in screen pixels (the game's: window margin 5, tab content 12, tab header 12 x 7.5, row 5 - in units, about 1.5 px each at 1440p)
@@ -25,6 +25,9 @@ namespace AlternativeGameInterface
         {
             _logCompact = Config.Bind("EventLog", "Compact", true,
                 "Event Log window: smaller margins, tab headers and row spacing, so more rows fit (the text size is not changed).");
+            _logWrap = Config.Bind("EventLog", "WrapLines", true,
+                "Event Log window: a long line of the Event Log tab is wrapped to the window's width (the game cuts it at the window's edge).");
+            _logWrap.SettingChanged += (s, e) => { foreach (var r in _logWindows.ToArray()) { var w = r.Target; if (w == null) _logWindows.Remove(r); else LogWrapApply(w); } };
             _logCompact.SettingChanged += (s, e) => { foreach (var r in _logWindows.ToArray()) { var w = r.Target; if (w == null) _logWindows.Remove(r); else LogCompactApply(w); } };
         }
 
@@ -39,6 +42,34 @@ namespace AlternativeGameInterface
             var fe = w as FrameworkElement;
             if (fe != null) fe.Loaded += (s, e) => LogCompactApply(w);
             LogCompactApply(w);
+            LogWrapApply(w);
+        }
+
+        /// <summary>The line of one alert (a FormatBindableTextBlock the game makes without wrapping) wraps to the width of its row, or does not.</summary>
+        static void LogWrapAlert(object alert, bool wrap)
+        {
+            var tb = alert == null ? null : Active.Get(alert, "AlertContent") as TextBlock;
+            if (tb != null) tb.TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
+        }
+
+        /// <summary>All the alerts the window shows now (the ones raised later are done in LogRaisePostfix).</summary>
+        void LogWrapApply(object w)
+        {
+            try
+            {
+                var grid = Get(w, "Content") as Grid;
+                var tc = grid != null && grid.Children.Count > 0 ? grid.Children[0] as TabControl : null;
+                if (tc == null || tc.Items.Count == 0) return;
+                var ti = tc.Items[0] as TabItem;
+                var b = ti == null ? null : ti.Content as Border;
+                var lb = b == null ? null : b.Child as ListBox;
+                if (lb == null) return;
+                bool wrap = _logWrap != null && _logWrap.Value;
+                int n = 0;
+                foreach (var a in lb.Items) { LogWrapAlert(a, wrap); n++; }
+                Trace("event log: lines " + (wrap ? "wrap" : "do not wrap") + " (" + n + " rows)");
+            }
+            catch (Exception e) { Trace("event log wrap: " + e.Message); }
         }
 
         static string Num(float v) { return v.ToString("0.###", CultureInfo.InvariantCulture); }

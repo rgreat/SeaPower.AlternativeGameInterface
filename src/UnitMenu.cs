@@ -30,7 +30,9 @@ namespace AlternativeGameInterface
         /// recreated whenever the template changes with the selection).</summary>
         void HookMainView(FrameworkElement view)
         {
-            if (!_unitMenu.Value || view == null) return;
+            if (view == null) return;
+            HookFormationClick(view);                                         // the Formation Manager click (FormationManagerClick) has its own switch
+            if (!_unitMenu.Value) return;
             var asm = GameAssembly();
             if (asm == null) return;
             if (_mgvType == null) _mgvType = asm.GetType("SeapowerUI.MainGameView");

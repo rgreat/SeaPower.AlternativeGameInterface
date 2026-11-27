@@ -85,6 +85,7 @@ namespace AlternativeGameInterface
         {
             var a = Active;
             var sl = sender as Slider;
+            if ((object)a != null && sl != null && sl.Name != "sliderTargetFrameRate") { ScaleSliderLoaded(a, sl); return; }
             if ((object)a == null || sl == null || a._fpsMax == null || sl.Name != "sliderTargetFrameRate") return;
             try
             {

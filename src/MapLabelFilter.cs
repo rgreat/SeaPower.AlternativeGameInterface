@@ -609,18 +609,113 @@ namespace AlternativeGameInterface
             return old[8] == (_glBadgeTplOn && GlFriendlyMarker(vm) ? 1 : 0);
         }
         static bool GlSameShape(int[] a, int[] b) { if (a == null || b == null) return false; for (int k = 0; k < 9; k++) if (a[k] != b[k]) return false; return true; }
-        /// <summary>A contact line has text in the view model but its natural size is 0: the measure ran before the text reached the label (the shape is taken from the view model, so it looks unchanged). The label is measured again.</summary>
+        static bool GlBlank(string t) { if (t == null) return true; for (int k = 0; k < t.Length; k++) if (!char.IsWhiteSpace(t[k])) return false; return true; }
+        /// <summary>A contact line has text in the view model but its natural size is 0: the measure ran before the text reached the label (the shape is taken from the view model, so it looks unchanged).</summary>
         static bool GlZeroWithText(object vm, GlNat nat, bool head)
         {
             int first = head ? 1 : 0;
             for (int q = 0; q < 4 && first + q < nat.W.Length; q++)
             {
                 if (nat.W[first + q] > 0.5f) continue;
-                var t = GlLineText(vm, q);
-                if (t == null || t.Trim().Length == 0) continue;
+                if (GlBlank(GlLineText(vm, q))) continue;
                 return true;
             }
             return false;
+        }
+
+        // ---- the size of the text itself: a plain TextBlock (a child of the hidden host, so it has the font of the labels) measured with the text of a contact line. It has nothing in common with the
+        // line templates, their bindings and the host's attach / detach, so a line whose measure came out 0 (or too narrow) while its view model has the text gets a size that does not depend on any of that.
+        static Noesis.TextBlock _glProbe; static object _glProbeOwner; static bool _glProbeFailed;
+        static readonly Dictionary<string, float[]> _glProbeCache = new Dictionary<string, float[]>();
+        static bool GlProbeSize(object layer, string text, out float w, out float h)
+        {
+            w = 0f; h = 0f;
+            if (_glProbeFailed || GlBlank(text)) return false;
+            try
+            {
+                GlInitHost(layer.GetType());
+                var host = _glHostF == null ? null : _glHostF.GetValue(layer) as Noesis.Panel; if (host == null) return false;
+                if (_glProbe == null || !ReferenceEquals(_glProbeOwner, host))
+                {
+                    _glProbe = new Noesis.TextBlock { FontSize = 10f, IsHitTestVisible = false };           // as the templates of MapLabels.xaml: FontSize 10, the rest inherited
+                    host.Children.Add(_glProbe); _glProbeOwner = host; _glProbeCache.Clear();
+                }
+                float[] r;
+                if (!_glProbeCache.TryGetValue(text, out r))
+                {
+                    _glProbe.Text = text; _glProbe.Measure(new Noesis.Size(float.PositiveInfinity, float.PositiveInfinity));
+                    var d = _glProbe.DesiredSize; r = new[] { d.Width, d.Height };
+                    if (_glProbeCache.Count > 500) _glProbeCache.Clear();
+                    _glProbeCache[text] = r;
+                }
+                w = r[0]; h = r[1];
+                return w > 0.5f && h > 0.5f;
+            }
+            catch (Exception e) { _glProbeFailed = true; Trace("label text measure: " + e.GetType().Name + ": " + e.Message + " (the line sizes come from the game's measure only)"); return false; }
+        }
+        /// <summary>The natural sizes of the contact lines against the text itself: a line that has text in the view model gets at least the size of that text (zeroOnly: only a line whose size is 0).
+        /// True when a size was changed (the label's LineSizes and the presenter's flags are then written again: GlForceApply).</summary>
+        static bool GlProbeFix(object layer, object vm, GlNat nat, bool head, bool zeroOnly, string src)
+        {
+            bool any = false; int first = head ? 1 : 0;
+            for (int q = 0; q < 4 && first + q < nat.W.Length; q++)
+            {
+                int idx = first + q;
+                if (zeroOnly && nat.W[idx] > 0.5f) continue;
+                var t = GlLineText(vm, q); if (GlBlank(t)) continue;
+                float pw, ph; if (!GlProbeSize(layer, t, out pw, out ph)) continue;
+                bool zero = nat.W[idx] <= 0.5f || nat.H[idx] <= 0.5f;
+                if (!zero && nat.W[idx] >= pw - 0.25f) continue;                       // the game rounds a width up to 4: a measured width is never below the text's own
+                nat.W[idx] = Math.Max(nat.W[idx], (float)Math.Ceiling(pw / 4f) * 4f); nat.H[idx] = Math.Max(nat.H[idx], ph);
+                any = true;
+            }
+            return any;
+        }
+        /// <summary>The next ArrangeLabels / ReadSizes writes the label's LineSizes and the presenter's _empty flags from the natural sizes again, whatever cut it had.</summary>
+        static void GlForceApply(object lab)
+        {
+            GlCutState st; if (!GlCuts.TryGetValue(lab, out st)) { st = new GlCutState(); GlCuts.Add(lab, st); }
+            st.Applied = -1;
+        }
+        static Acc _glLinesA; static bool _glWidenOff; static int _glWidenLogged; static int _glNoWidthLogged;
+        static readonly ConditionalWeakTable<object, int[]> GlWideTries = new ConditionalWeakTable<object, int[]>();      // per label: how many passes in a row had to measure a 0 wide line again
+        /// <summary>Before ArrangeLabels: a line that is drawn (its ContentPresenter is visible) has a size of its own after the layout; the box of the label (the widest of the LineSizes) is never narrower than that.
+        /// A box narrower than a line clips the line at the box and, the lines being centred about the widest one, leaves the text off its place - whatever made the size stale.</summary>
+        static void GlWiden(object layer, IList act)
+        {
+            if (_glWidenOff || _glPresF == null) return;
+            var pres = _glPresF.GetValue(layer) as IDictionary; if (pres == null || pres.Count == 0) return;
+            for (int i = 0; i < act.Count; i++)
+            {
+                var lab = act[i]; if (GlIcon(lab)) continue;
+                var p = pres[lab]; if (p == null) continue;
+                GlNat nat; if (!GlNats.TryGetValue(lab, out nat) || nat.W == null) continue;
+                if (_glLinesA == null) { var f = p.GetType().GetField("_lines", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public); if (f == null) { _glWidenOff = true; Trace("label box: MapLabelPresenter._lines not found (the box is not checked against the drawn lines)"); return; } _glLinesA = f; }
+                var lines = _glLinesA.GetValue(p) as IList; if (lines == null) continue;
+                int n = Math.Min(lines.Count, nat.W.Length); bool grow = false;
+                for (int q = 0; q < n; q++)
+                {
+                    var cp = lines[q] as Noesis.UIElement; if (cp == null || cp.Visibility != Noesis.Visibility.Visible) continue;
+                    var ds = cp.DesiredSize;
+                    if (ds.Width <= 0.5f && nat.W[q] > 0.5f && GlWideTry(lab))        // the line has text but its layout says 0 wide (the trace: the line's TextBlock is 67 wide, the ContentPresenter 0): nothing is drawn, a gap stays; measure it again
+                    {
+                        if (_glNoWidthLogged < 10) { _glNoWidthLogged++; var vm0 = _gcContent.GetValue(lab, null); Trace("label line " + q + " is 0 wide in the layout, the text is " + nat.W[q].ToString("0") + " wide" + (vm0 != null && GlIsUnitVm(vm0) ? " ('" + (GlLineText(vm0, q - (_gcHead.GetValue(lab) != null ? 1 : 0)) ?? "").Replace('\n', '/') + "')" : "") + ": measured again"); }
+                        GlInvalidateTree(cp, 0);                                   // the whole line, not only its presenter: the trace shows the StackPanel / TextBlock inside keep an old valid measure (StackPanel 0 wide above a TextBlock 22 wide), so a measure of the presenter alone returns the cached 0
+                        try { cp.Measure(new Noesis.Size(float.PositiveInfinity, float.PositiveInfinity)); } catch { }
+                        ds = cp.DesiredSize;
+                        if (ds.Width <= 0.5f) continue;                            // still 0 wide: the next pass tries again (five times at most, GlWideTry)
+                        // measured now: go on with the line as with any other (the game's own sizes are refreshed by the game's measure below)
+                        try { _gcBump.Invoke(lab, null); } catch { }
+                    }
+                    if (ds.Width <= 0.5f || ds.Height <= 0.5f) continue;
+                    float cw = (float)Math.Ceiling(ds.Width / 4f) * 4f;
+                    if (cw <= nat.W[q] + 0.5f) continue;
+                    if (_glWidenLogged < 60) { _glWidenLogged++; var vm = _gcContent.GetValue(lab, null); Trace("label box: line " + q + " is drawn " + cw.ToString("0") + " wide, the box has " + nat.W[q].ToString("0") + (vm != null && GlIsUnitVm(vm) ? " (text '" + (GlLineText(vm, q - (_gcHead.GetValue(lab) != null ? 1 : 0)) ?? "").Replace('\n', '/') + "')" : "")); }
+                    nat.W[q] = cw; if (ds.Height > nat.H[q]) nat.H[q] = ds.Height;
+                    grow = true;
+                }
+                if (grow) GlForceApply(lab);
+            }
         }
         /// <summary>The text without empty lines (the text of one label line may carry a line break before / between / after its parts).</summary>
         static string GlNoEmptyLines(string t)
@@ -630,17 +725,24 @@ namespace AlternativeGameInterface
             return string.Join("\n", r);
         }
         static bool _glHostErr; static FieldInfo _glHostF; static MethodInfo _glAttach, _glShowAll, _glDetach, _glReadSizes;
+        /// <summary>A label's line that stays 0 wide after the measure is tried five passes in a row, not on every frame for ever (a line the layout really keeps empty); the count restarts when the text changes (the label is measured again by the game: ReadSizesPass).</summary>
+        static bool GlWideTry(object lab)
+        {
+            int[] c; if (!GlWideTries.TryGetValue(lab, out c)) { c = new int[1]; GlWideTries.Add(lab, c); }
+            return c[0]++ < 5;
+        }
+        static void GlInitHost(Type lt)
+        {
+            if (_glHostF != null) return;
+            const BindingFlags f = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            _glHostF = lt.GetField("_host", f); _glReadSizes = lt.GetMethod("ReadSizes", f);
+            var ht = _glHostF == null ? null : _glHostF.FieldType;
+            if (ht != null) { _glAttach = ht.GetMethod("Attach", f); _glShowAll = ht.GetMethod("ShowAllForMeasure", f); _glDetach = ht.GetMethod("Detach", f); }
+        }
         /// <summary>The same as the game does for a label that is not shown (RealizeAndMeasure): the hidden host presenter takes the label, shows all lines, measures, and ReadSizes writes LineSizes.</summary>
         static bool GlHostMeasure(object layer, object lab)
         {
-            var lt = layer.GetType();
-            if (_glHostF == null)
-            {
-                const BindingFlags f = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-                _glHostF = lt.GetField("_host", f); _glReadSizes = lt.GetMethod("ReadSizes", f);
-                var ht = _glHostF == null ? null : _glHostF.FieldType;
-                if (ht != null) { _glAttach = ht.GetMethod("Attach", f); _glShowAll = ht.GetMethod("ShowAllForMeasure", f); _glDetach = ht.GetMethod("Detach", f); }
-            }
+            GlInitHost(layer.GetType());
             if (_glHostF == null || _glReadSizes == null || _glAttach == null || _glShowAll == null || _glDetach == null) return false;
             var host = _glHostF.GetValue(layer) as Noesis.UIElement; if (host == null) return false;
             try
@@ -662,7 +764,15 @@ namespace AlternativeGameInterface
             if (!need && unit)                                                        // the shape of the text (its digits change all the time): looked at 7 times a second, not at every pass
             {
                 float tn = UnityEngine.Time.unscaledTime;
-                if (tn - nat.ShapeAt >= 0.15f || tn < nat.ShapeAt) { nat.ShapeAt = tn; need = !GlShapeIs(vm, nat.Shape) || GlZeroWithText(vm, nat, _gcHead.GetValue(lab) != null); }
+                if (tn - nat.ShapeAt >= 0.15f || tn < nat.ShapeAt)
+                {
+                    nat.ShapeAt = tn; need = !GlShapeIs(vm, nat.Shape);
+                    bool hd = _gcHead.GetValue(lab) != null;
+                    if (!need && GlZeroWithText(vm, nat, hd))                          // a line with text and a size of 0: the size of the text itself, no new measure of the label needed
+                    {
+                        if (GlProbeFix(layer, vm, nat, hd, true, "zero size")) GlForceApply(lab); else need = true;
+                    }
+                }
             }
             if (need && GlHostMeasure(layer, lab)) GlNats.TryGetValue(lab, out nat);
             return nat != null && nat.W != null && nat.W.Length == lc ? nat : null;
@@ -679,6 +789,28 @@ namespace AlternativeGameInterface
             try { ReadSizesPass(__instance, label); } finally { Prof.Lap(Prof.LblSizes, t0); }
         }
 
+        static readonly ConditionalWeakTable<object, int[]> GlRetries = new ConditionalWeakTable<object, int[]>();
+        /// <summary>The game measured a line before its TextBlock had the text (a size 0 or narrower than the text): the layout of the line is stale and the game never measures again while the text stays the same.
+        /// The lines of the label's presenter are invalidated and the label's content version is bumped, so the game's own measure (RealizeAndMeasure) runs again with the text in place; twice at most per label until a measure agrees with the text.</summary>
+        static void GlRemeasure(object layer, object label)
+        {
+            int[] rc; if (!GlRetries.TryGetValue(label, out rc)) { rc = new int[1]; GlRetries.Add(label, rc); }
+            if (rc[0] >= 2) return;
+            rc[0]++;
+            try
+            {
+                var pres = _glPresF == null ? null : _glPresF.GetValue(layer) as IDictionary;
+                var p = pres != null && pres.Contains(label) ? pres[label] : null;
+                if (p != null)
+                {
+                    if (_glLinesA == null) _glLinesA = p.GetType().GetField("_lines", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                    var lines = _glLinesA == null ? null : _glLinesA.GetValue(p) as IList;
+                    if (lines != null) for (int q = 0; q < lines.Count; q++) GlInvalidateTree(lines[q] as Noesis.DependencyObject, 0);
+                }
+                _gcBump.Invoke(label, null);
+            }
+            catch { rc[0] = 2; }
+        }
         static void ReadSizesPass(object __instance, object label)
         {
             try
@@ -689,20 +821,34 @@ namespace AlternativeGameInterface
                 for (int q = 0; q < ls.Length; q++) { var e = ls.GetValue(q); nat.W[q] = _f2x.GetFloat(e); nat.H[q] = _f2y.GetFloat(e); }
                 var vm = _gcContent.GetValue(label, null);
                 nat.Shape = vm != null && GlIsUnitVm(vm) ? GlShape(vm) : null; nat.Gen = _glNatGen;
-                GlCutState st; if (GlCuts.TryGetValue(label, out st)) st.Applied = 0;      // LineSizes and the presenter's flags are fresh: nothing is cut in them
+                bool fx = false;                                                          // a line with text but a size of 0 (or narrower than the text): the size of the text itself
+                if (nat.Shape != null) { try { fx = GlProbeFix(__instance, vm, nat, _gcHead.GetValue(label) != null, false, "game measure"); } catch { } }
+                { int[] wc; if (GlWideTries.TryGetValue(label, out wc)) wc[0] = 0; }
+                if (fx) GlRemeasure(__instance, label); else { int[] rc; if (GlRetries.TryGetValue(label, out rc)) rc[0] = 0; }
+                GlCutState st;
+                if (GlCuts.TryGetValue(label, out st)) st.Applied = fx ? -1 : 0;           // LineSizes and the presenter's flags are fresh: nothing is cut in them (unless a size was changed here)
+                else if (fx) GlForceApply(label);
                 int want; _glCut.TryGetValue(label, out want);
                 GlApplyCut(__instance, label, want);
             }
             catch (Exception e) { if (!_glCutErr) { _glCutErr = true; Trace("line sizes: " + e.GetType().Name + ": " + e.Message); } }
         }
 
+        /// <summary>InvalidateMeasure on every node of a line (children first): a node inside keeps its old valid measure when only the top is invalidated.</summary>
+        static void GlInvalidateTree(Noesis.DependencyObject d, int depth)
+        {
+            if (d == null || depth > 8) return;
+            int n = Noesis.VisualTreeHelper.GetChildrenCount(d);
+            for (int i = 0; i < n; i++) GlInvalidateTree(Noesis.VisualTreeHelper.GetChild(d, i), depth + 1);
+            var ue = d as Noesis.UIElement; if (ue != null) ue.InvalidateMeasure();
+        }
         /// <summary>The cut of a label: the natural sizes with the cut contact lines zero go to LineSizes (the box of ArrangeLabels), and the presenter's _empty flags (its SetPrefix collapses those lines) follow:
         /// a line is not drawn when it is cut or has no size (an empty text). Only the label is changed: the text of the view model stays as it is.</summary>
         static void GlApplyCut(object layer, object lab, int mask)
         {
             GlCutState st; if (!GlCuts.TryGetValue(lab, out st)) { if (mask == 0) return; st = new GlCutState(); GlCuts.Add(lab, st); }
-            if (st.Applied == mask) return;
             GlNat nat; if (!GlNats.TryGetValue(lab, out nat) || nat.W == null) return;
+            if (st.Applied == mask) return;
             var ls = _gcLineSizes.GetValue(lab) as Array; if (ls == null || ls.Length != nat.W.Length) return;
             int first = _gcHead.GetValue(lab) != null ? 1 : 0;
             if (_glZero == null) _glZero = Activator.CreateInstance(ls.GetType().GetElementType());
@@ -731,6 +877,7 @@ namespace AlternativeGameInterface
             try                                                                          // the cut of every text label wanted in this pass (none when the filters are off)
             {
                 var act = _glActive.GetValue(__instance) as IList;
+                if (act != null) GlWiden(__instance, act);
                 if (act != null) for (int i = 0; i < act.Count; i++) { var lab = act[i]; if (GlIcon(lab)) continue; int m; _glCut.TryGetValue(lab, out m); GlApplyCut(__instance, lab, m); }
             }
             catch (Exception e) { if (!_glCutErr) { _glCutErr = true; Trace("line sizes: " + e.GetType().Name + ": " + e.Message); } }
@@ -900,6 +1047,27 @@ namespace AlternativeGameInterface
             ext.Type = FieldV(vm, "VisualType"); ext.Posture = FieldV(vm, "VisualPosture");
         }
 
+        /// <summary>The places that other mods fill beside a unit's icon (the damage note of ADM under the icon of a contact, say) are taken like the icon itself: a label goes to another side of the icon or loses lines
+        /// before it would cover them. The contract (any mod may offer it, any mod may read it): the AppDomain data "rgreat.map.occupied.v1" is a List&lt;Func&lt;object, float[]&gt;&gt; (a mod makes the list when it is
+        /// not there and adds its function); the function takes the unit's MapUnitViewModel and returns null (nothing there) or rectangles, four floats each: left, top, right, bottom in UI pixels
+        /// from the unit's anchor (the centre of its icon), y down. It is called for every drawn icon of every filter pass, so it must be quick; a function that throws is dropped.</summary>
+        const string OccupiedKey = "rgreat.map.occupied.v1";
+        static void GlOccupied(List<Func<object, float[]>> list, object vm, float ix, float iy, RectGrid grid)
+        {
+            for (int k = 0; k < list.Count; k++)
+            {
+                float[] r;
+                try { r = list[k](vm); }
+                catch (Exception e) { Trace("occupied places: a provider failed and is dropped: " + e.GetType().Name + ": " + e.Message); list.RemoveAt(k--); continue; }
+                if (r == null) continue;
+                for (int j = 0; j + 3 < r.Length; j += 4)
+                {
+                    float w = r[j + 2] - r[j], h = r[j + 3] - r[j + 1];
+                    if (w > 0f && h > 0f && !float.IsNaN(w + h)) grid.Add(ix + r[j], iy + r[j + 1], w, h);
+                }
+            }
+        }
+
         static bool SolverPartPrefix() { return !GlFixed(); }
 
         static bool SolvePrefix(object __instance, object registry)
@@ -998,6 +1166,7 @@ namespace AlternativeGameInterface
                 bool dbg = Periodic && UnityEngine.Time.unscaledTime - _glDbgAt > 2f; if (dbg) { _glDbgAt = UnityEngine.Time.unscaledTime; Trace("labels: pass, active " + n + ", place " + (_inst._glPlace == null ? "" : _inst._glPlace.Value)); }
                 var grid = _glGrid; grid.Reset(UnityEngine.Screen.width, UnityEngine.Screen.height);      // the boxes already placed and the drawn icons (a selected one with its frame): places already taken
                 bool badgeIn = _glBadgeTplOn;
+                var occupied = AppDomain.CurrentDomain.GetData(OccupiedKey) as List<Func<object, float[]>>;          // places other mods fill beside an icon (see GlOccupied)
                 for (int i = 0; i < n; i++)
                 {
                     var il = active[i]; if (!GlIcon(il) || drop[i]) continue;
@@ -1007,6 +1176,7 @@ namespace AlternativeGameInterface
                     if (GlSelected(ivm)) { eL = Math.Max(eL, GlSelFrame); eT = Math.Max(eT, GlSelFrame); eR = Math.Max(eR, GlSelFrame); eB = Math.Max(eB, GlSelFrame); }
                     grid.Add(ix - eL, iy - eT, eL + eR, eT + eB);
                     if (ivm != null && !badgeIn && GlFriendlyMarker(ivm)) grid.Add(ix - 14.75f - 30f, iy - 11.25f, 30f, 22.5f);      // the game's 'FRND' badge: left of the icon, centred on it (MarkerTopPrefix)
+                    if (ivm != null && occupied != null && occupied.Count > 0) GlOccupied(occupied, ivm, ix, iy, grid);
                 }
                 float dirX = 0f, dirY = 0f;                                           // the chosen side of the icon (screen y down)
                 if (fixedSide) { string pv = _inst._glPlace.Value; dirY = pv == "Bottom" ? 1f : pv == "Top" ? -1f : 0f; dirX = pv == "Right" ? 1f : pv == "Left" ? -1f : 0f; }
@@ -1034,6 +1204,7 @@ namespace AlternativeGameInterface
                     float tnow = UnityEngine.Time.unscaledTime; GlDec pd; GlDecs.TryGetValue(lab, out pd);
                     bool hold = pd != null && !sel[i] && tnow - pd.T < 1f && (pd.Drop || (pd.C <= vn && pd.Si < (fixedSide ? 4 : 1)));      // hysteresis: a decision is tried first for 1 s
                     // pass 0 with a held decision tries only that placement (still checked against the boxes placed before it); when it no longer fits, pass 1 searches as usual. A held drop stays dropped.
+                    for (int sp = 0; sp < (sel[i] && !isX ? 2 : 1) && best < 0; sp++)          // a selected unit: pass 0 looks for a place for all its lines (the sides, as the others), pass 1 (nothing fits) puts it on the chosen side as it is
                     for (int pass = 0; pass < (hold && !pd.Drop ? 2 : 1) && best < 0; pass++)
                     {
                     bool hd = hold && pass == 0;
@@ -1052,7 +1223,7 @@ namespace AlternativeGameInterface
                         float x, y; int chosen = -1;
                         if (fixedSide) { int sd = cdy > 0f ? 2 : cdy < 0f ? 6 : cdx < 0f ? 4 : 0; float bs = gb != null ? (sd == 2 ? gb[5] : sd == 6 ? gb[3] : sd == 0 ? gb[4] : gb[2]) + GlGap : GlBase(vm, sd); bs += sh; float ex = Math.Abs(cdx) * w * 0.5f + Math.Abs(cdy) * h * 0.5f; x = ax + cdx * (bs + ex) - w * 0.5f; y = ay + cdy * (bs + ex) - h * 0.5f; chosen = sd; }
                         else { x = ax + 14.75f; y = ay - 21.25f; }
-                        bool hit = (!sel[i] || isX) && grid.Hit(x, y, w, h);              // a selected unit is never cut or dropped: all lines, the others make room
+                        bool hit = (!sel[i] || isX) ? grid.Hit(x, y, w, h) : (sp == 0 && (c < vn || grid.Hit(x, y, w, h)));              // a selected unit is never cut or dropped: all lines on a free side if there is one, else on the chosen side; the others make room
                         if (!hit)
                         {
                             bc = c; bsi = si; bsh = sh;

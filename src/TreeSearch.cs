@@ -29,6 +29,8 @@ namespace AlternativeGameInterface
         sealed class PinState { public object Entry; }
         static readonly ConditionalWeakTable<object, PinState> Pins = new ConditionalWeakTable<object, PinState>();
         sealed class NationMaster { public List<object> All = new List<object>(); }
+        static readonly ConditionalWeakTable<object, string> NationBase = new ConditionalWeakTable<object, string>();      // a nation -> its name as the game gave it
+        int _collectTotal;
         static readonly ConditionalWeakTable<object, NationMaster> NationMasters = new ConditionalWeakTable<object, NationMaster>();
         [ThreadStatic] static bool _openingForUnit;
         static readonly Regex Tags = new Regex("<[^>]*>", RegexOptions.Compiled);
@@ -248,11 +250,27 @@ namespace AlternativeGameInterface
                 if (list == null) return;
                 var m = NationMasters.GetOrCreateValue(__instance);
                 m.All.Clear();
-                foreach (var n in list) m.All.Add(n);
+                foreach (var n in list)
+                {
+                    m.All.Add(n);
+                    string bn;
+                    if (!NationBase.TryGetValue(n, out bn)) NationBase.Add(n, (n == null ? null : a.Get(n, "NationName") as string) ?? "");
+                }
+                // the game's own order, whatever order the list was in when it was copied (the game's first filter pass may already have sorted it by count): "All" first, then by name as the game does
+                if (m.All.Count > 2)
+                {
+                    var idx = new Dictionary<object, int>();
+                    for (int k = 0; k < m.All.Count; k++) idx[m.All[k]] = k;
+                    var rest = m.All.GetRange(1, m.All.Count - 1);
+                    rest.Sort((x, y) => { int c = string.Compare(a.NationPlainName(x), a.NationPlainName(y), StringComparison.CurrentCulture); return c != 0 ? c : idx[x].CompareTo(idx[y]); });
+                    m.All.RemoveRange(1, m.All.Count - 1);
+                    m.All.AddRange(rest);
+                }
             }
             catch (Exception e) { Trace("SetupNations: " + e.Message); }
         }
 
+        bool _natSorted;
         Func<object, bool> _collectSrc;   // the source filter while the nations are collected (SyncNations)
 
         void SyncNations(object browser)
@@ -260,32 +278,120 @@ namespace AlternativeGameInterface
             NationMaster m;
             var nations = Get(browser, "Nations") as IList;
             if (nations == null || !NationMasters.TryGetValue(browser, out m) || m.All.Count == 0) return;
+            if (!ContainsRef(nations, m.All[0])) return;   // the game has just made the list again (SetupNations): our copy is of the old one until its postfix
+            bool hide = _hideCountries.Value, byCount = _improvedUI.Value && _natCount.Value;
             string text = (Get(browser, "SearchText") as string ?? "").Trim();
             bool byDate = GetB(browser, "FilterByDate"), armed = _improvedUI.Value && _armOnly.Value;
-            HashSet<string> present = null;
+            bool anyFilter = false;
+            Dictionary<string, int> present = null;   // nation id -> units found (0: only a folder / class of it)
             _collectSrc = _improvedUI.Value ? SourcePredicate(browser) : null;
-            if (text.Length > 0 || byDate || armed || _collectSrc != null)
+            anyFilter = text.Length > 0 || byDate || armed || _collectSrc != null;
+            if (text.Length > 0 || byDate || armed || _collectSrc != null || byCount || _improvedUI.Value)
             {
-                present = new HashSet<string>();
+                present = new Dictionary<string, int>();
+                _collectTotal = 0; _seenTypes.Clear();
                 int year = 0;
                 if (byDate && _missionYear != null) { var y = _missionYear.Invoke(null, null); if (y is int) year = (int)y; }
                 bool nameOnly = GetB(browser, "SearchByNameOnly");
-                Collect(browser, Get(browser, "MuseumEntries") as IList, text.ToLowerInvariant(), nameOnly, byDate, year, armed, present, 0);
+                Collect(browser, CurrentTab(browser), text.ToLowerInvariant(), nameOnly, byDate, year, armed, present, 0);
             }
             var sel = Get(browser, "SelectedNation");
-            int pos = 0;
+            // the wanted nations in the wanted order: "All" first, then the game's order (alphabetical) or the most units first (ties alphabetical)
+            var want = new List<object>();
             for (int k = 0; k < m.All.Count; k++)
             {
                 var n = m.All[k];
                 string id = Get(n, "NationId") as string;
-                bool want = k == 0 || present == null || ReferenceEquals(n, sel) || (id != null && present.Contains(id));
-                bool has = pos < nations.Count && ReferenceEquals(nations[pos], n);
-                if (want) { if (!has) nations.Insert(pos, n); pos++; }
-                else if (has) nations.RemoveAt(pos);
+                if (k == 0 || !hide || present == null || !anyFilter || ReferenceEquals(n, sel) || (id != null && present.ContainsKey(id))) want.Add(n);
+            }
+            if (byCount && present != null && want.Count > 2)
+            {
+                var rest = want.GetRange(1, want.Count - 1);
+                var order = new Dictionary<object, int>();
+                for (int k = 0; k < rest.Count; k++) order[rest[k]] = k;   // the game's order breaks the ties
+                rest.Sort((a, c) =>
+                {
+                    int ca = CountOf(present, a), cc = CountOf(present, c);
+                    return ca != cc ? cc.CompareTo(ca) : order[a].CompareTo(order[c]);
+                });
+                want.RemoveRange(1, want.Count - 1);
+                want.AddRange(rest);
+            }
+            // the counts for the drop-down of the mod (CountryMenu.cs); the nations keep the game's plain names
+            var ni = NatInfos.GetOrCreateValue(browser);
+            ni.Count.Clear();
+            if (_improvedUI.Value && present != null)
+                foreach (var n in m.All) ni.Count[n] = ReferenceEquals(n, m.All[0]) ? _collectTotal : CountOf(present, n);
+            foreach (var n in m.All)
+            {
+                var plain = NationPlainName(n);
+                if (!string.Equals(Get(n, "NationName") as string, plain)) SetV(n, "NationName", plain);
+            }
+            _natSorted = byCount && present != null && want.Count > 2;   // when it is switched off the next pass puts the game's order back
+            ApplyNationOrder(nations, want, sel);
+            NatRefreshFor(browser);
+        }
+
+        /// <summary>The units of the tab (category) that is open: the countries are counted over these only.</summary>
+        IList CurrentTab(object browser)
+        {
+            var all = Get(browser, "MuseumEntries") as IList;
+            var sel = Get(browser, "SelectedCategory");
+            if (all == null || sel == null) return all;
+            var name = TextOf(Get(sel, "DisplayName"));
+            foreach (var c in all)
+                if (ReferenceEquals(c, sel) || (c != null && name != null && TextOf(Get(c, "DisplayName")) == name))
+                {
+                    var kids = Get(c, "MuseumEntries") as IList;
+                    if (kids != null) return kids;
+                }
+            return all;
+        }
+
+        /// <summary>The tab was changed: the counts, the order and the empty countries follow it.</summary>
+        static void TabSetPostfix(object __instance)
+        {
+            var a = Active;
+            if ((object)a == null || _nationBusy != 0 || _nationRestoring) return;
+            try
+            {
+                if (!a.IsEncyclopediaBrowser(__instance)) return;
+                if (a._browserInitializing != null && a._browserInitializing.GetValue(__instance) is bool && (bool)a._browserInitializing.GetValue(__instance)) return;
+                if (a._hideCountries.Value || a._improvedUI.Value || a._natSorted) a.SyncNations(__instance);
+            }
+            catch (Exception e) { Trace("TabSetPostfix: " + e.Message); }
+        }
+
+        /// <summary>The nation's name as the game gave it (without the count the mod adds in brackets).</summary>
+        string NationPlainName(object nation)
+        {
+            string bn;
+            return nation != null && NationBase.TryGetValue(nation, out bn) ? bn : (Get(nation, "NationName") as string ?? "");
+        }
+
+        int CountOf(Dictionary<string, int> present, object nation)
+        {
+            int n; var id = Get(nation, "NationId") as string;
+            return id != null && present.TryGetValue(id, out n) ? n : 0;
+        }
+
+        /// <summary>The list shows exactly "want", in that order. The selected nation is never taken out of the list (the combo box would clear its selection): the others are put around it.</summary>
+        static void ApplyNationOrder(IList nations, List<object> want, object sel)
+        {
+            bool same = nations.Count == want.Count;
+            for (int k = 0; same && k < want.Count; k++) if (!ReferenceEquals(nations[k], want[k])) same = false;
+            if (same) return;
+            int selAt = -1;
+            for (int k = 0; k < want.Count; k++) if (sel != null && ReferenceEquals(want[k], sel)) { selAt = k; break; }
+            for (int k = nations.Count - 1; k >= 0; k--) if (selAt < 0 || !ReferenceEquals(nations[k], sel)) nations.RemoveAt(k);
+            for (int k = 0; k < want.Count; k++)
+            {
+                if (k == selAt) continue;
+                if (selAt >= 0 && k > selAt) nations.Add(want[k]); else nations.Insert(Math.Min(k, nations.Count), want[k]);
             }
         }
 
-        void Collect(object browser, IList level, string text, bool nameOnly, bool byDate, int year, bool armed, HashSet<string> present, int depth)
+        void Collect(object browser, IList level, string text, bool nameOnly, bool byDate, int year, bool armed, Dictionary<string, int> present, int depth)
         {
             if (level == null || depth > 12) return;
             foreach (var e in level)
@@ -303,7 +409,11 @@ namespace AlternativeGameInterface
                 if (text.Length > 0 && !MatchesText(browser, e, text, nameOnly)) continue;
                 if (armed && !IsArmed(e)) continue;
                 if (_collectSrc != null && !_collectSrc(e)) continue;
-                NationsOf(e, present);
+                // the count is of unit TYPES (an ini): the variants, squadrons and loadouts of one type are one; weapons and sensors count each
+                string ini = IsUnitEntry(e) ? Get(e, "IniRef") as string : null;
+                bool leaf = kids == null || kids.Count == 0;
+                if (string.IsNullOrEmpty(ini)) { NationsOf(e, present, leaf, null); if (leaf) _collectTotal++; }
+                else { NationsOf(e, present, true, ini.ToLowerInvariant()); if (_seenTypes.Add("|" + ini.ToLowerInvariant())) _collectTotal++; }
             }
         }
 
@@ -327,14 +437,24 @@ namespace AlternativeGameInterface
             return false;
         }
 
-        void NationsOf(object e, HashSet<string> into)
+        readonly HashSet<string> _seenTypes = new HashSet<string>();   // "nation|ini" (and "|ini" for the total) already counted in this pass
+
+        void NationsOf(object e, Dictionary<string, int> into, bool leaf, string type)
         {
             var one = Get(e, "Nation") as string;
-            if (!string.IsNullOrEmpty(one)) into.Add(one);
+            if (!string.IsNullOrEmpty(one)) Tally(into, one, leaf && Fresh(one, type));
             var many = Get(e, "Nations") as IEnumerable;
-            if (many != null && !(many is string)) foreach (var n in many) { var s = n as string; if (!string.IsNullOrEmpty(s)) into.Add(s); }
+            if (many != null && !(many is string)) foreach (var n in many) { var s = n as string; if (!string.IsNullOrEmpty(s)) Tally(into, s, leaf && Fresh(s, type)); }
             var ini = Get(e, "IniRef") as string;
-            if (ini != null && ini.StartsWith("civ_", StringComparison.OrdinalIgnoreCase)) into.Add("Civilian");
+            if (ini != null && ini.StartsWith("civ_", StringComparison.OrdinalIgnoreCase)) Tally(into, "Civilian", leaf && Fresh("Civilian", type));
+        }
+
+        bool Fresh(string nation, string type) { return type == null || _seenTypes.Add(nation + "|" + type); }
+
+        static void Tally(Dictionary<string, int> into, string nation, bool leaf)
+        {
+            int n; into.TryGetValue(nation, out n);
+            into[nation] = leaf ? n + 1 : n;   // a class with variants counts through its variants only
         }
 
         // ---------------------------------------------------------------- after the game's filters (called from ArmedFilter.cs' postfix)
@@ -344,7 +464,7 @@ namespace AlternativeGameInterface
             if (_browserInitializing != null && _browserInitializing.GetValue(browser) is bool && (bool)_browserInitializing.GetValue(browser)) return;
             if (!IsEncyclopediaBrowser(browser)) return;
             if (_keepOpened.Value) InjectPinned(browser);
-            if (_hideCountries.Value) SyncNations(browser);
+            if (_hideCountries.Value || _improvedUI.Value || _natSorted) SyncNations(browser);
         }
     }
 }

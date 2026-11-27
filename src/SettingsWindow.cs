@@ -33,8 +33,8 @@ namespace AlternativeGameInterface
                 public Func<string> Conflict;   // not null and returns a text: greyed out, the text says why (another mod does it)
             }
 
-            const string TWindows = "Windows", TMap = "Desktop mode", TTact = "Tactical Display", TLog = "Event Log", TRemembered = "Remembered Windows", TFrame = "Frame", TMission = "In Mission", TFiles = "Game Menus", TDebug = "Debug", TCampaign = "Campaign", TStatus = "Unit Status", TTrack = "Track State", TRef = "Unit Reference", TWorld = "World View";
-            static readonly string[] Tabs = { TWindows, TMap, TTact, TWorld, TLog, TMission, TFiles, TStatus, TTrack, TRef, TCampaign, TDebug };
+            const string TWindows = "Windows", TMap = "Desktop mode", TTact = "Tactical Display", TLog = "Event Log", TRemembered = "Remembered Windows", TFrame = "Frame", TMission = "In Mission", TFiles = "Game Menus", TDebug = "Debug", TCampaign = "Campaign", TStatus = "Unit Status", TTrack = "Track State", TRef = "Unit Reference", TWorld = "World View", TForm = "Formation Manager", TFormEd = "Formation Editor";
+            static readonly string[] Tabs = { TWindows, TMap, TTact, TWorld, TLog, TForm, TFormEd, TMission, TFiles, TStatus, TTrack, TRef, TCampaign, TDebug };
             static readonly List<Field> Fields = new List<Field>();
 
             static void Add(string tab, string group, ConfigEntryBase e, char kind, string label, string unit, float step = 0f, float min = 0f, float max = 0f)
@@ -98,6 +98,14 @@ namespace AlternativeGameInterface
                 Add(TLog, "Links", p._logLinks, 'b', "All contacts in the log are links", "track numbers");
                 Add(TLog, "Links", p._logCenter, 'b', "Center map on repeated click", "Tactical Display");
                 Add(TLog, "Layout", p._logCompact, 'b', "Compact layout", "less spacing");
+                Add(TLog, "Layout", p._logWrap, 'b', "Wrap long lines", "to the window width");
+                Add(TForm, "Clicks", p._formClick, 'b', "One click goes to the unit", "");
+                Add(TForm, "Clicks", p._formDbl, 'b', "Double click centers the map", "Tactical Display");
+                Add(TFormEd, "Range rings", p._scaleStep, 'f', "Scale slider step", "nm", 0.05f, 0.05f, 10f);
+                Add(TFormEd, "Range rings", p._scaleButtons, 'b', "Scale buttons 1 - 5 nm", "");
+                Add(TFormEd, "Range rings", p._scaleRemember, 'b', "Remember the scale of each formation", "");
+                Add(TFormEd, "Range rings", p._scaleMin, 'b', "Minimize the scale of a new formation", "");
+                Add(TFormEd, "Range rings", p._scaleMinFloor, 'f', "Minimal scale", "nm", 0.5f, 1f, 10f);
                 Add(TTact, "Map", p._fineZoom, 'b', "Fine zoom with Shift", "wheel steps 5 times smaller");
                 Add(TTact, "Map", p._keepMapView, 'b', "Keep map view on resize", "zoom follows the window size");
                 Add(TTact, "Map drawing", p._clipEllipse, 'b', "Cut contact ellipses", "behind the sensor");
@@ -122,6 +130,8 @@ namespace AlternativeGameInterface
                 Add(TMission, "In Mission", p._soundReload, 'b', "No errors when loading a save", "");
                 Add(TMission, "In Mission", p._timeDrag, 'b', "Draggable time panel", "double-click: back to the corner");
                 Add(TMission, "In Mission", p._unitMenu, 'b', "Menu on the unit panel's flag/name", "");
+                Add(TMission, "In Mission", p._pauseAfterLoad, 'b', "Pause after loading a save", "");
+                Add(TMission, "In Mission", p._hideBriefLoad, 'b', "Hide briefing when loading a save", "");
                 Add(TMission, "In Mission", p._binoDown, 'f', "Ship binoculars below the horizon", "degrees · 0 = game", 1f, 0f, 45f);
                 Add(TMission, "In Mission", p._binoNormal, 'b', "Normal view in binoculars at max zoom", "");
                 Add(TMission, "In Mission", p._binoNormalDay, 'b', "Normal view only by day", "");
@@ -130,7 +140,9 @@ namespace AlternativeGameInterface
                 Add(TFiles, "Main menu", p._newsFit, 'b', "News window fills the free area", "");
                 Add(TFiles, "Scenarios", p._hideCustom, 'b', "Hide _Custom Mission", "");
                 Add(TFiles, "Save and load", p._rememberSave, 'b', "Remember last folder", "");
+                Add(TFiles, "Save and load", p._rememberSort, 'b', "Remember sort order", "");
                 Add(TFiles, "Save and load", p._autoLoad, 'b', "Open Load game on entering Scenarios and Campaign", "");
+                Add(TFiles, "Save and load", p._autoLoadClose, 'b', "Close Load game when a campaign is chosen", "");
                 Add(TFiles, "Save and load", p._menuAside, 'b', "Menu windows beside the buttons", "Load game ... not over the menu");
                 Add(TFiles, "Save and load", p._pickerTall, 'b', "File picker without a height limit", "");
                 Add(TFiles, "Save and load", p._dblOpen, 'b', "Double click opens a file or scenario", "");
@@ -176,6 +188,7 @@ namespace AlternativeGameInterface
                 Add(TStatus, "Unit name", p._labelName, 'm', "Name at the right of the tabs", "");
 
                 Add(TRef, "Window and tree", p._improvedUI, 'b', "Layout Improvements", "");
+                Add(TRef, "Window and tree", p._refTabs, 'b', "Tabs for opened units", "");
                 Add(TRef, "Window and tree", p._loadoutList, 'b', "Loadout list for all units", "");
                 Add(TRef, "Window and tree", p._propulsion, 'b', "Propulsion in ship data", "");
                 Add(TRef, "Window and tree", p._treeOpt, 'b', "Optimize the tree", "");
@@ -242,6 +255,8 @@ namespace AlternativeGameInterface
             static bool _unitStatus;           // opened from a Unit Status window: its tab is shown
             static bool _tact;                 // opened from the Tactical Display window: its tab is shown
             static bool _log;                  // opened from the Event Log window: its tab is shown
+            static bool _formEd;               // opened from a formation editor window: its tab is shown
+            static bool _form;                 // opened from the Formation Manager window: its tab is shown
             static bool _world;                // opened from the World View window: its tab is shown
             static bool _tfb;                  // opened from the campaign Task Force Builder: its own options are shown
             static bool _saidOpen;
@@ -253,13 +268,13 @@ namespace AlternativeGameInterface
             static Field _mapField;
             /// <summary>Desktop mode is on in the window (the edited value). The camera offset is then set in the World View window's own look menu, per desktop, with the picture in view: no tab for it here.</summary>
             static bool DeskOn() { return _mapField != null && Get(_mapField) is bool && (bool)Get(_mapField); }
-            static bool TabShown(int i) { return !(Tabs[i] == TWorld && DeskOn()) && (_showAll || (Tabs[i] == TRef ? _unitRef : (Tabs[i] == TStatus || Tabs[i] == TTrack) ? _unitStatus : Tabs[i] == TCampaign ? _tfb : Tabs[i] == TTact ? _tact : Tabs[i] == TLog ? _log : Tabs[i] == TWorld ? _world : true)); }
+            static bool TabShown(int i) { return !(Tabs[i] == TWorld && DeskOn()) && (_showAll || (Tabs[i] == TRef ? _unitRef : (Tabs[i] == TStatus || Tabs[i] == TTrack) ? _unitStatus : Tabs[i] == TCampaign ? _tfb : Tabs[i] == TTact ? _tact : Tabs[i] == TLog ? _log : Tabs[i] == TWorld ? _world : Tabs[i] == TForm ? _form : Tabs[i] == TFormEd ? _formEd : true)); }
 
             /// <summary>The button toggles the hidden tabs; not shown when no tab is hidden.</summary>
             static void UpdateShowAll()
             {
                 if (_showAllButton == null) return;
-                bool hidden = !_unitRef || !_unitStatus || !_tfb || !_tact || !_log || (!_world && !DeskOn());
+                bool hidden = !_unitRef || !_unitStatus || !_tfb || !_tact || !_log || !_form || !_formEd || (!_world && !DeskOn());
                 _showAllButton.Visibility = hidden ? Visibility.Visible : Visibility.Collapsed;
                 _showAllButton.Content = Loc.T(_showAll ? "btn.showFewer" : "btn.showAll");
             }
@@ -299,15 +314,15 @@ namespace AlternativeGameInterface
             /// from it (not an items host), above everything. Open already: only the Unit Reference / Unit Status tabs follow where it was
             /// opened from. showAll: not used any more (the menus' entry opens in the same "fewer settings" mode; the mode is the user's choice, kept for the game session).
             /// </summary>
-            public static void Open(AlternativeGameInterfacePlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false, bool tactical = false, bool eventLog = false, bool showAll = false, bool worldView = false)
+            public static void Open(AlternativeGameInterfacePlugin p, UIElement anchor, bool unitReference, bool unitStatus, bool taskForce = false, bool tactical = false, bool eventLog = false, bool showAll = false, bool worldView = false, bool formation = false, bool formEditor = false)
             {
                 if (p == null || anchor == null) return;
                 P = p;
                 try
                 {
                     Define(p);
-                    bool tabChange = _unitRef != unitReference || _unitStatus != unitStatus || _tfb != taskForce || _tact != tactical || _log != eventLog || _world != worldView;
-                    _tact = tactical; _log = eventLog; _world = worldView;
+                    bool tabChange = _unitRef != unitReference || _unitStatus != unitStatus || _tfb != taskForce || _tact != tactical || _log != eventLog || _world != worldView || _form != formation || _formEd != formEditor;
+                    _tact = tactical; _log = eventLog; _world = worldView; _form = formation; _formEd = formEditor;
                     _tfb = taskForce;
                     if (taskForce) p.LoadStrictToProxy();
                     _unitRef = unitReference;
@@ -319,6 +334,8 @@ namespace AlternativeGameInterface
                     else if (tabChange && tactical) _tab = Array.IndexOf(Tabs, TTact);
                     else if (tabChange && eventLog) _tab = Array.IndexOf(Tabs, TLog);
                     else if (tabChange && worldView) _tab = Array.IndexOf(Tabs, TWorld);
+                    else if (tabChange && formation) _tab = Array.IndexOf(Tabs, TForm);
+                    else if (tabChange && formEditor) _tab = Array.IndexOf(Tabs, TFormEd);
                     var panel = _f.Locate(anchor, null);
                     // still "open" but in another screen's tree (a mission / menu was loaded meanwhile, the old screen is not drawn any more):
                     // that copy is dropped and the window is built anew where the gear is
@@ -419,6 +436,10 @@ namespace AlternativeGameInterface
 
                 // footer
                 _showAllButton = Btn(Loc.T("btn.showAll"), () => { _showAll = !_showAll; UpdateShowAll(); Redraw(); }, 70f);
+                // picked out by colour: a blue face, a light edge and yellow text (the game's button style may take only part of it)
+                _showAllButton.Background = WinStyle.B(Color.FromRgb(46, 98, 150));
+                _showAllButton.BorderBrush = WinStyle.B(Color.FromRgb(120, 170, 220));
+                _showAllButton.Foreground = WinStyle.B(WinStyle.Warn);
                 parts.Add(_f.Footer(_showAllButton, out _status, Loc.T("btn.cancel"), Cancel, Loc.T("btn.apply"), () => Commit(false), Loc.T("btn.ok"), () => Commit(true)));
                 UpdateShowAll();
 
